@@ -96,7 +96,7 @@ func (s *CoreServer) Heartbeat(req *config.Request, stream config.Channel_Establ
 func (s *CoreServer) registerHandler(typ string, fn Fn) {
 	fns := s.Handlers[typ]
 	if fns == nil {
-		fns = make([]Fn, 5)
+		fns = make([]Fn, 0, 5)
 	}
 	fns = append(fns, fn)
 	s.Handlers[typ] = fns
