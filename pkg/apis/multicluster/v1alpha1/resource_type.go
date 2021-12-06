@@ -4,6 +4,7 @@ import (
 	"harmonycloud.cn/multi-cluster-manager/pkg/apis/multicluster/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // +genclient
@@ -17,9 +18,10 @@ type MultiClusterResource struct {
 }
 
 type MultiClusterResourceSpec struct {
-	Resource      *runtime.RawExtension `json:"resource,omitempty"`
-	ReplicasField string                `json:"replicasFiled,omitempty"`
-	Workload      bool                  `json:"workload,omitempty"`
+	Resource      *runtime.RawExtension    `json:"resource,omitempty"`
+	ResourceRef   *schema.GroupVersionKind `json:"resourceRef,omitempty"`
+	ReplicasField string                   `json:"replicasFiled,omitempty"`
+	Workload      bool                     `json:"workload,omitempty"`
 }
 
 type MultiClusterResourceStatus struct {

@@ -18,16 +18,16 @@ type MultiClusterResourceBinding struct {
 
 type MultiClusterResourceBindingSpec struct {
 	Resources []MultiClusterResourceBindingResource `json:"resources,omitempty"`
-	Clusters  []MultiClusterResourceBindingCluster  `json:"clusters,omitempty"`
 }
 
 type MultiClusterResourceBindingResource struct {
-	Name string `json:"name,omitempty"`
+	Name     string                               `json:"name,omitempty"`
+	Clusters []MultiClusterResourceBindingCluster `json:"clusters,omitempty"`
 }
 
 type MultiClusterResourceBindingCluster struct {
-	Name     string           `json:"name,omitempty"`
-	Override common.JSONPatch `json:"override,omitempty"`
+	Name     string             `json:"name,omitempty"`
+	Override []common.JSONPatch `json:"override,omitempty"`
 }
 
 type MultiClusterResourceBindingStatus struct {

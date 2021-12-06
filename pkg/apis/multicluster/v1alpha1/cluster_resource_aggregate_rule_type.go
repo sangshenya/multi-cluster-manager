@@ -1,6 +1,9 @@
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -14,13 +17,8 @@ type MultiClusterResourceAggregateRule struct {
 }
 
 type MultiClusterResourceAggregateRuleSpec struct {
-	ResourceRef MultiClusterResourceAggregateRuleResourceRef `json:"resourceRef"`
-	Rule        MultiClusterResourceAggregateRuleRule        `json:"rule"`
-}
-
-type MultiClusterResourceAggregateRuleResourceRef struct {
-	ApiVersion string `json:"apiVersion"`
-	Kind       string `json:"kind"`
+	ResourceRef *schema.GroupVersionKind              `json:"resourceRef"`
+	Rule        MultiClusterResourceAggregateRuleRule `json:"rule"`
 }
 
 type MultiClusterResourceAggregateRuleRule struct {
