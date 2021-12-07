@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"time"
 
+	"k8s.io/client-go/rest"
+
 	"k8s.io/apimachinery/pkg/labels"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,17 +29,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
+	kubeclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	corev1 "k8s.io/api/core/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	jsonpatch "github.com/evanphx/json-patch"
 )
 
 const (
@@ -52,8 +53,6 @@ const (
 var resourceBindingLog = logf.Log.WithName(controllerName)
 
 type ResourceBindingController struct {
-	// k8s resource client
-	kubeClientSet kubernetes.Interface
 	// crd resource client
 	managerClientSet clientset.Interface
 	//
@@ -74,11 +73,13 @@ type ResourceBindingController struct {
 }
 
 func NewResourceBindingController(
-	kubeClientSet kubernetes.Interface,
 	managerClientSet clientset.Interface,
 	resourceBindingInformer informers.MultiClusterResourceBindingInformer,
 	multiClusterResourceInformer informers.MultiClusterResourceInformer,
-	clusterResourceInformer informers.ClusterResourceInformer) *ResourceBindingController {
+	clusterResourceInformer informers.ClusterResourceInformer,
+	config *rest.Config) *ResourceBindingController {
+
+	kubeClient := kubeclient.NewForConfigOrDie(config)
 
 	// Add managerScheme types to the default Kubernetes Scheme so Events can be
 	utilruntime.Must(managerScheme.AddToScheme(scheme.Scheme))
@@ -86,12 +87,13 @@ func NewResourceBindingController(
 	resourceBindingLog.V(4).Info("Creating resourceBinding event broadcaster")
 	eventbroadcaster := record.NewBroadcaster()
 	eventbroadcaster.StartStructuredLogging(0)
-	eventbroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClientSet.CoreV1().Events("")})
+	eventbroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{
+		Interface: kubeClient.CoreV1().Events(""),
+	})
 
 	recorder := eventbroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerName})
 
 	controller := &ResourceBindingController{
-		kubeClientSet:              kubeClientSet,
 		managerClientSet:           managerClientSet,
 		resourceBindingLister:      resourceBindingInformer.Lister(),
 		resourceBindingSynced:      resourceBindingInformer.Informer().HasSynced,
