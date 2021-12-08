@@ -200,7 +200,7 @@ func (c *ResourceBindingController) bindingEventHandle(obj interface{}) {
 	c.enqueue(binding)
 }
 
-//
+// enqueue add binding to workqueue
 func (c *ResourceBindingController) enqueue(rb *v1alpha1.MultiClusterResourceBinding) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(rb)
 	if err != nil {
