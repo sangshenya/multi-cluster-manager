@@ -42,12 +42,14 @@ import (
 )
 
 const (
-	controllerName                = "resourceBindingController"
-	ManagerNamespace              = ""
-	FinalizerName                 = ""
-	ResourceBindingLabelName      = "multicluster.harmonycloud.cn.ResourceBinding"
-	ResourceGvkLabelName          = "multicluster.harmonycloud.cn.ResourceGvk"
-	MultiClusterResourceLabelName = "multicluster.harmonycloud.cn.MultiClusterResource"
+	controllerName = "resourceBindingController"
+	// TODO should change it to a general configuration
+	ManagerNamespace                            = ""
+	FinalizerName                               = ""
+	ResourceBindingLabelName                    = "multicluster.harmonycloud.cn.resourceBinding"
+	ResourceGvkLabelName                        = "multicluster.harmonycloud.cn.resourceGvk"
+	MultiClusterResourceLabelName               = "multicluster.harmonycloud.cn.multiClusterResource"
+	MultiClusterResourceSchedulePolicyLabelName = "multicluster.harmonycloud.cn.schedulePolicy"
 )
 
 var resourceBindingLog = logf.Log.WithName(controllerName)
@@ -56,7 +58,7 @@ type ResourceBindingController struct {
 	// crd resource client
 	managerClientSet clientset.Interface
 	//
-	syncResourceBinding func(ctx context.Context, key string) error
+	syncResourceBinding func(ctx context.Context, key string) *Result
 	//
 	resourceBindingLister lister.MultiClusterResourceBindingLister
 	resourceBindingSynced cache.InformerSynced
@@ -70,6 +72,11 @@ type ResourceBindingController struct {
 	workqueue workqueue.RateLimitingInterface
 	//
 	recorder record.EventRecorder
+}
+
+type Result struct {
+	Requeue bool
+	Err     error
 }
 
 func NewResourceBindingController(
@@ -127,6 +134,7 @@ func NewResourceBindingController(
 	// add event when multiClusterResource spec changed
 	multiClusterResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: controller.updateMultiClusterResourceEventHandler,
+		DeleteFunc: controller.multiClusterResourceEventHandler,
 	})
 
 	return controller
@@ -138,7 +146,11 @@ func (c *ResourceBindingController) updateMultiClusterResourceEventHandler(old i
 	if equalSpec(old, cur) {
 		return
 	}
-	multiClusterResource, ok := cur.(*v1alpha1.MultiClusterResource)
+	c.multiClusterResourceEventHandler(cur)
+}
+
+func (c *ResourceBindingController) multiClusterResourceEventHandler(obj interface{}) {
+	multiClusterResource, ok := obj.(*v1alpha1.MultiClusterResource)
 	if !ok {
 		return
 	}
@@ -236,49 +248,52 @@ func (c *ResourceBindingController) processNextWorkItem(ctx context.Context) boo
 	}
 	defer c.workqueue.Done(obj)
 
-	err := c.syncResourceBinding(ctx, obj.(string))
-	c.handleError(err, obj)
+	result := c.syncResourceBinding(ctx, obj.(string))
+	c.handleError(result, obj)
 
 	return true
 }
 
-func (c *ResourceBindingController) handleError(err error, key interface{}) {
-	if err == nil {
-		c.workqueue.Forget(key)
+func (c *ResourceBindingController) handleError(result *Result, key interface{}) {
+	utilruntime.HandleError(result.Err)
+
+	if result.Requeue {
+		c.workqueue.AddRateLimited(key)
 		return
 	}
-	_, _, keyErr := cache.SplitMetaNamespaceKey(key.(string))
-	if keyErr != nil {
-		resourceBindingLog.Error(err, "Failed to split meta namespace cache key", "cacheKey", key)
-	}
 
-	utilruntime.HandleError(err)
 	c.workqueue.Forget(key)
 }
 
-func (c *ResourceBindingController) syncHandler(ctx context.Context, key string) error {
+func (c *ResourceBindingController) syncHandler(ctx context.Context, key string) *Result {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
-		return nil
+		return &Result{
+			Requeue: false,
+			Err:     err,
+		}
 	}
 
 	// get
 	resourceBinding, err := c.resourceBindingLister.MultiClusterResourceBindings(namespace).Get(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf("foo '%s' in work queue no longer exists", key))
-			return nil
+			utilruntime.HandleError(fmt.Errorf("binding '%s' in work queue no longer exists", key))
 		}
-		return err
+		return &Result{
+			Requeue: false,
+			Err:     err,
+		}
 	}
 
 	// add finalizer filed
 	if resourceBinding.ObjectMeta.DeletionTimestamp.IsZero() && !sliceutil.ContainsString(resourceBinding.ObjectMeta.Finalizers, FinalizerName) {
 		resourceBinding.ObjectMeta.Finalizers = append(resourceBinding.ObjectMeta.Finalizers, FinalizerName)
-		resourceBinding, err = c.managerClientSet.MulticlusterV1alpha1().MultiClusterResourceBindings(namespace).Update(ctx, resourceBinding, metav1.UpdateOptions{})
-		if err != nil {
-			return err
+		_, err = c.managerClientSet.MulticlusterV1alpha1().MultiClusterResourceBindings(namespace).Update(ctx, resourceBinding, metav1.UpdateOptions{})
+		return &Result{
+			Requeue: true,
+			Err:     err,
 		}
 	}
 
@@ -286,39 +301,42 @@ func (c *ResourceBindingController) syncHandler(ctx context.Context, key string)
 	if !resourceBinding.ObjectMeta.DeletionTimestamp.IsZero() && sliceutil.ContainsString(resourceBinding.ObjectMeta.Finalizers, FinalizerName) {
 		resourceBinding.ObjectMeta.Finalizers = sliceutil.RemoveString(resourceBinding.ObjectMeta.Finalizers, FinalizerName)
 		_, err = c.managerClientSet.MulticlusterV1alpha1().MultiClusterResourceBindings(namespace).Update(ctx, resourceBinding, metav1.UpdateOptions{})
-		return err
+		return &Result{
+			Requeue: true,
+			Err:     err,
+		}
 	}
 
 	// add labels
-	newLabels := map[string]string{}
-	for _, resource := range resourceBinding.Spec.Resources {
-		multiClusterResource := c.getMultiClusterResource(resource.Name)
-		if multiClusterResource != nil {
-			labelKey := MultiClusterResourceLabelName + "." + multiClusterResource.GetName()
-			newLabels[labelKey] = "1"
-		}
-	}
+	newLabels := c.getLabelsWithBinding(resourceBinding)
 	if !labels.Equals(newLabels, resourceBinding.GetLabels()) {
 		resourceBinding.SetLabels(newLabels)
 		resourceBinding, err = c.managerClientSet.MulticlusterV1alpha1().MultiClusterResourceBindings(namespace).Update(ctx, resourceBinding, metav1.UpdateOptions{})
 		if err != nil {
-			return err
+			return &Result{
+				Requeue: true,
+				Err:     err,
+			}
 		}
 	}
 
 	// create/update/delete ClusterResource
 	err = c.syncClusterResource(resourceBinding)
 	if err != nil {
-		return err
+		return &Result{
+			Requeue: true,
+			Err:     err,
+		}
 	}
 
 	return nil
 }
 
-// syncClusterResource create、update、delete ClusterResource, update binding status
+// syncClusterResource sync ClusterResource
+// create、update、delete ClusterResource and update binding status
 func (c *ResourceBindingController) syncClusterResource(binding *v1alpha1.MultiClusterResourceBinding) error {
 	if len(binding.Spec.Resources) == 0 {
-		return errors.New("resources is empty")
+		return nil
 	}
 	owner := metav1.NewControllerRef(binding, binding.GroupVersionKind())
 	if owner == nil {
@@ -327,103 +345,99 @@ func (c *ResourceBindingController) syncClusterResource(binding *v1alpha1.MultiC
 	//
 	clusterResourceMap, err := c.getClusterResourceListForBinding(binding)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
+		return err
 	}
 	for _, resource := range binding.Spec.Resources {
-		if resource.Clusters != nil {
-			for _, cluster := range resource.Clusters {
-				mcr := c.getMultiClusterResource(resource.Name)
-				if mcr == nil || mcr.Spec.Resource == nil || mcr.Spec.ResourceRef == nil {
-					continue
-				}
-				clusterNamespace := getClusterNamespace(cluster.Name)
-				//
-				clusterResourceName := getClusterResourceName(binding.GetName(), mcr.Spec.ResourceRef)
+		mcr, err := c.getMultiClusterResource(resource.Name)
+		if err != nil {
+			continue
+		}
+		for _, cluster := range resource.Clusters {
+			clusterNamespace := getClusterNamespace(cluster.Name)
+			//
+			clusterResourceName := getClusterResourceName(binding.GetName(), mcr.Spec.ResourceRef)
 
-				key := clusterNamespace + "-" + clusterResourceName
-				clusterResource, ok := clusterResourceMap[key]
-				if !ok {
-					// create
-					newClusterResource := &v1alpha1.ClusterResource{}
-					newClusterResource.SetName(clusterResourceName)
-					newClusterResource.SetNamespace(clusterNamespace)
+			key := clusterNamespace + "-" + clusterResourceName
+			clusterResource, ok := clusterResourceMap[key]
+			if !ok {
+				// create
+				newClusterResource := &v1alpha1.ClusterResource{}
+				newClusterResource.SetName(clusterResourceName)
+				newClusterResource.SetNamespace(clusterNamespace)
+				// labels
+				newLabels := map[string]string{}
+				newLabels[ResourceBindingLabelName] = binding.GetName()
+				//
+				newLabels[ResourceGvkLabelName] = getGvkLabelString(mcr.Spec.ResourceRef)
+				newClusterResource.SetLabels(newLabels)
+				// OwnerReferences
+				newClusterResource.SetOwnerReferences([]metav1.OwnerReference{*owner})
+				// resourceInfo
+				if cluster.Override != nil {
+					resourceInfo, err := ApplyJsonPatch(mcr.Spec.Resource, cluster.Override)
+					if err == nil {
+						newClusterResource.Spec.Resource = resourceInfo
+					}
+				} else {
+					newClusterResource.Spec.Resource = mcr.Spec.Resource
+				}
+				// create clusterResource
+				_, err = c.managerClientSet.MulticlusterV1alpha1().ClusterResources(clusterNamespace).Create(context.TODO(), newClusterResource, metav1.CreateOptions{})
+				if err != nil {
+					return err
+				}
+			} else {
+				// update
+				if len(clusterResource.Status.Phase) > 0 {
+					var resourceStatus *common.MultiClusterResourceClusterStatus
+					for _, item := range binding.Status.ClusterStatus {
+						if cluster.Name == item.Name {
+							// delete
+							binding.Status.ClusterStatus = removeItemForClusterStatusList(binding.Status.ClusterStatus, item)
+						}
+					}
+					resourceStatus = &common.MultiClusterResourceClusterStatus{
+						Name:                      cluster.Name,
+						Resource:                  clusterResource.Name,
+						ObservedReceiveGeneration: clusterResource.Status.ObservedReceiveGeneration,
+						Phase:                     clusterResource.Status.Phase,
+						Message:                   clusterResource.Status.Message,
+						Binding:                   binding.Name,
+					}
+					binding.Status.ClusterStatus = append(binding.Status.ClusterStatus, *resourceStatus)
+				}
+				// resourceInfo
+				resourceInfo := mcr.Spec.Resource
+				if cluster.Override != nil {
+					rInfo, err := ApplyJsonPatch(mcr.Spec.Resource, cluster.Override)
+					if err == nil {
+						resourceInfo = rInfo
+					}
+				}
+				if string(clusterResource.Spec.Resource.Raw) != string(resourceInfo.Raw) {
+					clusterResource.Spec.Resource = resourceInfo
 					// labels
-					newLabels := map[string]string{}
+					newLabels := clusterResource.GetLabels()
 					newLabels[ResourceBindingLabelName] = binding.GetName()
 					//
 					newLabels[ResourceGvkLabelName] = getGvkLabelString(mcr.Spec.ResourceRef)
-					newClusterResource.SetLabels(newLabels)
+					clusterResource.SetLabels(newLabels)
 					// OwnerReferences
-					newClusterResource.SetOwnerReferences([]metav1.OwnerReference{*owner})
-					// resourceInfo
-					if cluster.Override != nil {
-						resourceInfo, err := ApplyJsonPatch(mcr.Spec.Resource, cluster.Override)
-						if err == nil {
-							newClusterResource.Spec.Resource = resourceInfo
-						}
-					} else {
-						newClusterResource.Spec.Resource = mcr.Spec.Resource
-					}
-					// create clusterResource
-					_, err = c.managerClientSet.MulticlusterV1alpha1().ClusterResources(clusterNamespace).Create(context.TODO(), newClusterResource, metav1.CreateOptions{})
+					clusterResource.SetOwnerReferences([]metav1.OwnerReference{*owner})
+					// update
+					_, err = c.managerClientSet.MulticlusterV1alpha1().ClusterResources(clusterNamespace).Update(context.TODO(), clusterResource, metav1.UpdateOptions{})
 					if err != nil {
 						return err
 					}
-				} else {
-					// update
-					if len(clusterResource.Status.Phase) > 0 {
-						var resourceStatus *common.MultiClusterResourceClusterStatus
-						for _, item := range binding.Status.ClusterStatus {
-							if cluster.Name == item.Name {
-								// delete
-								binding.Status.ClusterStatus = removeItemForClusterStatus(binding.Status.ClusterStatus, item)
-							}
-						}
-						resourceStatus = &common.MultiClusterResourceClusterStatus{
-							Name:                      cluster.Name,
-							Resource:                  clusterResource.Name,
-							ObservedReceiveGeneration: clusterResource.Status.ObservedReceiveGeneration,
-							Phase:                     clusterResource.Status.Phase,
-							Message:                   clusterResource.Status.Message,
-							Binding:                   binding.Name,
-						}
-						binding.Status.ClusterStatus = append(binding.Status.ClusterStatus, *resourceStatus)
-					}
-					// resourceInfo
-					resourceInfo := mcr.Spec.Resource
-					if cluster.Override != nil {
-						rInfo, err := ApplyJsonPatch(mcr.Spec.Resource, cluster.Override)
-						if err == nil {
-							resourceInfo = rInfo
-						}
-					}
-					if string(clusterResource.Spec.Resource.Raw) != string(resourceInfo.Raw) {
-						clusterResource.Spec.Resource = resourceInfo
-						// labels
-						newLabels := clusterResource.GetLabels()
-						newLabels[ResourceBindingLabelName] = binding.GetName()
-						//
-						newLabels[ResourceGvkLabelName] = getGvkLabelString(mcr.Spec.ResourceRef)
-						clusterResource.SetLabels(newLabels)
-						// OwnerReferences
-						clusterResource.SetOwnerReferences([]metav1.OwnerReference{*owner})
-						// update
-						_, err = c.managerClientSet.MulticlusterV1alpha1().ClusterResources(clusterNamespace).Update(context.TODO(), clusterResource, metav1.UpdateOptions{})
-						if err != nil {
-							return err
-						}
-					}
-					delete(clusterResourceMap, key)
 				}
-				// delete
-				if len(clusterResourceMap) > 0 {
-					for _, r := range clusterResourceMap {
-						err = c.managerClientSet.MulticlusterV1alpha1().ClusterResources(clusterNamespace).Delete(context.TODO(), r.GetName(), metav1.DeleteOptions{})
-						if err != nil {
-							return err
-						}
+				delete(clusterResourceMap, key)
+			}
+			// delete
+			if len(clusterResourceMap) > 0 {
+				for _, r := range clusterResourceMap {
+					err = c.managerClientSet.MulticlusterV1alpha1().ClusterResources(clusterNamespace).Delete(context.TODO(), r.GetName(), metav1.DeleteOptions{})
+					if err != nil {
+						return err
 					}
 				}
 			}
@@ -440,6 +454,35 @@ func (c *ResourceBindingController) syncClusterResource(binding *v1alpha1.MultiC
 }
 
 // util
+
+// getLabelsWithBinding create binding labels
+// Walk through the MultiClusterResourceList associated with the MultiClusterResourceBinding then add MultiClusterResourceLabels
+// e.g."multicluster.harmonycloud.cn.multiClusterResource.<multiClusterResourceName>" = "1"
+// if binding`s OwnerReferences is MultiClusterResourceSchedulePolicy then add SchedulePolicyLabel
+// e.g."multicluster.harmonycloud.cn.schedulePolicy" = <policyName>
+func (c *ResourceBindingController) getLabelsWithBinding(binding *v1alpha1.MultiClusterResourceBinding) map[string]string {
+	bindingLabels := map[string]string{}
+	// SchedulePolicyLabels
+	controllerRef := metav1.GetControllerOf(binding)
+	if controllerRef != nil && controllerRef.Kind == "MultiClusterResourceSchedulePolicy" {
+		bindingLabels[MultiClusterResourceSchedulePolicyLabelName] = controllerRef.Name
+	}
+	// MultiClusterResourceLabels
+	for _, resource := range binding.Spec.Resources {
+		multiClusterResource, err := c.getMultiClusterResource(resource.Name)
+		if err != nil {
+			continue
+		}
+		if multiClusterResource != nil {
+			labelKey := MultiClusterResourceLabelName + "." + multiClusterResource.GetName()
+			bindingLabels[labelKey] = "1"
+		}
+	}
+	return bindingLabels
+}
+
+// getClusterNamespace get agent cluster namespace
+// TODO return clusterName for the moment
 func getClusterNamespace(clusterName string) string {
 	return clusterName
 }
@@ -482,12 +525,11 @@ func (c *ResourceBindingController) resolveControllerRef(controllerRef *metav1.O
 }
 
 //
-func (c *ResourceBindingController) getMultiClusterResource(name string) *v1alpha1.MultiClusterResource {
-	mcr, err := c.multiClusterResourceLister.MultiClusterResources(ManagerNamespace).Get(name)
-	if err != nil {
-		return nil
+func (c *ResourceBindingController) getMultiClusterResource(name string) (*v1alpha1.MultiClusterResource, error) {
+	if len(name) <= 0 {
+		return nil, errors.New("cluster resource name is empty")
 	}
-	return mcr
+	return c.multiClusterResourceLister.MultiClusterResources(ManagerNamespace).Get(name)
 }
 
 func ApplyJsonPatch(resource *runtime.RawExtension, override []common.JSONPatch) (*runtime.RawExtension, error) {
@@ -520,7 +562,7 @@ func getGvkLabelString(gvk *schema.GroupVersionKind) string {
 }
 
 // getClusterResourceListForBinding go through ResourceBinding to find clusterResource list
-// clusterResource list change to clusterResource map, map key:<resourceNamespace>-<resourceName>
+// go through clusterResourceList change to clusterResourceMap, map key:"<resourceNamespace>-<resourceName>"
 func (c *ResourceBindingController) getClusterResourceListForBinding(binding *v1alpha1.MultiClusterResourceBinding) (map[string]*v1alpha1.ClusterResource, error) {
 	if len(binding.GetName()) <= 0 {
 		return nil, errors.New("binding name is empty")
@@ -546,55 +588,44 @@ func equalSpec(obj1, obj2 interface{}) bool {
 }
 func resourceSpec(obj interface{}) string {
 	resource, ok := reflect.ValueOf(obj).Interface().(*unstructured.Unstructured)
-	if ok {
-		specObj, ok := resource.Object["spec"]
-		if ok {
-			spec, ok := reflect.ValueOf(specObj).Interface().(map[string]interface{})
-			if ok {
-				specData, err := json.Marshal(spec)
-				if err != nil {
-					return ""
-				}
-				return string(specData)
-			}
-		}
+	if !ok {
+		return ""
 	}
-	return ""
+	specObj, ok := resource.Object["spec"]
+	if !ok {
+		return ""
+	}
+	spec, ok := reflect.ValueOf(specObj).Interface().(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	specData, err := json.Marshal(spec)
+	if err != nil {
+		return ""
+	}
+	return string(specData)
 }
 
-func removeItemForClusterStatus(itemList []common.MultiClusterResourceClusterStatus, item common.MultiClusterResourceClusterStatus) []common.MultiClusterResourceClusterStatus {
-	index := GetIndexWithObject(itemList, item)
+func removeItemForClusterStatusList(itemList []common.MultiClusterResourceClusterStatus, item common.MultiClusterResourceClusterStatus) []common.MultiClusterResourceClusterStatus {
+	var objectList []interface{}
+	for _, items := range itemList {
+		objectList = append(objectList, items)
+	}
+
+	index := sliceutil.GetIndexWithObject(objectList, item)
 	if index < 0 {
 		return itemList
 	}
-	return RemoveObjectWithIndex(itemList, index)
-}
 
-func GetIndexWithObject(slice []common.MultiClusterResourceClusterStatus, obj common.MultiClusterResourceClusterStatus) int {
-	if len(slice) == 0 {
-		return -1
+	list := sliceutil.RemoveObjectWithIndex(objectList, index)
+	if len(list) <= 0 {
+		return itemList
 	}
-	index := -1
-	for i := 0; i < len(slice); i++ {
-		if slice[i] == obj {
-			index = i
-			break
+	var statusList []common.MultiClusterResourceClusterStatus
+	for _, obj := range list {
+		if status, ok := obj.(common.MultiClusterResourceClusterStatus); ok {
+			statusList = append(statusList, status)
 		}
 	}
-	return index
-}
-
-func RemoveObjectWithIndex(array []common.MultiClusterResourceClusterStatus, index int) []common.MultiClusterResourceClusterStatus {
-	if index == 0 {
-		return array[1:]
-	} else if index == 1 {
-		return append(array[index+1:], array[0])
-	} else if index >= len(array) {
-		return array
-	} else if index == len(array)-1 {
-		return array[0:index]
-	} else if index == len(array)-2 {
-		return append(array[:index], array[index+1])
-	}
-	return append(array[:index], array[index+1:]...)
+	return statusList
 }
