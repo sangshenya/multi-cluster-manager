@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	"harmonycloud.cn/multi-cluster-manager/pkg/apis/multicluster/common"
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

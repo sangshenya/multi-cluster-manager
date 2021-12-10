@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "harmonycloud.cn/multi-cluster-manager/pkg/client/clientset/versioned"
-	internalinterfaces "harmonycloud.cn/multi-cluster-manager/pkg/client/informers/externalversions/internalinterfaces"
-	multicluster "harmonycloud.cn/multi-cluster-manager/pkg/client/informers/externalversions/multicluster"
+	versioned "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
+	internalinterfaces "harmonycloud.cn/stellaris/pkg/client/informers/externalversions/internalinterfaces"
+	multicluster "harmonycloud.cn/stellaris/pkg/client/informers/externalversions/multicluster"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

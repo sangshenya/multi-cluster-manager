@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/sirupsen/logrus"
-	"harmonycloud.cn/multi-cluster-manager/config"
+	"harmonycloud.cn/stellaris/config"
 )
 
 type Fn func(request *config.Request, stream config.Channel_EstablishServer)

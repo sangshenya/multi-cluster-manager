@@ -19,8 +19,8 @@ limitations under the License.
 package multicluster
 
 import (
-	internalinterfaces "harmonycloud.cn/multi-cluster-manager/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "harmonycloud.cn/multi-cluster-manager/pkg/client/informers/externalversions/multicluster/v1alpha1"
+	internalinterfaces "harmonycloud.cn/stellaris/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "harmonycloud.cn/stellaris/pkg/client/informers/externalversions/multicluster/v1alpha1"
 )
 
 // Interface provides access to each of this group's versions.

@@ -19,7 +19,7 @@ limitations under the License.
 package scheme
 
 import (
-	multiclusterv1alpha1 "harmonycloud.cn/multi-cluster-manager/pkg/apis/multicluster/v1alpha1"
+	multiclusterv1alpha1 "harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

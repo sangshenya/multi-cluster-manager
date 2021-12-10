@@ -21,7 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	common "harmonycloud.cn/multi-cluster-manager/pkg/apis/multicluster/common"
+	common "harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 

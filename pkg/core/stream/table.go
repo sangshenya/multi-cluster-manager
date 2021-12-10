@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"harmonycloud.cn/multi-cluster-manager/config"
+	"harmonycloud.cn/stellaris/config"
 )
 
 var table map[string]*Stream
