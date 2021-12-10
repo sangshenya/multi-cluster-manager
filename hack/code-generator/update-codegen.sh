@@ -25,9 +25,9 @@ set -o pipefail
 go mod vendor
 chmod +x "$(dirname "${BASH_SOURCE[0]}")"/../../vendor/k8s.io/code-generator/generate-groups.sh
 "$(dirname "${BASH_SOURCE[0]}")"/../../vendor/k8s.io/code-generator/generate-groups.sh all \
-  harmonycloud.cn/multi-cluster-manager/pkg/client harmonycloud.cn/multi-cluster-manager/pkg/apis \
+  harmonycloud.cn/stellaris/pkg/client harmonycloud.cn/stellaris/pkg/apis \
   "multicluster:v1alpha1"
 "$(dirname "${BASH_SOURCE[0]}")"/../../vendor/k8s.io/code-generator/generate-groups.sh deepcopy \
-  harmonycloud.cn/multi-cluster-manager/pkg/client harmonycloud.cn/multi-cluster-manager/pkg/apis \
+  harmonycloud.cn/stellaris/pkg/client harmonycloud.cn/stellaris/pkg/apis \
   "multicluster:common"
 rm -rf $(dirname "${BASH_SOURCE[0]}")/../../vendor

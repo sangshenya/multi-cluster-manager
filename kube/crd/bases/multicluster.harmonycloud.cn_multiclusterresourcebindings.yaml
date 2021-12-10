@@ -34,25 +34,27 @@ spec:
             type: object
           spec:
             properties:
-              clusters:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    override:
-                      properties:
-                        op:
-                          type: string
-                        path:
-                          type: string
-                        value:
-                          type: string
-                      type: object
-                  type: object
-                type: array
               resources:
                 items:
                   properties:
+                    clusters:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          override:
+                            items:
+                              properties:
+                                op:
+                                  type: string
+                                path:
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                        type: object
+                      type: array
                     name:
                       type: string
                   type: object

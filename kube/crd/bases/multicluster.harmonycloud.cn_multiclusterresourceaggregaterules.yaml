@@ -35,14 +35,20 @@ spec:
           spec:
             properties:
               resourceRef:
+                description: GroupVersionKind unambiguously identifies a kind.  It
+                  doesn't anonymously include GroupVersion to avoid automatic coersion.  It
+                  doesn't use a GroupVersion to avoid custom marshalling
                 properties:
-                  apiVersion:
+                  group:
                     type: string
                   kind:
                     type: string
+                  version:
+                    type: string
                 required:
-                - apiVersion
+                - group
                 - kind
+                - version
                 type: object
               rule:
                 properties:
