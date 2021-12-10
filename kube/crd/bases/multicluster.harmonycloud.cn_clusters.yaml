@@ -1,0 +1,90 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: clusters.multicluster.harmonycloud.cn
+spec:
+  group: multicluster.harmonycloud.cn
+  names:
+    kind: Cluster
+    listKind: ClusterList
+    plural: clusters
+    singular: cluster
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              addons:
+                items:
+                  properties:
+                    info:
+                      type: object
+                    name:
+                      type: string
+                  required:
+                  - info
+                  - name
+                  type: object
+                type: array
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  properties:
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    timestamp:
+                      format: date-time
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - message
+                  - reason
+                  - timestamp
+                  - type
+                  type: object
+                type: array
+              healthy:
+                type: boolean
+              lastReceiveHeartBeatTimestamp:
+                format: date-time
+                type: string
+              lastUpdateTimestamp:
+                format: date-time
+                type: string
+              status:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

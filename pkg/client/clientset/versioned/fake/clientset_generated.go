@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "harmonycloud.cn/multi-cluster-manager/pkg/client/clientset/versioned"
-	multiclusterv1alpha1 "harmonycloud.cn/multi-cluster-manager/pkg/client/clientset/versioned/typed/multicluster/v1alpha1"
-	fakemulticlusterv1alpha1 "harmonycloud.cn/multi-cluster-manager/pkg/client/clientset/versioned/typed/multicluster/v1alpha1/fake"
+	clientset "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
+	multiclusterv1alpha1 "harmonycloud.cn/stellaris/pkg/client/clientset/versioned/typed/multicluster/v1alpha1"
+	fakemulticlusterv1alpha1 "harmonycloud.cn/stellaris/pkg/client/clientset/versioned/typed/multicluster/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

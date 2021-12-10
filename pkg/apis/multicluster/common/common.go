@@ -3,9 +3,9 @@ package common
 // +k8s:deepcopy-gen=true
 
 type JSONPatch struct {
-	Op    string
-	Value string
-	Path  string
+	Op    string `json:"op,omitempty"`
+	Value string `json:"value,omitempty"`
+	Path  string `json:"path,omitempty"`
 }
 
 // +k8s:deepcopy-gen=true

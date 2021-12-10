@@ -7,9 +7,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-	"harmonycloud.cn/multi-cluster-manager/config"
-	agentconfig "harmonycloud.cn/multi-cluster-manager/pkg/agent/config"
-	addoninfo "harmonycloud.cn/multi-cluster-manager/pkg/model"
+	"harmonycloud.cn/stellaris/config"
+	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
+	addoninfo "harmonycloud.cn/stellaris/pkg/model"
 )
 
 func Register(cfg *agentconfig.Configuration) error {

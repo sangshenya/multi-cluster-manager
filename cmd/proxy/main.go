@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	agentcfg "harmonycloud.cn/multi-cluster-manager/pkg/agent/config"
-	"harmonycloud.cn/multi-cluster-manager/pkg/agent/handler"
+	agentcfg "harmonycloud.cn/stellaris/pkg/agent/config"
+	"harmonycloud.cn/stellaris/pkg/agent/handler"
 	"time"
 )
 
@@ -16,7 +16,7 @@ var (
 
 func init() {
 	flag.DurationVar(&heartbeatPeriod, "heartbeat-send-period", 30, "The period of heartbeat send interval")
-	flag.StringVar(&coreAddress, "core-address", "", "address of mcm-core")
+	flag.StringVar(&coreAddress, "core-address", "", "address of stellaris")
 	flag.StringVar(&clusterName, "cluster-name", "", "name of agent-cluster")
 	flag.StringVar(&addonPath, "addon-path", "", "path of addon config")
 }

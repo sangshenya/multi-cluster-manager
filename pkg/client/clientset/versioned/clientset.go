@@ -21,7 +21,7 @@ package versioned
 import (
 	"fmt"
 
-	multiclusterv1alpha1 "harmonycloud.cn/multi-cluster-manager/pkg/client/clientset/versioned/typed/multicluster/v1alpha1"
+	multiclusterv1alpha1 "harmonycloud.cn/stellaris/pkg/client/clientset/versioned/typed/multicluster/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

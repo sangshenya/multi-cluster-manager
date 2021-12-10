@@ -21,7 +21,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "harmonycloud.cn/multi-cluster-manager/pkg/apis/multicluster/v1alpha1"
+	v1alpha1 "harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )

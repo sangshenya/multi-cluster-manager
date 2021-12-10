@@ -22,8 +22,8 @@ import (
 	"context"
 	"time"
 
-	v1alpha1 "harmonycloud.cn/multi-cluster-manager/pkg/apis/multicluster/v1alpha1"
-	scheme "harmonycloud.cn/multi-cluster-manager/pkg/client/clientset/versioned/scheme"
+	v1alpha1 "harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+	scheme "harmonycloud.cn/stellaris/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

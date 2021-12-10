@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
-	"harmonycloud.cn/multi-cluster-manager/config"
-	"harmonycloud.cn/multi-cluster-manager/pkg/apis/multicluster/v1alpha1"
-	"harmonycloud.cn/multi-cluster-manager/pkg/model"
+	"harmonycloud.cn/stellaris/config"
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+	"harmonycloud.cn/stellaris/pkg/model"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -74,10 +74,7 @@ func Object2RawExtension(obj interface{}) (*runtime.RawExtension, error) {
 	}, nil
 }
 
-func GetKubeConfig(kubeconfig string, masterURL string) (*rest.Config, error) {
-	if len(kubeconfig) > 0 {
-		return clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
-	}
+func GetKubeConfig(masterURL string) (*rest.Config, error) {
 	if len(os.Getenv("KUBECONFIG")) > 0 {
 		return clientcmd.BuildConfigFromFlags(masterURL, os.Getenv("KUBECONFIG"))
 	}
