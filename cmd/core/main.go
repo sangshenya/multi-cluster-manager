@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
+
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"harmonycloud.cn/stellaris/config"
@@ -87,10 +89,9 @@ func main() {
 		logrus.Fatalf("failed create manager: %s", err)
 	}
 
-	if err = (&controller.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	// setup controllers
+	controllerArgs := controllerCommon.Args{ManagerClientSet: mClient}
+	if err = controller.Setup(mgr, controllerArgs); err != nil {
 		logrus.Fatalf("failed to create controller: %s", err)
 	}
 

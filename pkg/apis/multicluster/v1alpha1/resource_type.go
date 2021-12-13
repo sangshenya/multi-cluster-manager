@@ -17,9 +17,10 @@ type MultiClusterResource struct {
 }
 
 type MultiClusterResourceSpec struct {
-	Resource      *runtime.RawExtension `json:"resource,omitempty"`
-	ReplicasField string                `json:"replicasFiled,omitempty"`
-	Workload      bool                  `json:"workload,omitempty"`
+	Resource      *runtime.RawExtension    `json:"resource,omitempty"`
+	ResourceRef   *metav1.GroupVersionKind `json:"resourceRef,omitempty"`
+	ReplicasField string                   `json:"replicasFiled,omitempty"`
+	Workload      bool                     `json:"workload,omitempty"`
 }
 
 type MultiClusterResourceStatus struct {

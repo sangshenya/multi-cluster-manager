@@ -14,13 +14,8 @@ type MultiClusterResourceAggregateRule struct {
 }
 
 type MultiClusterResourceAggregateRuleSpec struct {
-	ResourceRef MultiClusterResourceAggregateRuleResourceRef `json:"resourceRef"`
-	Rule        MultiClusterResourceAggregateRuleRule        `json:"rule"`
-}
-
-type MultiClusterResourceAggregateRuleResourceRef struct {
-	ApiVersion string `json:"apiVersion"`
-	Kind       string `json:"kind"`
+	ResourceRef *metav1.GroupVersionKind              `json:"resourceRef"`
+	Rule        MultiClusterResourceAggregateRuleRule `json:"rule"`
 }
 
 type MultiClusterResourceAggregateRuleRule struct {
