@@ -34,7 +34,10 @@ func updateBindingStatus(clientSet client.Client, clusterResource *v1alpha1.Clus
 
 	var resourceStatus *common.MultiClusterResourceClusterStatus
 	for _, item := range binding.Status.ClusterStatus {
-		if clusterName == item.Name {
+		if clusterName == item.Name && clusterResource.Name == item.Resource {
+			if statusEqual(clusterResource.Status, item) {
+				return nil
+			}
 			// delete
 			binding.Status.ClusterStatus = removeItemForClusterStatusList(binding.Status.ClusterStatus, item)
 		}
@@ -51,6 +54,13 @@ func updateBindingStatus(clientSet client.Client, clusterResource *v1alpha1.Clus
 	// update binding status
 	err := clientSet.Status().Update(context.TODO(), binding)
 	return err
+}
+
+func statusEqual(clusterResourceStatus v1alpha1.ClusterResourceStatus, bindingStatus common.MultiClusterResourceClusterStatus) bool {
+	if clusterResourceStatus.Phase != bindingStatus.Phase || clusterResourceStatus.Message != bindingStatus.Message || clusterResourceStatus.ObservedReceiveGeneration != bindingStatus.ObservedReceiveGeneration {
+		return false
+	}
+	return true
 }
 
 func resolveControllerRef(clientSet client.Client, controllerRef *metav1.OwnerReference) *v1alpha1.MultiClusterResourceBinding {
