@@ -107,6 +107,7 @@ func syncClusterResource(clientSet client.Client, binding *v1alpha1.MultiCluster
 			} else {
 				delete(clusterResourceMap, key)
 				// new resourceInfo
+				// TODO if MultiClusterResourceOverride alive
 				resourceInfo, err := controllerCommon.ApplyJsonPatch(multiClusterResource.Spec.Resource, cluster.Override)
 				if err != nil {
 					resourceInfo = multiClusterResource.Spec.Resource
@@ -152,6 +153,7 @@ func newClusterResource(bindingName string, cluster v1alpha1.MultiClusterResourc
 	clusterResource.SetOwnerReferences([]metav1.OwnerReference{*owner})
 
 	// set resourceInfo
+	// TODO if MultiClusterResourceOverride alive
 	resourceInfo, err := controllerCommon.ApplyJsonPatch(multiClusterResource.Spec.Resource, cluster.Override)
 	if err == nil {
 		clusterResource.Spec.Resource = resourceInfo
