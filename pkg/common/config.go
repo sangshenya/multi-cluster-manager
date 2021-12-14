@@ -3,7 +3,9 @@ package common
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 const (
-	ManagerNamespace                            = ""
+	// TODO set manager default namespace
+	ManagerNamespace = ""
+	// TODO set manager default FinalizerName
 	FinalizerName                               = ""
 	ResourceBindingLabelName                    = "multicluster.harmonycloud.cn.ResourceBinding"
 	ResourceGvkLabelName                        = "multicluster.harmonycloud.cn.ResourceGvk"
@@ -11,7 +13,7 @@ const (
 	MultiClusterResourceSchedulePolicyLabelName = "multicluster.harmonycloud.cn.schedulePolicy"
 )
 
-// TODO
+// TODO clusterName change to clusterNamespace
 func ClusterNamespace(clusterName string) string {
 	return clusterName
 }
