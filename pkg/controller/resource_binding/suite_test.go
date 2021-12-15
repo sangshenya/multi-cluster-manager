@@ -45,7 +45,7 @@ var _ = BeforeSuite(func(done Done) {
 	rand.Seed(time.Now().UnixNano())
 	By("bootstrapping test environment")
 
-	// TODO add yaml path
+	// TODO fix test env
 	yamlPath := ""
 	testEnv = &envtest.Environment{
 		ControlPlaneStartTimeout: time.Minute,
