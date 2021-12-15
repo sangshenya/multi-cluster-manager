@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
+
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
@@ -61,13 +63,33 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
+	// get ClusterResourceList
+	clusterResourceList, err := getClusterResourceListForBinding(ctx, r.Client, instance)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: 30 * time.Second,
+			}, fmt.Errorf("get clusterResource for resource %s failed: %s", instance.Name, err)
+		}
+	}
+
 	// sync ClusterResource
-	err = syncClusterResource(r.Client, instance)
+	err = syncClusterResource(ctx, r.Client, clusterResourceList, instance)
 	if err != nil {
 		return ctrl.Result{
 			Requeue:      true,
 			RequeueAfter: 30 * time.Second,
 		}, fmt.Errorf("sync ClusterResource failed: %s,  resource: %s", err, instance.Name)
+	}
+
+	// update status
+	err = updateBindingStatus(ctx, r.Client, instance, clusterResourceList)
+	if err != nil {
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: 30 * time.Second,
+		}, fmt.Errorf("update binding status failed: %s,  resource: %s", err, instance.Name)
 	}
 
 	return ctrl.Result{}, nil
@@ -88,12 +110,70 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 	return reconciler.SetupWithManager(mgr)
 }
 
-func getMultiClusterResourceForName(clientSet client.Client, multiClusterResourceName string) (*v1alpha1.MultiClusterResource, error) {
+func getMultiClusterResourceForName(ctx context.Context, clientSet client.Client, multiClusterResourceName string) (*v1alpha1.MultiClusterResource, error) {
 	object := &v1alpha1.MultiClusterResource{}
 	namespacedName := types.NamespacedName{
 		Namespace: managerCommon.ManagerNamespace,
 		Name:      multiClusterResourceName,
 	}
-	err := clientSet.Get(context.TODO(), namespacedName, object)
+	err := clientSet.Get(ctx, namespacedName, object)
 	return object, err
+}
+
+func updateBindingStatus(ctx context.Context, clientSet client.Client, binding *v1alpha1.MultiClusterResourceBinding, clusterResourceList *v1alpha1.ClusterResourceList) error {
+	updateStatus := false
+	for _, clusterResource := range clusterResourceList.Items {
+		// no status
+		if len(clusterResource.Status.Phase) <= 0 {
+			continue
+		}
+
+		bindingStatusMap := bindingClusterStatusMap(binding)
+		// find target multiClusterResourceClusterStatus
+		key := bindingClusterStatusMapKey(managerCommon.ClusterName(clusterResource.GetNamespace()), clusterResource.GetName())
+		bindingStatus, ok := bindingStatusMap[key]
+		if ok {
+			if statusEqual(clusterResource.Status, *bindingStatus) {
+				continue
+			}
+			binding.Status.ClusterStatus = removeItemForClusterStatusList(binding.Status.ClusterStatus, *bindingStatus)
+		}
+		// should update binding status
+		updateStatus = true
+		// new resourceStatus
+		multiClusterResourceClusterStatus := common.MultiClusterResourceClusterStatus{
+			Name:                      managerCommon.ClusterName(clusterResource.GetNamespace()),
+			Resource:                  clusterResource.Name,
+			ObservedReceiveGeneration: clusterResource.Status.ObservedReceiveGeneration,
+			Phase:                     clusterResource.Status.Phase,
+			Message:                   clusterResource.Status.Message,
+			Binding:                   binding.Name,
+		}
+		binding.Status.ClusterStatus = append(binding.Status.ClusterStatus, multiClusterResourceClusterStatus)
+	}
+	if updateStatus {
+		// update binding status
+		return clientSet.Status().Update(ctx, binding)
+	}
+	return nil
+}
+
+func bindingClusterStatusMap(binding *v1alpha1.MultiClusterResourceBinding) map[string]*common.MultiClusterResourceClusterStatus {
+	statusMap := map[string]*common.MultiClusterResourceClusterStatus{}
+	for _, item := range binding.Status.ClusterStatus {
+		statusKey := bindingClusterStatusMapKey(item.Name, item.Resource)
+		statusMap[statusKey] = &item
+	}
+	return statusMap
+}
+
+func bindingClusterStatusMapKey(clusterName, resourceName string) string {
+	return clusterName + ":" + resourceName
+}
+
+func statusEqual(clusterResourceStatus v1alpha1.ClusterResourceStatus, bindingStatus common.MultiClusterResourceClusterStatus) bool {
+	if clusterResourceStatus.Phase != bindingStatus.Phase || clusterResourceStatus.Message != bindingStatus.Message || clusterResourceStatus.ObservedReceiveGeneration != bindingStatus.ObservedReceiveGeneration {
+		return false
+	}
+	return true
 }
