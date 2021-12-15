@@ -133,9 +133,9 @@ func getAddonsCondition(channels model.AddonsChannel) []model.Condition {
 func Heartbeat(channel *model.AddonsChannel, stream config.Channel_EstablishClient, cfg *agentconfig.Configuration) error {
 	lastHeartbeatTime := time.Now()
 	var lastHeartbeat *model.HeartbeatWithChangeRequest
-	sendFlag := false
 
 	for {
+		sendFlag := false
 		addonsInfo := getAddonsInfo(*channel)
 		addonsCondition := getAddonsCondition(*channel)
 		//get info
