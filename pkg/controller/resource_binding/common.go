@@ -2,7 +2,6 @@ package resource_binding
 
 import (
 	"context"
-	"errors"
 
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -11,90 +10,17 @@ import (
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
 	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func updateBindingStatus(clientSet client.Client, clusterResource *v1alpha1.ClusterResource) error {
-	if len(clusterResource.Status.Phase) <= 0 {
-		return nil
-	}
-	controllerRef := metav1.GetControllerOf(clusterResource)
-	if controllerRef == nil {
-		return errors.New("can not find binding")
-	}
-	binding := resolveControllerRef(clientSet, controllerRef)
-	if binding == nil {
-		return errors.New("can not find binding")
-	}
-
-	clusterName := managerCommon.ClusterName(clusterResource.Namespace)
-
-	var resourceStatus *common.MultiClusterResourceClusterStatus
-	for _, item := range binding.Status.ClusterStatus {
-		if clusterName == item.Name && clusterResource.Name == item.Resource {
-			if statusEqual(clusterResource.Status, item) {
-				return nil
-			}
-			// delete
-			binding.Status.ClusterStatus = removeItemForClusterStatusList(binding.Status.ClusterStatus, item)
-		}
-	}
-	resourceStatus = &common.MultiClusterResourceClusterStatus{
-		Name:                      clusterName,
-		Resource:                  clusterResource.Name,
-		ObservedReceiveGeneration: clusterResource.Status.ObservedReceiveGeneration,
-		Phase:                     clusterResource.Status.Phase,
-		Message:                   clusterResource.Status.Message,
-		Binding:                   binding.Name,
-	}
-	binding.Status.ClusterStatus = append(binding.Status.ClusterStatus, *resourceStatus)
-	// update binding status
-	err := clientSet.Status().Update(context.TODO(), binding)
-	return err
-}
-
-func statusEqual(clusterResourceStatus v1alpha1.ClusterResourceStatus, bindingStatus common.MultiClusterResourceClusterStatus) bool {
-	if clusterResourceStatus.Phase != bindingStatus.Phase || clusterResourceStatus.Message != bindingStatus.Message || clusterResourceStatus.ObservedReceiveGeneration != bindingStatus.ObservedReceiveGeneration {
-		return false
-	}
-	return true
-}
-
-func resolveControllerRef(clientSet client.Client, controllerRef *metav1.OwnerReference) *v1alpha1.MultiClusterResourceBinding {
-	if controllerRef.Kind != "MultiClusterResourceBinding" {
-		return nil
-	}
-	binding := &v1alpha1.MultiClusterResourceBinding{}
-	namespacedName := types.NamespacedName{
-		Namespace: managerCommon.ManagerNamespace,
-		Name:      controllerRef.Name,
-	}
-	err := clientSet.Get(context.TODO(), namespacedName, binding)
-	if err != nil {
-		return nil
-	}
-	if binding.UID != controllerRef.UID {
-		return nil
-	}
-	return binding
-}
-
 // syncClusterResource update or create or delete ClusterResource
-func syncClusterResource(clientSet client.Client, binding *v1alpha1.MultiClusterResourceBinding) error {
+func syncClusterResource(ctx context.Context, clientSet client.Client, clusterResourceList *v1alpha1.ClusterResourceList, binding *v1alpha1.MultiClusterResourceBinding) error {
 	if len(binding.Spec.Resources) == 0 {
 		return nil
 	}
 
-	clusterResourceMap, err := getClusterResourceListForBinding(clientSet, binding)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
-	}
-
+	clusterResourceMap := changeClusterResourceListToMap(clusterResourceList)
 	for _, resource := range binding.Spec.Resources {
 		for _, cluster := range resource.Clusters {
 			multiClusterResource, err := getMultiClusterResourceForName(clientSet, resource.Name)
@@ -110,7 +36,7 @@ func syncClusterResource(clientSet client.Client, binding *v1alpha1.MultiCluster
 				clusterResource = newClusterResource(binding.Name, cluster, owner, multiClusterResource)
 
 				// create clusterResource
-				err = clientSet.Create(context.TODO(), clusterResource)
+				err = clientSet.Create(ctx, clusterResource)
 				if err != nil {
 					return err
 				}
@@ -127,7 +53,7 @@ func syncClusterResource(clientSet client.Client, binding *v1alpha1.MultiCluster
 				}
 				// update
 				clusterResource.Spec.Resource = resourceInfo
-				err = clientSet.Update(context.TODO(), clusterResource)
+				err = clientSet.Update(ctx, clusterResource)
 				if err != nil {
 					return err
 				}
@@ -141,7 +67,7 @@ func syncClusterResource(clientSet client.Client, binding *v1alpha1.MultiCluster
 
 	// delete
 	for _, r := range clusterResourceMap {
-		err = clientSet.Delete(context.TODO(), r)
+		err := clientSet.Delete(ctx, r)
 		if err != nil {
 			return err
 		}
@@ -207,25 +133,23 @@ func mapKey(resourceNamespace, resourceName string) string {
 	return resourceNamespace + ":" + resourceName
 }
 
-// getClusterResourceListForBinding go through ResourceBinding to find clusterResource list
+// getClusterResourceListForBinding change clusterResource list to map
 // clusterResource list change to clusterResource map, map key:<resourceNamespace>-<resourceName>
-func getClusterResourceListForBinding(clientSet client.Client, binding *v1alpha1.MultiClusterResourceBinding) (map[string]*v1alpha1.ClusterResource, error) {
-	if len(binding.GetName()) <= 0 {
-		return nil, errors.New("binding name is empty")
-	}
+func changeClusterResourceListToMap(resourceList *v1alpha1.ClusterResourceList) map[string]*v1alpha1.ClusterResource {
 	resourceMap := map[string]*v1alpha1.ClusterResource{}
-	selector, _ := labels.Parse(managerCommon.ResourceBindingLabelName + "=" + binding.GetName())
-
-	resourceList := &v1alpha1.ClusterResourceList{}
-	err := clientSet.List(context.TODO(), resourceList, &client.ListOptions{
-		LabelSelector: selector,
-	})
-	if err != nil {
-		return resourceMap, err
-	}
 	for _, resource := range resourceList.Items {
 		key := mapKey(resource.GetNamespace(), resource.GetName())
 		resourceMap[key] = &resource
 	}
-	return resourceMap, nil
+	return resourceMap
+}
+
+func getClusterResourceListForBinding(ctx context.Context, clientSet client.Client, binding *v1alpha1.MultiClusterResourceBinding) (*v1alpha1.ClusterResourceList, error) {
+	selector, _ := labels.Parse(managerCommon.ResourceBindingLabelName + "=" + binding.GetName())
+
+	resourceList := &v1alpha1.ClusterResourceList{}
+	err := clientSet.List(ctx, resourceList, &client.ListOptions{
+		LabelSelector: selector,
+	})
+	return resourceList, err
 }

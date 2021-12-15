@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
@@ -57,7 +59,7 @@ var _ = Describe("Test ResourceBinding Controller", func() {
 	BeforeEach(func() {
 		Expect(k8sClient.Create(ctx, multiClusterResource)).Should(BeNil())
 	})
-
+	// create
 	It(fmt.Sprintf("create binding(%s), check binding finalizers", resourceBinding.Name), func() {
 		Expect(k8sClient.Create(ctx, resourceBinding)).Should(BeNil())
 		bindingNamespacedName := types.NamespacedName{
@@ -73,7 +75,7 @@ var _ = Describe("Test ResourceBinding Controller", func() {
 		Expect(resourceBinding.GetFinalizers()).ShouldNot(Equal(0))
 		Expect(sliceutil.ContainsString(resourceBinding.GetFinalizers(), managerCommon.FinalizerName)).Should(BeTrue())
 	})
-
+	// update
 	It(fmt.Sprintf("update binding(%s) spec and check the ClusterResource associated with binding", resourceBinding.Name), func() {
 		bindingNamespacedName := types.NamespacedName{
 			Name:      resourceBinding.GetName(),
@@ -115,7 +117,45 @@ var _ = Describe("Test ResourceBinding Controller", func() {
 		Expect(string(clusterResource.Spec.Resource.Raw)).Should(Equal(string(multiClusterResource.Spec.Resource.Raw)))
 
 	})
+	// update status
+	It(fmt.Sprintf("update ClusterResource status, check binding(%s) status", resourceBinding.Name), func() {
+		clusterNamespace := managerCommon.ClusterNamespace(clusterName)
+		clusterResourceNamespacedName := types.NamespacedName{
+			Name:      getClusterResourceName(resourceBinding.Name, multiClusterResource.Spec.ResourceRef),
+			Namespace: clusterNamespace,
+		}
+		clusterResource := &v1alpha1.ClusterResource{}
+		Expect(k8sClient.Get(ctx, clusterResourceNamespacedName, clusterResource)).Should(BeNil())
 
+		newStatus := v1alpha1.ClusterResourceStatus{
+			ObservedReceiveGeneration: 1,
+			Phase:                     common.Complete,
+			Message:                   "resource apply complete",
+		}
+		clusterResource.Status = newStatus
+		// send event
+		bindingNamespacedName := types.NamespacedName{
+			Name:      resourceBinding.GetName(),
+			Namespace: resourceBinding.GetNamespace(),
+		}
+
+		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: bindingNamespacedName})
+		Expect(err).Should(BeNil())
+
+		// check
+		binding := &v1alpha1.MultiClusterResourceBinding{}
+		Expect(k8sClient.Get(ctx, bindingNamespacedName, binding)).Should(BeNil())
+		Expect(len(binding.Status.ClusterStatus)).ShouldNot(Equal(0))
+
+		bindingStatus := binding.Status.ClusterStatus[0]
+		Expect(bindingStatus.Name).Should(Equal(clusterName))
+		Expect(bindingStatus.Resource).Should(Equal(clusterResource.GetName()))
+		Expect(bindingStatus.ObservedReceiveGeneration).Should(Equal(newStatus.ObservedReceiveGeneration))
+		Expect(bindingStatus.Message).Should(Equal(newStatus.Message))
+		Expect(bindingStatus.Phase).Should(Equal(newStatus.Phase))
+
+	})
+	// delete
 	It(fmt.Sprintf("delete binding(%s), controller will delete finalizer, and delete the ClusterResource associated with binding", multiClusterResource.Name), func() {
 		bindingNamespacedName := types.NamespacedName{
 			Name:      resourceBinding.GetName(),
