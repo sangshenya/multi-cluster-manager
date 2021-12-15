@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/sirupsen/logrus"
 	agentcfg "harmonycloud.cn/stellaris/pkg/agent/config"
 	"harmonycloud.cn/stellaris/pkg/agent/handler"
 	"time"
@@ -28,6 +29,9 @@ func main() {
 	cfg.ClusterName = clusterName
 	cfg.CoreAddress = coreAddress
 	cfg.AddonPath = addonPath
-	handler.Register(cfg)
+	err := handler.Register(cfg)
+	if err != nil {
+		logrus.Fatalf("failed register cluster: %s", err)
+	}
 
 }

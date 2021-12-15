@@ -1,43 +1,33 @@
 package handler
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	"google.golang.org/grpc"
-	"harmonycloud.cn/stellaris/config"
+	"harmonycloud.cn/stellaris/pkg/agent/addons"
 	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
-	addoninfo "harmonycloud.cn/stellaris/pkg/model"
+	"harmonycloud.cn/stellaris/pkg/util/agent"
+	"harmonycloud.cn/stellaris/pkg/util/common"
 )
 
 func Register(cfg *agentconfig.Configuration) error {
-	conn, err := grpc.Dial(cfg.CoreAddress, grpc.WithInsecure())
-	if err != nil {
-		return fmt.Errorf("grpc conn err: %v", err)
-	}
-	grpcClient := config.NewChannelClient(conn)
-	stream, err := grpcClient.Establish(context.Background())
+	stream, err := agent.Connection(cfg)
 	if err != nil {
 		return fmt.Errorf("call err: %v", err)
 	}
-	addonInfo, err := GetAddonConfig(cfg.AddonPath)
+	addonConfig, err := agent.GetAddonConfig(cfg.AddonPath)
 	if err != nil {
 		return fmt.Errorf("get addons config err: %v", err)
 	}
-	addonRequest, err := json.Marshal(addonInfo)
+	addonInfo, channel, err := addons.Load(addonConfig)
 	if err != nil {
-		return fmt.Errorf("marshal err: %v", err)
+		return err
 	}
 
-	request := &config.Request{
-		Type:        "Register",
-		ClusterName: cfg.ClusterName,
-		Body:        string(addonRequest),
+	request, err := common.GenerateRequest("Register", addonInfo, cfg.ClusterName)
+	if err != nil {
+		return err
 	}
-
-	if err = stream.Send(request); err != nil {
+	if err := stream.Send(request); err != nil {
 		return fmt.Errorf("stream send to server err: %v", err)
 	}
 
@@ -47,21 +37,6 @@ func Register(cfg *agentconfig.Configuration) error {
 	}
 	logrus.Printf("stream get from server:%v", resp)
 	//TODO After Receive Response
+	go addons.Heartbeat(channel, stream, cfg)
 	return nil
-
-}
-
-func GetAddonConfig(path string) (*addoninfo.RegisterRequest, error) {
-	var configViperConfig = viper.New()
-	configViperConfig.SetConfigFile(path)
-
-	if err := configViperConfig.ReadInConfig(); err != nil {
-		return nil, err
-	}
-	var c addoninfo.RegisterRequest
-	if err := configViperConfig.Unmarshal(&c); err != nil {
-		return nil, err
-	}
-	return &c, nil
-
 }
