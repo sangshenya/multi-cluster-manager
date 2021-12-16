@@ -28,7 +28,7 @@ func Load(cfg *model.PluginsConfig) (*model.RegisterRequest, *model.AddonsChanne
 	if inTreeLen > 0 {
 		inTreePlugins := cfg.Plugins.InTree
 		for _, name := range inTreePlugins {
-			//make channel
+			// make channel
 			inTreeCh := make(chan *model.Addon)
 			channels = append(channels, inTreeCh)
 			inTreeMonitorCh := make(chan *model.Condition)
@@ -62,9 +62,9 @@ func runInTreePlugins(name string, ch chan *model.Addon) {
 	properties = make(map[string]string)
 	properties["inTree"] = "addon1"
 	res := model.Addon{Name: name, Properties: properties}
-	//TODO RUN PLUGIN
+	// TODO RUN PLUGIN
 	for {
-		//return information
+		// return information
 		ch <- &res
 	}
 
@@ -76,15 +76,15 @@ func runOutTreePlugins(name string, ch chan *model.Addon) {
 	properties["outTree"] = "www.123.com"
 
 	res := model.Addon{Name: name, Properties: properties}
-	//TODO RUN PLUGIN
+	// TODO RUN PLUGIN
 	for {
-		//return information
+		// return information
 		ch <- &res
 	}
 }
 
 func startMonitor(name string, ch chan *model.Condition) {
-	//TODO
+	// TODO
 
 }
 
@@ -96,7 +96,7 @@ func getAddonsInfo(channels model.AddonsChannel) []model.Addon {
 		case addon := <-channel:
 			addons = append(addons, *addon)
 
-			//if timeout
+			// if timeout
 		case <-time.After(time.Second * timeOut):
 			addon := model.Addon{}
 			addons = append(addons, addon)
@@ -114,7 +114,7 @@ func getAddonsCondition(channels model.AddonsChannel) []model.Condition {
 		case addon := <-channel:
 			conditions = append(conditions, *addon)
 
-		//if timeout
+		// if timeout
 		case <-time.After(time.Second * timeOut):
 			addon := model.Condition{}
 			conditions = append(conditions, addon)
@@ -133,23 +133,23 @@ func Heartbeat(channel *model.AddonsChannel, stream config.Channel_EstablishClie
 		sendFlag := false
 		addonsInfo := getAddonsInfo(*channel)
 		addonsCondition := getAddonsCondition(*channel)
-		//get info
+		// get info
 		for i, addon := range addonsInfo {
 			if !reflect.DeepEqual(lastHeartbeat.Addons[i].Properties, addon.Properties) {
 				sendFlag = true
 			}
 		}
 		if sendFlag == false {
-			//get conditions
+			// get conditions
 			for i, condition := range addonsCondition {
 				if condition != lastHeartbeat.Conditions[i] {
 					sendFlag = true
 				}
 			}
 		}
-		//TODO CHECK HEALTH
+		// TODO CHECK HEALTH
 
-		//compare
+		// compare
 		if (sendFlag) || ((!sendFlag) && ((time.Now().Sub(lastHeartbeatTime)) > forceSynchronization*time.Second)) {
 			heartbeatWithChange := model.HeartbeatWithChangeRequest{Healthy: true, Addons: addonsInfo, Conditions: addonsCondition}
 			lastHeartbeat = &heartbeatWithChange
@@ -163,7 +163,7 @@ func Heartbeat(channel *model.AddonsChannel, stream config.Channel_EstablishClie
 				continue
 			}
 			lastHeartbeatTime = time.Now()
-			//TODO After Receive Response
+			// TODO After Receive Response
 			time.Sleep(cfg.HeartbeatPeriod)
 		} else {
 			request, err := common.GenerateRequest("Heartbeat", HeartbeatMessage, cfg.ClusterName)

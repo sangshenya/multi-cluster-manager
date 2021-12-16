@@ -36,7 +36,7 @@ func Register(cfg *agentconfig.Configuration) error {
 		return fmt.Errorf("stream get from server err: %v", err)
 	}
 	logrus.Printf("stream get from server:%v", resp)
-	//TODO After Receive Response
+	// TODO After Receive Response
 	go addons.Heartbeat(channel, stream, cfg)
 	return nil
 }
