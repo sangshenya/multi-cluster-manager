@@ -91,18 +91,15 @@ func startMonitor(name string, ch chan *model.Condition) {
 func getAddonsInfo(channels model.AddonsChannel) []model.Addon {
 	var addons []model.Addon
 
-	for i, channel := range channels.Channels {
+	for _, channel := range channels.Channels {
 		select {
 		case addon := <-channel:
 			addons = append(addons, *addon)
-			if i == len(channels.Channels)-1 {
-				return addons
-			}
-		//if timeout
+
+			//if timeout
 		case <-time.After(time.Second * timeOut):
 			addon := model.Addon{}
 			addons = append(addons, addon)
-			return addons
 		}
 	}
 	return addons
@@ -112,18 +109,16 @@ func getAddonsInfo(channels model.AddonsChannel) []model.Addon {
 func getAddonsCondition(channels model.AddonsChannel) []model.Condition {
 	var conditions []model.Condition
 
-	for i, channel := range channels.MonitorChannels {
+	for _, channel := range channels.MonitorChannels {
 		select {
 		case addon := <-channel:
 			conditions = append(conditions, *addon)
-			if i == len(channels.MonitorChannels)-1 {
-				return conditions
-			}
+
 		//if timeout
 		case <-time.After(time.Second * timeOut):
 			addon := model.Condition{}
 			conditions = append(conditions, addon)
-			return conditions
+
 		}
 	}
 	return conditions
