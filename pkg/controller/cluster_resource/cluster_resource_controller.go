@@ -2,13 +2,11 @@ package cluster_resource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
@@ -16,6 +14,7 @@ import (
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
 	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,7 +31,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	r.log.Info("Reconciling MultiClusterResourceBinding")
 
-	// get resource
+	// get ClusterResource
 	instance := &v1alpha1.ClusterResource{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
@@ -46,10 +45,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() && !sliceutil.ContainsString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName) {
 		instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName)
 		if err = r.Client.Update(ctx, instance); err != nil {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: 30 * time.Second,
-			}, fmt.Errorf("append finalizer filed to resource %s failed: %s", instance.Name, err)
+			r.log.Error(err, fmt.Sprintf("append finalizer filed to resource(%s) failed", instance.Name))
+			return reQueueResult(err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -58,17 +55,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	if !instance.ObjectMeta.DeletionTimestamp.IsZero() && sliceutil.ContainsString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName) {
 		if !managerCommon.IsControlPlane() {
 			if instance.Status.Phase != common.Terminating {
-				// update status
-				instance.Status.Message = ""
-				instance.Status.ObservedReceiveGeneration = instance.Generation
-				instance.Status.Phase = common.Terminating
-
-				err = updateClusterResourceStatus(ctx, r.Client, instance)
+				// delete resource
+				err = deleteResource(ctx, r.Client, instance.Spec.Resource)
 				if err != nil {
-					return ctrl.Result{
-						Requeue:      true,
-						RequeueAfter: 30 * time.Second,
-					}, fmt.Errorf("update status failed:%s, resource(%s)", err, instance.Name)
+					r.log.Error(err, fmt.Sprintf("delete resource failed, ClsuterResource(%s)", instance.Name))
+					return reQueueResult(err)
+				}
+				// update status delete
+				newStatus := newClusterResourceStatus(common.Terminating, "", instance.Generation)
+				err = updateClusterResourceStatus(ctx, r.Client, instance, newStatus)
+				if err != nil {
+					r.log.Error(err, fmt.Sprintf("update status failed, resource(%s)", instance.Name))
+					return reQueueResult(err)
 				}
 				return ctrl.Result{}, nil
 			}
@@ -76,47 +74,34 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 			//
 			err = sendClusterResourceToAgent(SyncEventTypeDelete, instance)
 			if err != nil {
-				return ctrl.Result{
-					Requeue:      true,
-					RequeueAfter: 30 * time.Second,
-				}, fmt.Errorf("send ClusterResouce failed:%s, resource(%s)", err, instance.Name)
+				r.log.Error(err, fmt.Sprintf("send ClusterResouce failed, resource(%s)", instance.Name))
+				return reQueueResult(err)
 			}
 		}
 
 		instance.ObjectMeta.Finalizers = sliceutil.RemoveString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName)
 		if err = r.Client.Update(ctx, instance); err != nil {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: 30 * time.Second,
-			}, fmt.Errorf("delete finalizer filed from resource %s failed: %s", instance.Name, err)
+			r.log.Error(err, fmt.Sprintf("delete finalizer filed from resource(%s) failed", instance.Name))
+			return reQueueResult(err)
 		}
-
 		return ctrl.Result{}, nil
 	}
 
 	if managerCommon.IsControlPlane() {
-		// TODO send clusterResource to agent
 		err = sendClusterResourceToAgent(SyncEventTypeUpdate, instance)
 		if err != nil {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: 30 * time.Second,
-			}, fmt.Errorf("send ClusterResouce failed:%s, resource(%s)", err, instance.Name)
+			r.log.Error(err, fmt.Sprintf("send ClusterResouce failed, resource(%s)", instance.Name))
+			return reQueueResult(err)
 		}
 		return ctrl.Result{}, nil
 	} else {
-		if instance.Generation != instance.Status.ObservedReceiveGeneration {
+		if len(instance.Status.Phase) == 0 || instance.Generation != instance.Status.ObservedReceiveGeneration {
 			// update status to creating
-			instance.Status.ObservedReceiveGeneration = instance.Generation
-			instance.Status.Phase = common.Creating
-			instance.Status.Message = ""
-
-			err = updateClusterResourceStatus(ctx, r.Client, instance)
+			newStatus := newClusterResourceStatus(common.Creating, "", instance.Generation)
+			err = updateClusterResourceStatus(ctx, r.Client, instance, newStatus)
 			if err != nil {
-				return ctrl.Result{
-					Requeue:      true,
-					RequeueAfter: 30 * time.Second,
-				}, fmt.Errorf("update status failed:%s, resource(%s)", err, instance.Name)
+				r.log.Error(err, fmt.Sprintf("update status failed, resource(%s)", instance.Name))
+				return reQueueResult(err)
 			}
 			return ctrl.Result{}, nil
 		}
@@ -124,36 +109,35 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 			// create/update resource
 			err = syncResource(ctx, r.Client, instance.Spec.Resource)
 			if err != nil {
-				instance.Status.Message = err.Error()
-
-				err = updateClusterResourceStatus(ctx, r.Client, instance)
+				// update status errorInfo
+				newStatus := newClusterResourceStatus(instance.Status.Phase, err.Error(), instance.Status.ObservedReceiveGeneration)
+				err = updateClusterResourceStatus(ctx, r.Client, instance, newStatus)
 				if err != nil {
-					return ctrl.Result{
-						Requeue:      true,
-						RequeueAfter: 30 * time.Second,
-					}, fmt.Errorf("update status failed:%s, resource(%s)", err, instance.Name)
+					r.log.Error(err, fmt.Sprintf("update status failed, resource(%s)", instance.Name))
+					return reQueueResult(err)
 				}
-
-				return ctrl.Result{
-					RequeueAfter: 30 * time.Second,
-					Requeue:      true,
-				}, fmt.Errorf("sync resource fail, resource %s failed: %s", instance.Name, instance.Status.Message)
+				err = errors.New(instance.Status.Message)
+				r.log.Error(err, fmt.Sprintf("sync resource fail, resource (%s)", instance.Name))
+				return reQueueResult(err)
 			}
-			instance.Status.Message = ""
-			instance.Status.Phase = common.Complete
-			instance.Status.ObservedReceiveGeneration = instance.Generation
-
-			err = updateClusterResourceStatus(ctx, r.Client, instance)
+			// update status complete
+			newStatus := newClusterResourceStatus(common.Complete, "", instance.Generation)
+			err = updateClusterResourceStatus(ctx, r.Client, instance, newStatus)
 			if err != nil {
-				return ctrl.Result{
-					Requeue:      true,
-					RequeueAfter: 30 * time.Second,
-				}, fmt.Errorf("update status failed:%s, resource(%s)", err, instance.Name)
+				r.log.Error(err, fmt.Sprintf("update status failed, resource(%s)", instance.Name))
+				return reQueueResult(err)
 			}
 		}
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func reQueueResult(err error) (ctrl.Result, error) {
+	return ctrl.Result{
+		Requeue:      true,
+		RequeueAfter: 30 * time.Second,
+	}, err
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -171,8 +155,9 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 	return reconciler.SetupWithManager(mgr)
 }
 
+// syncResource create or update resource
 func syncResource(ctx context.Context, clientSet client.Client, resource *runtime.RawExtension) error {
-	resourceObject, err := formatDataToUnstructured(resource.Raw)
+	resourceObject, err := getObjectForRawExtension(resource)
 	if err != nil {
 		return err
 	}
@@ -189,18 +174,43 @@ func syncResource(ctx context.Context, clientSet client.Client, resource *runtim
 	return nil
 }
 
-func formatDataToUnstructured(data []byte) (*unstructured.Unstructured, error) {
-	// Decode YAML manifest into unstructured.Unstructured
-	obj := &unstructured.Unstructured{}
-	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err := dec.Decode(data, nil, obj)
+func deleteResource(ctx context.Context, clientSet client.Client, resource *runtime.RawExtension) error {
+	resourceObject, err := getObjectForRawExtension(resource)
+	if err != nil {
+		return err
+	}
+
+	err = clientSet.Delete(ctx, resourceObject)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+func getObjectForRawExtension(resource *runtime.RawExtension) (*unstructured.Unstructured, error) {
+	if resource == nil {
+		return nil, errors.New("resource is empty")
+	}
+	resourceByte, err := resource.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
-	return obj, nil
+	resourceObject := &unstructured.Unstructured{}
+	err = resourceObject.UnmarshalJSON(resourceByte)
+	return resourceObject, err
 }
 
-func updateClusterResourceStatus(ctx context.Context, clientSet client.Client, clusterResource *v1alpha1.ClusterResource) error {
+func newClusterResourceStatus(phase common.MultiClusterResourcePhase, message string, generation int64) v1alpha1.ClusterResourceStatus {
+	return v1alpha1.ClusterResourceStatus{
+		ObservedReceiveGeneration: generation,
+		Phase:                     phase,
+		Message:                   message,
+	}
+}
+
+// updateClusterResourceStatus send status to control plane, then update clusterResource status
+func updateClusterResourceStatus(ctx context.Context, clientSet client.Client, clusterResource *v1alpha1.ClusterResource, status v1alpha1.ClusterResourceStatus) error {
+	clusterResource.Status = status
 	err := sendStatusToControlPlane(&clusterResource.Status)
 	if err != nil {
 		return err
