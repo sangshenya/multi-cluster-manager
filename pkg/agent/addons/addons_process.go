@@ -147,7 +147,7 @@ func Heartbeat(channel *model.AddonsChannel, stream config.Channel_EstablishClie
 		if sendFlag == false {
 			//get conditions
 			for i, condition := range addonsCondition {
-				if !(condition == addonsCondition[i]) {
+				if condition != lastHeartbeat.Conditions[i] {
 					sendFlag = true
 				}
 			}
