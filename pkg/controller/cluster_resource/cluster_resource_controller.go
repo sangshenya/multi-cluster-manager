@@ -29,7 +29,7 @@ type Reconciler struct {
 
 func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	r.log.Info("Reconciling MultiClusterResourceBinding")
+	r.log.Info("Reconciling ClusterResource")
 
 	// get ClusterResource
 	instance := &v1alpha1.ClusterResource{}
@@ -61,24 +61,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 					r.log.Error(err, fmt.Sprintf("delete resource failed, ClsuterResource(%s)", instance.Name))
 					return reQueueResult(err)
 				}
-				// update status delete
-				newStatus := newClusterResourceStatus(common.Terminating, "", instance.Generation)
-				err = updateClusterResourceStatus(ctx, r.Client, instance, newStatus)
-				if err != nil {
-					r.log.Error(err, fmt.Sprintf("update status failed, resource(%s)", instance.Name))
-					return reQueueResult(err)
-				}
-				return ctrl.Result{}, nil
 			}
 		} else {
-			//
+			// send agent the clusterResource delete event
 			err = sendClusterResourceToAgent(SyncEventTypeDelete, instance)
 			if err != nil {
 				r.log.Error(err, fmt.Sprintf("send ClusterResouce failed, resource(%s)", instance.Name))
 				return reQueueResult(err)
 			}
 		}
-
+		// delete finalizer
 		instance.ObjectMeta.Finalizers = sliceutil.RemoveString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName)
 		if err = r.Client.Update(ctx, instance); err != nil {
 			r.log.Error(err, fmt.Sprintf("delete finalizer filed from resource(%s) failed", instance.Name))
@@ -208,7 +200,7 @@ func newClusterResourceStatus(phase common.MultiClusterResourcePhase, message st
 	}
 }
 
-// updateClusterResourceStatus send status to control plane, then update clusterResource status
+// updateClusterResourceStatus send update status request to control plane, then update clusterResource status
 func updateClusterResourceStatus(ctx context.Context, clientSet client.Client, clusterResource *v1alpha1.ClusterResource, status v1alpha1.ClusterResourceStatus) error {
 	clusterResource.Status = status
 	err := sendStatusToControlPlane(&clusterResource.Status)
