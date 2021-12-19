@@ -58,10 +58,8 @@ func Load(cfg *model.PluginsConfig) (*model.RegisterRequest, *model.AddonsChanne
 }
 
 func runInTreePlugins(name string, ch chan *model.Addon) {
-	var properties map[string]string
-	properties = make(map[string]string)
-	properties["inTree"] = "addon1"
-	res := model.Addon{Name: name, Properties: properties}
+
+	res := model.Addon{}
 	// TODO RUN PLUGIN
 	for {
 		// return information
@@ -71,15 +69,12 @@ func runInTreePlugins(name string, ch chan *model.Addon) {
 }
 
 func runOutTreePlugins(name string, ch chan *model.Addon) {
-	var properties map[string]string
-	properties = make(map[string]string)
-	properties["outTree"] = "www.123.com"
-
-	res := model.Addon{Name: name, Properties: properties}
-	// TODO RUN PLUGIN
+	res := model.Addon{}
+	// TODO RUN PLUGIN AND
 	for {
 		// return information
 		ch <- &res
+
 	}
 }
 
@@ -92,16 +87,10 @@ func getAddonsInfo(channels model.AddonsChannel) []model.Addon {
 	var addons []model.Addon
 
 	for _, channel := range channels.Channels {
-		select {
-		case addon := <-channel:
-			addons = append(addons, *addon)
-
-			// if timeout
-		case <-time.After(time.Second * timeOut):
-			addon := model.Addon{}
-			addons = append(addons, addon)
-		}
+		addon := <-channel
+		addons = append(addons, *addon)
 	}
+
 	return addons
 
 }
@@ -110,16 +99,8 @@ func getAddonsCondition(channels model.AddonsChannel) []model.Condition {
 	var conditions []model.Condition
 
 	for _, channel := range channels.MonitorChannels {
-		select {
-		case addon := <-channel:
-			conditions = append(conditions, *addon)
-
-		// if timeout
-		case <-time.After(time.Second * timeOut):
-			addon := model.Condition{}
-			conditions = append(conditions, addon)
-
-		}
+		addon := <-channel
+		conditions = append(conditions, *addon)
 	}
 	return conditions
 

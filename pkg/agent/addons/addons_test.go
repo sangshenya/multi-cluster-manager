@@ -51,8 +51,8 @@ var _ = Describe("Addons", func() {
 
 				registerRequest, _, _ := addons.Load(&addonConfig)
 				Expect(registerRequest).To(Equal(requestExcept))
-
 			})
+			// TODO HEARTBEAT TEST
 		})
 	})
 })
