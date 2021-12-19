@@ -107,32 +107,47 @@ func getAddonsCondition(channels model.AddonsChannel) []model.Condition {
 }
 
 func Heartbeat(channel *model.AddonsChannel, stream config.Channel_EstablishClient, cfg *agentconfig.Configuration) error {
+	var heartbeatWithChange model.HeartbeatWithChangeRequest
 	lastHeartbeatTime := time.Now()
-	var lastHeartbeat *model.HeartbeatWithChangeRequest
-
+	lastHeartbeat := &model.HeartbeatWithChangeRequest{}
+	firstTime := true
 	for {
 		sendFlag := false
-		addonsInfo := getAddonsInfo(*channel)
-		addonsCondition := getAddonsCondition(*channel)
-		// get info
-		for i, addon := range addonsInfo {
-			if !reflect.DeepEqual(lastHeartbeat.Addons[i].Properties, addon.Properties) {
+		var addonsInfo []model.Addon
+		var addonsCondition []model.Condition
+		// if plugins are specified
+		if len(channel.Channels) > 0 {
+			// get info
+			addonsInfo = getAddonsInfo(*channel)
+			addonsCondition = getAddonsCondition(*channel)
+			// if not the first time,compare
+			if !firstTime {
+				for i, addon := range addonsInfo {
+					if !reflect.DeepEqual(lastHeartbeat.Addons[i].Properties, addon.Properties) {
+						sendFlag = true
+					}
+				}
+				if sendFlag == false {
+					// get conditions
+					for i, condition := range addonsCondition {
+						if condition != lastHeartbeat.Conditions[i] {
+							sendFlag = true
+						}
+					}
+				}
+			} else {
+				firstTime = false
 				sendFlag = true
 			}
 		}
-		if sendFlag == false {
-			// get conditions
-			for i, condition := range addonsCondition {
-				if condition != lastHeartbeat.Conditions[i] {
-					sendFlag = true
-				}
-			}
-		}
 		// TODO CHECK HEALTH
-
-		// compare
+		// send
 		if (sendFlag) || ((!sendFlag) && ((time.Now().Sub(lastHeartbeatTime)) > forceSynchronization*time.Second)) {
-			heartbeatWithChange := model.HeartbeatWithChangeRequest{Healthy: true, Addons: addonsInfo, Conditions: addonsCondition}
+			if len(channel.Channels) > 0 {
+				heartbeatWithChange = model.HeartbeatWithChangeRequest{Healthy: true, Addons: addonsInfo, Conditions: addonsCondition}
+			} else {
+				heartbeatWithChange = model.HeartbeatWithChangeRequest{Healthy: true}
+			}
 			lastHeartbeat = &heartbeatWithChange
 			request, err := common.GenerateRequest("HeartbeatWithChange", heartbeatWithChange, cfg.ClusterName)
 			if err != nil {

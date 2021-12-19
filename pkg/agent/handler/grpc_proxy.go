@@ -5,6 +5,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"harmonycloud.cn/stellaris/pkg/agent/addons"
 	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
+	"harmonycloud.cn/stellaris/pkg/model"
 	"harmonycloud.cn/stellaris/pkg/util/agent"
 	"harmonycloud.cn/stellaris/pkg/util/common"
 )
@@ -14,13 +15,17 @@ func Register(cfg *agentconfig.Configuration) error {
 	if err != nil {
 		return fmt.Errorf("call err: %v", err)
 	}
-	addonConfig, err := agent.GetAddonConfig(cfg.AddonPath)
-	if err != nil {
-		return fmt.Errorf("get addons config err: %v", err)
-	}
-	addonInfo, channel, err := addons.Load(addonConfig)
-	if err != nil {
-		return err
+	addonInfo := &model.RegisterRequest{}
+	channel := &model.AddonsChannel{}
+	if cfg.AddonPath != ""{
+		addonConfig, err := agent.GetAddonConfig(cfg.AddonPath)
+		if err != nil {
+			return fmt.Errorf("get addons config err: %v", err)
+		}
+		addonInfo, channel, err = addons.Load(addonConfig)
+		if err != nil {
+			return err
+		}
 	}
 
 	request, err := common.GenerateRequest("Register", addonInfo, cfg.ClusterName)
