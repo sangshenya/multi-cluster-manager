@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"harmonycloud.cn/stellaris/pkg/util/core"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -12,7 +13,6 @@ import (
 	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
 	corecfg "harmonycloud.cn/stellaris/pkg/core/config"
 	table "harmonycloud.cn/stellaris/pkg/core/stream"
-	"harmonycloud.cn/stellaris/pkg/core/utils"
 	"harmonycloud.cn/stellaris/pkg/model"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,12 +42,12 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 	data := &model.RegisterRequest{}
 	if err := json.Unmarshal([]byte(req.Body), data); err != nil {
 		logrus.Errorf("unmarshal data error: %s", err)
-		utils.SendErrResponse(req.ClusterName, err, stream)
+		core.SendErrResponse(req.ClusterName, err, stream)
 	}
-	clusterAddons, err := utils.ConvertRegisterAddons2KubeAddons(data.Addons)
+	clusterAddons, err := core.ConvertRegisterAddons2KubeAddons(data.Addons)
 	if err != nil {
 		logrus.Errorf("cannot convert request to cluster resource", err)
-		utils.SendErrResponse(req.ClusterName, err, stream)
+		core.SendErrResponse(req.ClusterName, err, stream)
 	}
 	cluster := &v1alpha1.Cluster{
 		ObjectMeta: v1.ObjectMeta{
@@ -61,7 +61,7 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 	// create or update cluster resource in k8s
 	if err := s.registerClusterInKube(cluster); err != nil {
 		logrus.Errorf("cannot register cluster %s in k8s", err)
-		utils.SendErrResponse(req.ClusterName, err, stream)
+		core.SendErrResponse(req.ClusterName, err, stream)
 	}
 
 	// write stream into stream table
@@ -72,14 +72,14 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 		Expire:      time.Now().Add(s.Config.HeartbeatExpirePeriod * time.Second),
 	}); err != nil {
 		logrus.Error("insert stream table error: %s", err)
-		utils.SendErrResponse(req.ClusterName, err, stream)
+		core.SendErrResponse(req.ClusterName, err, stream)
 	}
 
 	res := &config.Response{
 		Type:        "RegisterSuccess",
 		ClusterName: req.ClusterName,
 	}
-	utils.SendResponse(res, stream)
+	core.SendResponse(res, stream)
 }
 
 func (s *CoreServer) Heartbeat(req *config.Request, stream config.Channel_EstablishServer) {
@@ -90,7 +90,7 @@ func (s *CoreServer) Heartbeat(req *config.Request, stream config.Channel_Establ
 		ClusterName: req.ClusterName,
 		Body:        "",
 	}
-	utils.SendResponse(res, stream)
+	core.SendResponse(res, stream)
 }
 
 func (s *CoreServer) registerHandler(typ string, fn Fn) {

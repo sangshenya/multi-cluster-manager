@@ -1,0 +1,6 @@
+plugins:
+  inTree:
+  - name: addon1
+  outTree:
+  - name: addon2
+    url: www.123.com
