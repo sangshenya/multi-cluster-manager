@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"harmonycloud.cn/stellaris/pkg/util/core"
 	"net"
 	"strconv"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"harmonycloud.cn/stellaris/pkg/controller"
 	corecfg "harmonycloud.cn/stellaris/pkg/core/config"
 	"harmonycloud.cn/stellaris/pkg/core/handler"
-	"harmonycloud.cn/stellaris/pkg/core/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -55,7 +55,7 @@ func main() {
 	}
 
 	// construct client
-	kubeCfg, err := utils.GetKubeConfig(masterURL)
+	kubeCfg, err := core.GetKubeConfig(masterURL)
 	if err != nil {
 		logrus.Fatalf("failed connect kube-apiserver: %s", err)
 	}
