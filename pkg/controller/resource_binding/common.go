@@ -14,6 +14,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func SyncClusterResourceWithBinding(ctx context.Context, clientSet client.Client, binding *v1alpha1.MultiClusterResourceBinding) error {
+	// get ClusterResourceList
+	clusterResourceList, err := getClusterResourceListForBinding(ctx, clientSet, binding)
+	if err != nil {
+		return err
+	}
+	return syncClusterResource(ctx, clientSet, clusterResourceList, binding)
+}
+
 // syncClusterResource update or create or delete ClusterResource
 func syncClusterResource(ctx context.Context, clientSet client.Client, clusterResourceList *v1alpha1.ClusterResourceList, binding *v1alpha1.MultiClusterResourceBinding) error {
 	if len(binding.Spec.Resources) == 0 {
@@ -83,7 +92,7 @@ func newClusterResource(bindingName string, cluster v1alpha1.MultiClusterResourc
 	clusterResource.SetName(clusterResourceName)
 	clusterResource.SetNamespace(clusterNamespace)
 	// set labels
-	newLabels := clusterResourceLabels(bindingName, multiClusterResource.Spec.ResourceRef)
+	newLabels := clusterResourceLabels(bindingName, multiClusterResource.GetName(), multiClusterResource.Spec.ResourceRef)
 	clusterResource.SetLabels(newLabels)
 	// set owner
 	clusterResource.SetOwnerReferences([]metav1.OwnerReference{*owner})
@@ -97,10 +106,11 @@ func newClusterResource(bindingName string, cluster v1alpha1.MultiClusterResourc
 	return clusterResource
 }
 
-func clusterResourceLabels(bindingName string, multiClusterResourceRef *metav1.GroupVersionKind) map[string]string {
+func clusterResourceLabels(bindingName, multiClusterResourceName string, multiClusterResourceRef *metav1.GroupVersionKind) map[string]string {
 	newLabels := map[string]string{}
 	newLabels[managerCommon.ResourceBindingLabelName] = bindingName
 	newLabels[managerCommon.ResourceGvkLabelName] = managerCommon.GvkLabelString(multiClusterResourceRef)
+	newLabels[managerCommon.MultiClusterResourceLabelName] = multiClusterResourceName
 	return newLabels
 }
 

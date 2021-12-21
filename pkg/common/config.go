@@ -1,6 +1,11 @@
 package common
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	"errors"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+)
 
 const (
 	// TODO set manager default namespace
@@ -28,4 +33,11 @@ func GvkLabelString(gvk *metav1.GroupVersionKind) string {
 		gvkString = gvk.Version + ":" + gvk.Kind
 	}
 	return gvkString
+}
+
+func GetMultiClusterResourceSelectorForMultiClusterResourceName(multiClusterResourceName string) (labels.Selector, error) {
+	if len(multiClusterResourceName) == 0 {
+		return nil, errors.New("multiClusterResourceName is empty")
+	}
+	return labels.Parse(MultiClusterResourceLabelName + "." + multiClusterResourceName + "=1")
 }
