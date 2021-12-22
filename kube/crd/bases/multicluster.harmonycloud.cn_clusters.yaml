@@ -14,7 +14,7 @@ spec:
     listKind: ClusterList
     plural: clusters
     singular: cluster
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1alpha1
     schema:
@@ -82,6 +82,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
