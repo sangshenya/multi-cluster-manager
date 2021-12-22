@@ -12,10 +12,11 @@ const (
 	ManagerNamespace = "chenkun"
 	// TODO set manager default FinalizerName
 	FinalizerName                               = "multicluster.harmonycloud.cn.Finalizer"
+	ClusterResourceLabelName                    = "multicluster.harmonycloud.cn.ClusterResource"
 	ResourceBindingLabelName                    = "multicluster.harmonycloud.cn.ResourceBinding"
 	ResourceGvkLabelName                        = "multicluster.harmonycloud.cn.ResourceGvk"
 	MultiClusterResourceLabelName               = "multicluster.harmonycloud.cn.MultiClusterResource"
-	MultiClusterResourceSchedulePolicyLabelName = "multicluster.harmonycloud.cn.schedulePolicy"
+	MultiClusterResourceSchedulePolicyLabelName = "multicluster.harmonycloud.cn.SchedulePolicy"
 )
 
 // TODO clusterName change to clusterNamespace
@@ -40,4 +41,9 @@ func GetMultiClusterResourceSelectorForMultiClusterResourceName(multiClusterReso
 		return nil, errors.New("multiClusterResourceName is empty")
 	}
 	return labels.Parse(MultiClusterResourceLabelName + "." + multiClusterResourceName + "=1")
+}
+
+// TODO should determine the cluster role
+func IsControlPlane() bool {
+	return true
 }
