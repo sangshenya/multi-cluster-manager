@@ -28,9 +28,6 @@ func (r *ClusterSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		return ctrl.Result{Requeue: true}, err
 	}
-	if !clusterSet.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
-	}
 	return ctrl.Result{}, nil
 }
 
