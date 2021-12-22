@@ -7,10 +7,11 @@ const (
 	ManagerNamespace = ""
 	// TODO set manager default FinalizerName
 	FinalizerName                               = ""
+	ClusterResourceLabelName                    = "multicluster.harmonycloud.cn.ClusterResource"
 	ResourceBindingLabelName                    = "multicluster.harmonycloud.cn.ResourceBinding"
 	ResourceGvkLabelName                        = "multicluster.harmonycloud.cn.ResourceGvk"
 	MultiClusterResourceLabelName               = "multicluster.harmonycloud.cn.MultiClusterResource"
-	MultiClusterResourceSchedulePolicyLabelName = "multicluster.harmonycloud.cn.schedulePolicy"
+	MultiClusterResourceSchedulePolicyLabelName = "multicluster.harmonycloud.cn.SchedulePolicy"
 )
 
 // TODO clusterName change to clusterNamespace
@@ -28,4 +29,9 @@ func GvkLabelString(gvk *metav1.GroupVersionKind) string {
 		gvkString = gvk.Version + ":" + gvk.Kind
 	}
 	return gvkString
+}
+
+// TODO should determine the cluster role
+func IsControlPlane() bool {
+	return true
 }
