@@ -2,9 +2,14 @@ package multi_cluster_resource
 
 import (
 	"context"
+	"flag"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"k8s.io/client-go/tools/clientcmd"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 
@@ -41,17 +46,26 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
+	Expect(os.Setenv("TEST_ASSET_KUBE_APISERVER", "../../testbin/kube-apiserver")).To(Succeed())
+	Expect(os.Setenv("TEST_ASSET_ETCD", "../../testbin/etcd")).To(Succeed())
+	Expect(os.Setenv("TEST_ASSET_KUBECTL", "../../testbin/kubectl")).To(Succeed())
+
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 	rand.Seed(time.Now().UnixNano())
 	By("bootstrapping test environment")
 
+	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-238", "kubernetes auth config")
+	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
+
 	// TODO fix test env
-	yamlPath := ""
+	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
 	testEnv = &envtest.Environment{
 		ControlPlaneStartTimeout: time.Minute,
 		ControlPlaneStopTimeout:  time.Minute,
-		UseExistingCluster:       pointer.BoolPtr(false),
+		UseExistingCluster:       pointer.BoolPtr(true),
 		CRDDirectoryPaths:        []string{yamlPath},
+		Config:                   config,
 	}
 
 	var err error
@@ -97,8 +111,14 @@ var _ = BeforeSuite(func(done Done) {
 }, 120)
 
 var _ = AfterSuite(func() {
+
 	By("tearing down the test environment")
 	controllerDone()
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
+
+	Expect(os.Unsetenv("TEST_ASSET_KUBE_APISERVER")).To(Succeed())
+	Expect(os.Unsetenv("TEST_ASSET_ETCD")).To(Succeed())
+	Expect(os.Unsetenv("TEST_ASSET_KUBECTL")).To(Succeed())
+
 })

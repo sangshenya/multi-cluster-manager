@@ -9,9 +9,9 @@ import (
 
 const (
 	// TODO set manager default namespace
-	ManagerNamespace = ""
+	ManagerNamespace = "chenkun"
 	// TODO set manager default FinalizerName
-	FinalizerName                               = ""
+	FinalizerName                               = "multicluster.harmonycloud.cn.Finalizer"
 	ResourceBindingLabelName                    = "multicluster.harmonycloud.cn.ResourceBinding"
 	ResourceGvkLabelName                        = "multicluster.harmonycloud.cn.ResourceGvk"
 	MultiClusterResourceLabelName               = "multicluster.harmonycloud.cn.MultiClusterResource"

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"sigs.k8s.io/yaml"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -30,6 +32,48 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+var resourceYaml = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-nginx-app
+  namespace: chenkun
+spec:
+  selector:
+    matchLabels:
+      run: my-nginx-app
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        run: my-nginx-app
+    spec:
+      containers:
+      - name: my-nginx-app
+        image: nginx
+        ports:
+        - containerPort: 80
+`
+
+var resourceYamlRef = &metav1.GroupVersionKind{
+	Group:   "apps",
+	Version: "v1",
+	Kind:    "Deployment",
+}
+
+var (
+	multiClusterResource     *v1alpha1.MultiClusterResource
+	binding                  *v1alpha1.MultiClusterResourceBinding
+	multiClusterResourceName string
+	clusterName1             string
+	clusterName2             string
+	bindingName              string
+	bindingNamespacedName    types.NamespacedName
+	resourceNamespacedName   types.NamespacedName
+	targetResource           *runtime.RawExtension
+	targetResourceRef        *metav1.GroupVersionKind
+)
+
 var _ = Describe("Test multiClusterResourceController", func() {
 	ctx := context.TODO()
 
@@ -37,20 +81,14 @@ var _ = Describe("Test multiClusterResourceController", func() {
 	// 2、create binding and edit multiClusterResource, then check binding and clusterResource
 	// 3、delete multiClusterResource,then check clusterResource alive or not
 
-	var (
-		multiClusterResource     *v1alpha1.MultiClusterResource
-		binding                  *v1alpha1.MultiClusterResourceBinding
-		multiClusterResourceName string
-		clusterName1             string
-		clusterName2             string
-		bindingName              string
-		bindingNamespacedName    types.NamespacedName
-		resourceNamespacedName   types.NamespacedName
-		// TODO set targetResource
-		targetResource    *runtime.RawExtension
-		targetResourceRef *metav1.GroupVersionKind
-	)
-	// TODO set Resource and ResourceRef
+	targetResource = getResourceForYaml()
+	targetResourceRef = resourceYamlRef
+
+	multiClusterResourceName = "testresource"
+	clusterName1 = "cluster1"
+	clusterName2 = "cluster2"
+	bindingName = "testbinding"
+
 	multiClusterResource = &v1alpha1.MultiClusterResource{
 		Spec: v1alpha1.MultiClusterResourceSpec{
 			Resource:      targetResource,
@@ -105,8 +143,7 @@ var _ = Describe("Test multiClusterResourceController", func() {
 
 	// create binding and edit multiClusterResource
 	It(fmt.Sprintf("create binding(%s) and edit multiClusterResource(%s)", bindingName, multiClusterResourceName), func() {
-		// create binding
-		Expect(k8sClient.Create(ctx, binding)).Should(BeNil())
+		createBindingAndSyncClusterResource(ctx)
 		// edit multiClusterResource
 		multiClusterResource.Spec.ReplicasField = "4"
 		Expect(k8sClient.Update(ctx, multiClusterResource)).Should(BeNil())
@@ -161,4 +198,18 @@ func getResource(multiClusterResource *v1alpha1.MultiClusterResource) (*runtime.
 	// set resourceInfo
 	// TODO if MultiClusterResourceOverride alive
 	return controllerCommon.ApplyJsonPatch(multiClusterResource.Spec.Resource, []common.JSONPatch{})
+}
+
+func getResourceForYaml() *runtime.RawExtension {
+	jsonData, err := yaml.YAMLToJSON([]byte(resourceYaml))
+	Expect(err).Should(BeNil())
+	return &runtime.RawExtension{
+		Raw: jsonData,
+	}
+}
+
+func createBindingAndSyncClusterResource(ctx context.Context) {
+	// create binding
+	Expect(k8sClient.Create(ctx, binding)).Should(BeNil())
+
 }
