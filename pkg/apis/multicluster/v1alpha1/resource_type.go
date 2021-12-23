@@ -18,6 +18,7 @@ type MultiClusterResource struct {
 }
 
 type MultiClusterResourceSpec struct {
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Resource      *runtime.RawExtension    `json:"resource,omitempty"`
 	ResourceRef   *metav1.GroupVersionKind `json:"resourceRef,omitempty"`
 	ReplicasField string                   `json:"replicasFiled,omitempty"`

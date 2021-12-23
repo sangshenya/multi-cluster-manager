@@ -165,14 +165,17 @@ func getMultiClusterResourceBindingListForMultiClusterResource(ctx context.Conte
 }
 
 func removeResource(resources []v1alpha1.MultiClusterResourceBindingResource, resource v1alpha1.MultiClusterResourceBindingResource) []v1alpha1.MultiClusterResourceBindingResource {
+	if len(resources) == 0 {
+		return resources
+	}
 	var objectList []interface{}
 	for _, items := range resources {
 		objectList = append(objectList, items)
 	}
 	index := sliceutil.GetIndexWithObject(objectList, resource)
 	list := sliceutil.RemoveObjectWithIndex(objectList, index)
-	if len(list) <= 0 {
-		return resources
+	if len(list) == 0 {
+		return []v1alpha1.MultiClusterResourceBindingResource{}
 	}
 	var resourceList []v1alpha1.MultiClusterResourceBindingResource
 	for _, obj := range list {

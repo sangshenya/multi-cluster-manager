@@ -3,6 +3,8 @@ package common
 import (
 	"errors"
 
+	"cuelang.org/go/pkg/strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -29,9 +31,9 @@ func ClusterName(clusterNamespace string) string {
 }
 
 func GvkLabelString(gvk *metav1.GroupVersionKind) string {
-	gvkString := gvk.Group + ":" + gvk.Version + ":" + gvk.Kind
+	gvkString := gvk.Group + ":" + gvk.Version + ":" + strings.ToLower(gvk.Kind)
 	if len(gvk.Group) == 0 {
-		gvkString = gvk.Version + ":" + gvk.Kind
+		gvkString = gvk.Version + ":" + strings.ToLower(gvk.Kind)
 	}
 	return gvkString
 }

@@ -41,7 +41,7 @@ func syncClusterResource(ctx context.Context, clientSet client.Client, clusterRe
 			clusterResource, ok := clusterResourceMap[key]
 			if !ok {
 				// new clusterResource
-				owner := metav1.NewControllerRef(binding, binding.GroupVersionKind())
+				owner := metav1.NewControllerRef(binding, v1alpha1.MultiClusterResourceBindingGroupVersionKind)
 				clusterResource = newClusterResource(binding.Name, cluster, owner, multiClusterResource)
 
 				// create clusterResource
@@ -115,6 +115,9 @@ func clusterResourceLabels(bindingName, multiClusterResourceName string, multiCl
 }
 
 func removeItemForClusterStatusList(itemList []common.MultiClusterResourceClusterStatus, item common.MultiClusterResourceClusterStatus) []common.MultiClusterResourceClusterStatus {
+	if len(itemList) <= 0 {
+		return itemList
+	}
 	var objectList []interface{}
 	for _, items := range itemList {
 		objectList = append(objectList, items)
@@ -122,8 +125,8 @@ func removeItemForClusterStatusList(itemList []common.MultiClusterResourceCluste
 
 	index := sliceutil.GetIndexWithObject(objectList, item)
 	list := sliceutil.RemoveObjectWithIndex(objectList, index)
-	if len(list) <= 0 {
-		return itemList
+	if len(list) == 0 {
+		return []common.MultiClusterResourceClusterStatus{}
 	}
 	var statusList []common.MultiClusterResourceClusterStatus
 	for _, obj := range list {
@@ -136,7 +139,7 @@ func removeItemForClusterStatusList(itemList []common.MultiClusterResourceCluste
 
 func getClusterResourceName(bindingName string, gvk *metav1.GroupVersionKind) string {
 	gvkString := managerCommon.GvkLabelString(gvk)
-	return bindingName + gvkString
+	return bindingName + ":" + gvkString
 }
 
 func mapKey(resourceNamespace, resourceName string) string {

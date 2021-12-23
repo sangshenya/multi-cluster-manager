@@ -19,6 +19,7 @@ type ClusterResource struct {
 }
 
 type ClusterResourceSpec struct {
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Resource *runtime.RawExtension `json:"resource,omitempty"`
 }
 

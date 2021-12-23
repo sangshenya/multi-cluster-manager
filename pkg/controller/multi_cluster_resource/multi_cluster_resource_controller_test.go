@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
+
+	"harmonycloud.cn/stellaris/pkg/controller/resource_binding"
 
 	"sigs.k8s.io/yaml"
 
@@ -50,6 +53,28 @@ spec:
     spec:
       containers:
       - name: my-nginx-app
+        image: crccheck/hello-world
+        ports:
+        - containerPort: 8000
+`
+var resourceYamlImageChanged = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-nginx-app
+  namespace: chenkun
+spec:
+  selector:
+    matchLabels:
+      run: my-nginx-app
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        run: my-nginx-app
+    spec:
+      containers:
+      - name: my-nginx-app
         image: nginx
         ports:
         - containerPort: 80
@@ -66,7 +91,6 @@ var (
 	binding                  *v1alpha1.MultiClusterResourceBinding
 	multiClusterResourceName string
 	clusterName1             string
-	clusterName2             string
 	bindingName              string
 	bindingNamespacedName    types.NamespacedName
 	resourceNamespacedName   types.NamespacedName
@@ -81,12 +105,11 @@ var _ = Describe("Test multiClusterResourceController", func() {
 	// 2、create binding and edit multiClusterResource, then check binding and clusterResource
 	// 3、delete multiClusterResource,then check clusterResource alive or not
 
-	targetResource = getResourceForYaml()
+	targetResource = getResourceForYaml(resourceYaml)
 	targetResourceRef = resourceYamlRef
 
 	multiClusterResourceName = "testresource"
-	clusterName1 = "cluster1"
-	clusterName2 = "cluster2"
+	clusterName1 = "test-multi-cluster"
 	bindingName = "testbinding"
 
 	multiClusterResource = &v1alpha1.MultiClusterResource{
@@ -96,8 +119,8 @@ var _ = Describe("Test multiClusterResourceController", func() {
 			ReplicasField: "2",
 		},
 	}
-	multiClusterResource.SetName(multiClusterResourceName)
 	multiClusterResource.SetNamespace(managerCommon.ManagerNamespace)
+	multiClusterResource.SetName(multiClusterResourceName)
 
 	binding = &v1alpha1.MultiClusterResourceBinding{
 		Spec: v1alpha1.MultiClusterResourceBindingSpec{
@@ -107,9 +130,6 @@ var _ = Describe("Test multiClusterResourceController", func() {
 					Clusters: []v1alpha1.MultiClusterResourceBindingCluster{
 						v1alpha1.MultiClusterResourceBindingCluster{
 							Name: clusterName1,
-						},
-						v1alpha1.MultiClusterResourceBindingCluster{
-							Name: clusterName2,
 						},
 					},
 				},
@@ -139,13 +159,18 @@ var _ = Describe("Test multiClusterResourceController", func() {
 		Expect(k8sClient.Get(ctx, resourceNamespacedName, multiClusterResource)).Should(BeNil())
 		Expect(multiClusterResource.GetFinalizers()).ShouldNot(Equal(0))
 		Expect(sliceutil.ContainsString(multiClusterResource.GetFinalizers(), managerCommon.FinalizerName)).Should(BeTrue())
+		Expect(multiClusterResource.Spec.Resource).Should(Equal(getResourceForYaml(resourceYaml)))
 	})
 
 	// create binding and edit multiClusterResource
 	It(fmt.Sprintf("create binding(%s) and edit multiClusterResource(%s)", bindingName, multiClusterResourceName), func() {
+		// create binding and clusterResource
 		createBindingAndSyncClusterResource(ctx)
-		// edit multiClusterResource
-		multiClusterResource.Spec.ReplicasField = "4"
+
+		time.Sleep(5 * time.Second)
+		Expect(k8sClient.Get(ctx, resourceNamespacedName, multiClusterResource)).Should(BeNil())
+		// edit multiClusterResource，update image
+		multiClusterResource.Spec.Resource = getResourceForYaml(resourceYamlImageChanged)
 		Expect(k8sClient.Update(ctx, multiClusterResource)).Should(BeNil())
 		// send event
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: resourceNamespacedName})
@@ -169,6 +194,10 @@ var _ = Describe("Test multiClusterResourceController", func() {
 		// send event
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: resourceNamespacedName})
 		Expect(err).Should(BeNil())
+
+		deleteBindingFinalizers(ctx)
+
+		time.Sleep(5 * time.Second)
 
 		// check multiClusterResource
 		Expect(apierrors.IsNotFound(k8sClient.Get(ctx, resourceNamespacedName, multiClusterResource))).Should(BeTrue())
@@ -200,8 +229,8 @@ func getResource(multiClusterResource *v1alpha1.MultiClusterResource) (*runtime.
 	return controllerCommon.ApplyJsonPatch(multiClusterResource.Spec.Resource, []common.JSONPatch{})
 }
 
-func getResourceForYaml() *runtime.RawExtension {
-	jsonData, err := yaml.YAMLToJSON([]byte(resourceYaml))
+func getResourceForYaml(resourceString string) *runtime.RawExtension {
+	jsonData, err := yaml.YAMLToJSON([]byte(resourceString))
 	Expect(err).Should(BeNil())
 	return &runtime.RawExtension{
 		Raw: jsonData,
@@ -209,7 +238,23 @@ func getResourceForYaml() *runtime.RawExtension {
 }
 
 func createBindingAndSyncClusterResource(ctx context.Context) {
+	labelKey := managerCommon.MultiClusterResourceLabelName + "." + multiClusterResourceName
+	binding.SetLabels(map[string]string{
+		labelKey: "1",
+	})
 	// create binding
 	Expect(k8sClient.Create(ctx, binding)).Should(BeNil())
 
+	binding.Finalizers = append(binding.Finalizers, managerCommon.FinalizerName)
+	Expect(k8sClient.Update(ctx, binding)).Should(BeNil())
+
+	Expect(resource_binding.SyncClusterResourceWithBinding(ctx, k8sClient, binding)).Should(BeNil())
+}
+
+func deleteBindingFinalizers(ctx context.Context) {
+	Expect(k8sClient.Get(ctx, bindingNamespacedName, binding)).Should(BeNil())
+	if sliceutil.ContainsString(binding.Finalizers, managerCommon.FinalizerName) && !binding.GetDeletionTimestamp().IsZero() {
+		binding.Finalizers = sliceutil.RemoveString(binding.Finalizers, managerCommon.FinalizerName)
+		Expect(k8sClient.Update(ctx, binding)).Should(BeNil())
+	}
 }
