@@ -58,7 +58,6 @@ var _ = BeforeSuite(func(done Done) {
 	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-238", "kubernetes auth config")
 	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
 
-	// TODO fix test env
 	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
 	testEnv = &envtest.Environment{
 		ControlPlaneStartTimeout: time.Minute,
