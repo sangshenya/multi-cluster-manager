@@ -3,7 +3,6 @@ package multi_cluster_resource
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"harmonycloud.cn/stellaris/pkg/controller/resource_binding"
 
@@ -43,27 +42,27 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	}
 
 	// add Finalizers
-	if instance.ObjectMeta.DeletionTimestamp.IsZero() && !sliceutil.ContainsString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName) {
-		instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName)
-		if err = r.Client.Update(ctx, instance); err != nil {
+	if controllerCommon.ShouldAddFinalizer(instance) {
+		err = controllerCommon.AddFinalizer(ctx, r.Client, instance)
+		if err != nil {
 			r.log.Error(err, fmt.Sprintf("append finalizer filed to resource(%s) failed", instance.Name))
-			return reQueueResult(err)
+			return controllerCommon.ReQueueResult(err)
 		}
 		return ctrl.Result{}, nil
 	}
 
 	// the object is being deleted
-	if !instance.ObjectMeta.DeletionTimestamp.IsZero() && sliceutil.ContainsString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName) {
+	if !instance.GetDeletionTimestamp().IsZero() {
 		// edit bindings
 		err = r.updateBinding(ctx, instance)
 		if err != nil {
-			return reQueueResult(err)
+			return controllerCommon.ReQueueResult(err)
 		}
-
-		instance.ObjectMeta.Finalizers = sliceutil.RemoveString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName)
-		if err = r.Client.Update(ctx, instance); err != nil {
+		// remove Finalizers
+		err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
+		if err != nil {
 			r.log.Error(err, fmt.Sprintf("delete finalizer filed from resource(%s) failed", instance.Name))
-			return reQueueResult(err)
+			return controllerCommon.ReQueueResult(err)
 
 		}
 		return ctrl.Result{}, nil
@@ -71,17 +70,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	// find binding list, then sync clusterResource
 	err = r.syncBindingAndClusterResource(ctx, instance)
 	if err != nil {
-		return reQueueResult(err)
+		return controllerCommon.ReQueueResult(err)
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func reQueueResult(err error) (ctrl.Result, error) {
-	return ctrl.Result{
-		Requeue:      true,
-		RequeueAfter: 30 * time.Second,
-	}, err
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -2,9 +2,13 @@ package resource_binding
 
 import (
 	"context"
+	"flag"
 	"math/rand"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"k8s.io/client-go/tools/clientcmd"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 
@@ -45,13 +49,16 @@ var _ = BeforeSuite(func(done Done) {
 	rand.Seed(time.Now().UnixNano())
 	By("bootstrapping test environment")
 
-	// TODO fix test env
-	yamlPath := ""
+	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-238", "kubernetes auth config")
+	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
+
+	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
 	testEnv = &envtest.Environment{
 		ControlPlaneStartTimeout: time.Minute,
 		ControlPlaneStopTimeout:  time.Minute,
-		UseExistingCluster:       pointer.BoolPtr(false),
+		UseExistingCluster:       pointer.BoolPtr(true),
 		CRDDirectoryPaths:        []string{yamlPath},
+		Config:                   config,
 	}
 
 	var err error
