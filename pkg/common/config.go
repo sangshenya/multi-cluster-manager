@@ -14,7 +14,7 @@ const (
 	MultiClusterResourceSchedulePolicyLabelName = "multicluster.harmonycloud.cn.SchedulePolicy"
 )
 const (
-	ClusterWorkspacePrefix = "stellaris.harmonycloud.cn-"
+	ClusterWorkspacePrefix = "stellaris-harmonycloud-cn-"
 )
 
 const (
