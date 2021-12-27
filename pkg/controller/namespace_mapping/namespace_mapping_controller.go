@@ -6,6 +6,7 @@ import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
+	"harmonycloud.cn/stellaris/pkg/util/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,11 +16,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 )
 
 const (
-	createMapping = "create"
-	removeMapping = "remove"
+	createOrUpdateMapping = "create"
+	removeMapping         = "remove"
 )
 
 type NamespaceMappingReconciler struct {
@@ -54,7 +56,7 @@ func (r *NamespaceMappingReconciler) syncNamespaceMapping(namespaceMapping *v1al
 }
 
 func (r *NamespaceMappingReconciler) createMapping(namespaceMapping *v1alpha1.NamespaceMapping) error {
-	err := r.mappingOperator(namespaceMapping, createMapping)
+	err := r.mappingOperator(namespaceMapping, createOrUpdateMapping)
 	if err != nil {
 		return err
 	}
@@ -109,16 +111,22 @@ func (r *NamespaceMappingReconciler) mappingOperator(namespaceMapping *v1alpha1.
 		r.Client.Get(context.TODO(), types.NamespacedName{Name: namespaceMapping.Namespace}, workspace)
 		labels := workspace.GetLabels()
 		// add mapping label
-		if option == createMapping {
+		if option == createOrUpdateMapping {
 			if labels == nil {
 				labels = make(map[string]string, 1)
+			}else{
+				// if update,delete old labels
+				labels = updateLabel(labels, ruleK, namespaceMapping.Namespace)
 			}
+
+
 			labelK, err := controllerCommon.GenerateLabelKey(ruleK, ruleV)
 			if err != nil {
 				return err
 			}
 			labels[labelK] = namespaceMapping.Namespace
 			workspace.SetLabels(labels)
+			r.Client.Update(context.TODO(), workspace)
 		} else if option == removeMapping {
 			// delete mapping label
 			if labels == nil {
@@ -130,6 +138,7 @@ func (r *NamespaceMappingReconciler) mappingOperator(namespaceMapping *v1alpha1.
 			}
 			delete(labels, labelK)
 			workspace.SetLabels(labels)
+			r.Client.Update(context.TODO(), workspace)
 		}
 	}
 	return nil
@@ -148,4 +157,19 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 		log:    logf.Log.WithName("namespace-mapping_controller"),
 	}
 	return reconciler.SetupWithManager(mgr)
+}
+
+func updateLabel(labels map[string]string, cluster string, mappingNamespace string) map[string]string {
+	for k, v := range labels {
+		if v == mappingNamespace {
+			part, _ := common.GenerateName(managerCommon.NamespaceMappingLabel, cluster)
+			update := strings.Contains(k, part+"_")
+			if update {
+				delete(labels, k)
+			} else {
+				continue
+			}
+		}
+	}
+	return labels
 }

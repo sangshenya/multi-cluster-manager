@@ -15,7 +15,7 @@ var _ = Describe("ClusterSet", func() {
 	ctx := context.TODO()
 	clusterSet := &v1alpha1.ClusterSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "clusterSet",
+			Name: "cluster-set",
 		},
 		Spec: v1alpha1.ClusterSetSpec{
 			Selector: v1alpha1.ClusterSetSelector{},
@@ -35,27 +35,23 @@ var _ = Describe("ClusterSet", func() {
 		Expect(err).Should(BeNil())
 	})
 	It(fmt.Sprintf("update clusterSet(%s)", clusterSet.Name), func() {
-		Expect(k8sClient.Create(ctx, clusterSet)).Should(BeNil())
 		clusterSetNamespacedName := types.NamespacedName{
 			Name: clusterSet.Name,
 		}
-		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterSetNamespacedName})
-		Expect(err).Should(BeNil())
+		createdClusterSet := &v1alpha1.ClusterSet{}
+		_ = k8sClient.Get(context.TODO(), clusterSetNamespacedName, createdClusterSet)
 
-		Expect(k8sClient.Update(ctx, clusterSet)).Should(BeNil())
-		_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterSetNamespacedName})
+		Expect(k8sClient.Update(ctx, createdClusterSet)).Should(BeNil())
+		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterSetNamespacedName})
 		Expect(err).Should(BeNil())
 	})
 	It(fmt.Sprintf("delete clusterSet(%s)", clusterSet.Name), func() {
-		Expect(k8sClient.Create(ctx, clusterSet)).Should(BeNil())
 		clusterSetNamespacedName := types.NamespacedName{
 			Name: clusterSet.Name,
 		}
-		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterSetNamespacedName})
-		Expect(err).Should(BeNil())
 
 		Expect(k8sClient.Delete(ctx, clusterSet)).Should(BeNil())
-		_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterSetNamespacedName})
+		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterSetNamespacedName})
 		Expect(err).Should(BeNil())
 	})
 

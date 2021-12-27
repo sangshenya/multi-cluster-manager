@@ -6,7 +6,7 @@ import (
 )
 
 func GenerateLabelKey(k string, v string) (string, error) {
-	mappingK, err := common.GenerateNameByOption(k, v, "-")
+	mappingK, err := common.GenerateNameByOption(k, v, "_")
 	if err != nil {
 		return "", err
 	}

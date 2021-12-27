@@ -2,12 +2,15 @@ package cluster_set
 
 import (
 	"context"
+	"flag"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/pointer"
 	"math/rand"
+	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -37,14 +40,17 @@ var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 	rand.Seed(time.Now().UnixNano())
 	By("bootstrapping test environment")
+	k8sconfig := flag.String("k8sconfig", "C:/Users/kuangye/Desktop/k8s/config", "kubernetes test")
+	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
 
 	// TODO fix test env
-	yamlPath := ""
+	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
 	testEnv = &envtest.Environment{
 		ControlPlaneStartTimeout: time.Minute,
 		ControlPlaneStopTimeout:  time.Minute,
-		UseExistingCluster:       pointer.BoolPtr(false),
+		UseExistingCluster:       pointer.BoolPtr(true),
 		CRDDirectoryPaths:        []string{yamlPath},
+		Config:                   config,
 	}
 
 	var err error
