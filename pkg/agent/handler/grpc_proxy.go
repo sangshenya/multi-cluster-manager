@@ -17,15 +17,12 @@ func Register(cfg *agentconfig.Configuration) error {
 	}
 	addonInfo := &model.RegisterRequest{}
 	channel := &model.AddonsChannel{}
-	if cfg.AddonPath != ""{
+	if cfg.AddonPath != "" {
 		addonConfig, err := agent.GetAddonConfig(cfg.AddonPath)
 		if err != nil {
 			return fmt.Errorf("get addons config err: %v", err)
 		}
-		addonInfo, channel, err = addons.Load(addonConfig)
-		if err != nil {
-			return err
-		}
+		addonInfo, channel = addons.Load(addonConfig)
 	}
 
 	request, err := common.GenerateRequest("Register", addonInfo, cfg.ClusterName)
