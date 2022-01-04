@@ -2,9 +2,7 @@ package cluster_resource_aggregate_rule
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	validationCommon "harmonycloud.cn/stellaris/pkg/common/validation"
@@ -20,17 +18,16 @@ type ValidatingAdmission struct {
 // Handle implements admission.Handler interface.
 // It yields a response to an AdmissionRequest.
 func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request) admission.Response {
-	clusterResource := &v1alpha1.MultiClusterResourceAggregateRule{}
-	err := v.decoder.Decode(req, clusterResource)
+	aggregateRule := &v1alpha1.MultiClusterResourceAggregateRule{}
+	err := v.decoder.Decode(req, aggregateRule)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	klog.V(2).Infof("Validating clusterResource(%s) for request: %s", clusterResource.Name, req.Operation)
-	// validate clusterResource name
-	if errs := validationCommon.ValidateClusterResourceName(clusterResource.Name); len(errs) > 0 {
-		errMsg := fmt.Sprintf("invalid clusterResource name(%s): %s", clusterResource.Name, strings.Join(errs, ";"))
-		klog.Info(errMsg)
-		return admission.Denied(errMsg)
+	klog.V(2).Infof("Validating clusterResource(%s) for request: %s", aggregateRule.Name, req.Operation)
+	// TODO(chenkun) currently we only validate whether it contains CUE.
+	if len(aggregateRule.Spec.Rule.Cue) <= 0 {
+		klog.Error(validationCommon.CueIsEmpty)
+		return admission.Denied(validationCommon.CueIsEmpty)
 	}
 
 	return admission.Allowed("")

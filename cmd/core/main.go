@@ -1,13 +1,22 @@
 package main
 
 import (
+	"errors"
 	"flag"
-	"harmonycloud.cn/stellaris/pkg/util/core"
+	"fmt"
+	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
+	"k8s.io/klog/v2"
+
+	"harmonycloud.cn/stellaris/pkg/util/core"
+
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
+	managerWebhook "harmonycloud.cn/stellaris/pkg/webhook"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -33,6 +42,8 @@ var (
 	masterURL             string
 	metricsAddr           string
 	probeAddr             string
+	useWebhook            bool
+	certDir               string
 )
 
 func init() {
@@ -41,6 +52,8 @@ func init() {
 	flag.DurationVar(&heartbeatExpirePeriod, "heartbeat-expire-period", 30, "The period of maximum heartbeat interval")
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9000", "The address the metrics endpoint binds to")
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
+	flag.BoolVar(&useWebhook, "use-webhook", false, "use webhook or not")
+	flag.StringVar(&certDir, "webhook-cert-dir", "/k8s-webhook-server/serving-certs", "Admission webhook cert/key dir.")
 
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 }
@@ -91,6 +104,14 @@ func main() {
 
 	// setup controllers
 	controllerArgs := controllerCommon.Args{ManagerClientSet: mClient}
+	if useWebhook {
+		managerWebhook.Register(mgr, controllerArgs)
+		if err := waitWebhookSecretVolume(certDir, 90*time.Second, 2*time.Second); err != nil {
+			klog.ErrorS(err, "Unable to get webhook secret")
+			os.Exit(1)
+		}
+	}
+
 	if err = controller.Setup(mgr, controllerArgs); err != nil {
 		logrus.Fatalf("failed to create controller: %s", err)
 	}
@@ -103,5 +124,49 @@ func main() {
 	}
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		logrus.Fatalf("failed running manager: %s", err)
+	}
+}
+
+// waitWebhookSecretVolume waits for webhook secret ready to avoid mgr running crash
+func waitWebhookSecretVolume(certDir string, timeout, interval time.Duration) error {
+	start := time.Now()
+	for {
+		time.Sleep(interval)
+		if time.Since(start) > timeout {
+			return fmt.Errorf("getting webhook secret timeout after %s", timeout.String())
+		}
+		klog.InfoS("Wait webhook secret", "time consumed(second)", int64(time.Since(start).Seconds()),
+			"timeout(second)", int64(timeout.Seconds()))
+		if _, err := os.Stat(certDir); !os.IsNotExist(err) {
+			ready := func() bool {
+				f, err := os.Open(filepath.Clean(certDir))
+				if err != nil {
+					return false
+				}
+				// nolint
+				defer f.Close()
+				// check if dir is empty
+				if _, err := f.Readdir(1); errors.Is(err, io.EOF) {
+					return false
+				}
+				// check if secret files are empty
+				err = filepath.Walk(certDir, func(path string, info os.FileInfo, err error) error {
+					// even Cert dir is created, cert files are still empty for a while
+					if info.Size() == 0 {
+						return errors.New("secret is not ready")
+					}
+					return nil
+				})
+				if err == nil {
+					klog.InfoS("Webhook secret is ready", "time consumed(second)",
+						int64(time.Since(start).Seconds()))
+					return true
+				}
+				return false
+			}()
+			if ready {
+				return nil
+			}
+		}
 	}
 }

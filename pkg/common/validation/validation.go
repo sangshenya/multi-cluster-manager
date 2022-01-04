@@ -8,6 +8,8 @@ import (
 
 const clusterResourceNameMaxLength int = 64
 
+const CueIsEmpty = "cue is empty"
+
 func ValidateClusterResourceName(name string) []string {
 	if len(name) > clusterResourceNameMaxLength {
 		return []string{fmt.Sprintf("must be no more than %d characters", clusterResourceNameMaxLength)}

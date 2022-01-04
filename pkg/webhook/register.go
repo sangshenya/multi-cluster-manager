@@ -1,0 +1,19 @@
+package webhook
+
+import (
+	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
+	"harmonycloud.cn/stellaris/pkg/webhook/cluster_resource"
+	"harmonycloud.cn/stellaris/pkg/webhook/cluster_resource_aggregate_rule"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
+)
+
+// Register will be called in main and register all validation handlers
+func Register(mgr manager.Manager, args controllerCommon.Args) {
+	server := mgr.GetWebhookServer()
+	server.Register("/validating-v1alpha1-clusterresource", &webhook.Admission{Handler: &cluster_resource.ValidatingAdmission{}})
+	server.Register("/validating-v1alpha1-aggregaterule", &webhook.Admission{Handler: &cluster_resource_aggregate_rule.ValidatingAdmission{}})
+
+	server.Register("/convert", &conversion.Webhook{})
+}
