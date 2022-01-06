@@ -16,7 +16,3 @@ func ValidateClusterResourceName(name string) []string {
 	}
 	return kubevalidationpath.IsValidPathSegmentName(name)
 }
-
-func ValidateAggregateRule() {
-
-}

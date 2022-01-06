@@ -1,0 +1,43 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: stellaris-validating-config
+  labels:
+    app: stellaris-validating-config
+webhooks:
+  - name: validating.multicluster.harmonycloud.cn.v1alpha1.clusterresources
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["multicluster.harmonycloud.cn"]
+        apiVersions: ["v1alpha1"]
+        resources: ["clusterresources"]
+        scope: "Namespaced"
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: stellaris-webhook-svc
+        namespace: stellaris-system
+        path: "/validating-v1alpha1-clusterresource"
+    failurePolicy: Ignore
+    timeoutSeconds: 5
+  - name: validating.multicluster.harmonycloud.cn.v1alpha1.multiclusterresourceaggregaterules
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations: [ "CREATE", "UPDATE" ]
+        apiGroups: [ "multicluster.harmonycloud.cn" ]
+        apiVersions: [ "v1alpha1" ]
+        resources: [ "multiclusterresourceaggregaterules" ]
+        scope: "Namespaced"
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: stellaris-webhook-svc
+        namespace: stellaris-system
+        path: "/validating-v1alpha1-multiclusterresourceaggregaterules"
+    failurePolicy: Ignore
+    timeoutSeconds: 5

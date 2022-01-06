@@ -42,8 +42,8 @@ var (
 	masterURL             string
 	metricsAddr           string
 	probeAddr             string
-	useWebhook            bool
 	certDir               string
+	webhookPort           int
 )
 
 func init() {
@@ -52,8 +52,8 @@ func init() {
 	flag.DurationVar(&heartbeatExpirePeriod, "heartbeat-expire-period", 30, "The period of maximum heartbeat interval")
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9000", "The address the metrics endpoint binds to")
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
-	flag.BoolVar(&useWebhook, "use-webhook", false, "use webhook or not")
 	flag.StringVar(&certDir, "webhook-cert-dir", "/k8s-webhook-server/serving-certs", "Admission webhook cert/key dir.")
+	flag.IntVar(&webhookPort, "webhook-port", 9443, "admission webhook listen address")
 
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 }
@@ -95,23 +95,22 @@ func main() {
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		CertDir:                certDir,
+		Port:                   webhookPort,
 		HealthProbeBindAddress: probeAddr,
 	})
 	if err != nil {
 		logrus.Fatalf("failed create manager: %s", err)
 	}
 
-	// setup controllers
 	controllerArgs := controllerCommon.Args{ManagerClientSet: mClient}
-	if useWebhook {
-		managerWebhook.Register(mgr, controllerArgs)
-		if err := waitWebhookSecretVolume(certDir, 90*time.Second, 2*time.Second); err != nil {
-			klog.ErrorS(err, "Unable to get webhook secret")
-			os.Exit(1)
-		}
+	// register webhook
+	managerWebhook.Register(mgr, controllerArgs)
+	if err := waitWebhookSecretVolume(certDir, 90*time.Second, 2*time.Second); err != nil {
+		klog.ErrorS(err, "Unable to get webhook secret")
+		os.Exit(1)
 	}
-
+	// setup controllers
 	if err = controller.Setup(mgr, controllerArgs); err != nil {
 		logrus.Fatalf("failed to create controller: %s", err)
 	}

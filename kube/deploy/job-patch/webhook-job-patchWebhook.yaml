@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: stellaris-webhook-patch
+  namespace: stellaris-system
+  labels:
+    app: stellaris-webhook-patch
+spec:
+  template:
+    metadata:
+      name: stellaris-webhook-patch
+      labels:
+        app: stellaris-webhook-patch
+    spec:
+      containers:
+        - name: patch-webhook
+          image: wonderflow/kube-webhook-certgen:v2.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - patch
+            - --webhook-name=stellaris-validating-config
+            - --namespace=stellaris-system
+            - --secret-name=stellaris-webhook-cert
+            - --patch-failure-policy=Fail
+      restartPolicy: OnFailure
+      serviceAccountName: stellaris-webhook-admission
+      securityContext:
+        runAsGroup: 2000
+        runAsNonRoot: true
+        runAsUser: 2000
