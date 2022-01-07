@@ -3,7 +3,6 @@ package resource_binding
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 
@@ -11,7 +10,6 @@ import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
-	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,25 +38,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	}
 
 	// add Finalizers
-	if instance.ObjectMeta.DeletionTimestamp.IsZero() && !sliceutil.ContainsString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName) {
-		instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName)
-		if err = r.Client.Update(ctx, instance); err != nil {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: 30 * time.Second,
-			}, fmt.Errorf("append finalizer filed to resource %s failed: %s", instance.Name, err)
+	if controllerCommon.ShouldAddFinalizer(instance) {
+		err = controllerCommon.AddFinalizer(ctx, r.Client, instance)
+		if err != nil {
+			r.log.Error(err, fmt.Sprintf("append finalizer filed, resource(%s)", instance.Name))
+			return controllerCommon.ReQueueResult(err)
 		}
 		return ctrl.Result{}, nil
 	}
 
 	// the object is being deleted
-	if !instance.ObjectMeta.DeletionTimestamp.IsZero() && sliceutil.ContainsString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName) {
-		instance.ObjectMeta.Finalizers = sliceutil.RemoveString(instance.ObjectMeta.Finalizers, managerCommon.FinalizerName)
-		if err = r.Client.Update(ctx, instance); err != nil {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: 30 * time.Second,
-			}, fmt.Errorf("delete finalizer filed from resource %s failed: %s", instance.Name, err)
+	if !instance.GetDeletionTimestamp().IsZero() {
+		err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
+		if err != nil {
+			r.log.Error(err, fmt.Sprintf("delete finalizer filed, resource(%s)", instance.Name))
+			return controllerCommon.ReQueueResult(err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -67,29 +61,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	clusterResourceList, err := getClusterResourceListForBinding(ctx, r.Client, instance)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: 30 * time.Second,
-			}, fmt.Errorf("get clusterResource for resource %s failed: %s", instance.Name, err)
+			r.log.Error(err, fmt.Sprintf("get clusterResource for resource failed, resource(%s)", instance.Name))
+			return controllerCommon.ReQueueResult(err)
 		}
 	}
 
 	// sync ClusterResource
 	err = syncClusterResource(ctx, r.Client, clusterResourceList, instance)
 	if err != nil {
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: 30 * time.Second,
-		}, fmt.Errorf("sync ClusterResource failed: %s,  resource: %s", err, instance.Name)
+		r.log.Error(err, fmt.Sprintf("sync ClusterResource failed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
 	}
 
 	// update status
 	err = updateBindingStatus(ctx, r.Client, instance, clusterResourceList)
 	if err != nil {
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: 30 * time.Second,
-		}, fmt.Errorf("update binding status failed: %s,  resource: %s", err, instance.Name)
+		r.log.Error(err, fmt.Sprintf("update binding status failed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
 	}
 
 	return ctrl.Result{}, nil

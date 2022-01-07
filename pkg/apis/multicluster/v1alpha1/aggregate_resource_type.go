@@ -13,15 +13,17 @@ type AggregatedResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Clusters    *AggregatedResourceClusters `json:"clusters,omitempty"`
-	Aggregation runtime.RawExtension        `json:"aggregation,omitempty"`
-	Status      AggregatedResourceStatus    `json:"status"`
+	Clusters *AggregatedResourceClusters `json:"clusters,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Aggregation runtime.RawExtension     `json:"aggregation,omitempty"`
+	Status      AggregatedResourceStatus `json:"status"`
 }
 
 type AggregatedResourceClusters struct {
-	Name         string               `json:"name"`
-	ResourceName string               `json:"resourceName"`
-	Result       runtime.RawExtension `json:"result,omitempty"`
+	Name         string `json:"name"`
+	ResourceName string `json:"resourceName"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Result runtime.RawExtension `json:"result,omitempty"`
 }
 
 type AggregatedResourceStatus struct {

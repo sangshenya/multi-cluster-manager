@@ -22,6 +22,7 @@ spec:
         properties:
           aggregation:
             type: object
+            x-kubernetes-preserve-unknown-fields: true
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
               of an object. Servers should convert recognized schemas to the latest
@@ -35,6 +36,7 @@ spec:
                 type: string
               result:
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
             required:
             - name
             - resourceName

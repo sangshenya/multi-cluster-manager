@@ -19,4 +19,5 @@ require (
 	k8s.io/klog/v2 v2.9.0
 	k8s.io/utils v0.0.0-20210527160623-6fdb442a123b
 	sigs.k8s.io/controller-runtime v0.9.1
+	sigs.k8s.io/yaml v1.2.0
 )
