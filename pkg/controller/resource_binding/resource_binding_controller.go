@@ -31,32 +31,56 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	instance := &v1alpha1.MultiClusterResourceBinding{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// add Finalizers
 	if controllerCommon.ShouldAddFinalizer(instance) {
-		err = controllerCommon.AddFinalizer(ctx, r.Client, instance)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("append finalizer filed, resource(%s)", instance.Name))
-			return controllerCommon.ReQueueResult(err)
-		}
-		return ctrl.Result{}, nil
+		return r.addFinalizer(ctx, instance)
 	}
 
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
-		err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("delete finalizer filed, resource(%s)", instance.Name))
-			return controllerCommon.ReQueueResult(err)
-		}
-		return ctrl.Result{}, nil
+		return r.removeFinalizer(ctx, instance)
 	}
 
+	return r.updateStatusAndSyncClusterResource(ctx, instance)
+}
+
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha1.MultiClusterResourceBinding{}).
+		Complete(r)
+}
+
+func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
+	reconciler := Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		log:    logf.Log.WithName("resource_binding_controller"),
+	}
+	return reconciler.SetupWithManager(mgr)
+}
+
+func (r *Reconciler) addFinalizer(ctx context.Context, instance *v1alpha1.MultiClusterResourceBinding) (ctrl.Result, error) {
+	err := controllerCommon.AddFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("append finalizer filed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) removeFinalizer(ctx context.Context, instance *v1alpha1.MultiClusterResourceBinding) (ctrl.Result, error) {
+	err := controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("delete finalizer filed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) updateStatusAndSyncClusterResource(ctx context.Context, instance *v1alpha1.MultiClusterResourceBinding) (ctrl.Result, error) {
 	// get ClusterResourceList
 	clusterResourceList, err := getClusterResourceListForBinding(ctx, r.Client, instance)
 	if err != nil {
@@ -81,21 +105,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.MultiClusterResourceBinding{}).
-		Complete(r)
-}
-
-func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
-	reconciler := Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		log:    logf.Log.WithName("resource_binding_controller"),
-	}
-	return reconciler.SetupWithManager(mgr)
 }
 
 func getMultiClusterResourceForName(ctx context.Context, clientSet client.Client, multiClusterResourceName string) (*v1alpha1.MultiClusterResource, error) {

@@ -10,7 +10,6 @@ import (
 	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
 
 	"github.com/go-logr/logr"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
@@ -35,45 +34,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	instance := &v1alpha1.MultiClusterResource{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// add Finalizers
 	if controllerCommon.ShouldAddFinalizer(instance) {
-		err = controllerCommon.AddFinalizer(ctx, r.Client, instance)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("append finalizer filed to resource(%s) failed", instance.Name))
-			return controllerCommon.ReQueueResult(err)
-		}
-		return ctrl.Result{}, nil
+		return r.addFinalizer(ctx, instance)
 	}
 
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
-		// edit bindings
-		err = r.updateBinding(ctx, instance)
-		if err != nil {
-			return controllerCommon.ReQueueResult(err)
-		}
-		// remove Finalizers
-		err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("delete finalizer filed from resource(%s) failed", instance.Name))
-			return controllerCommon.ReQueueResult(err)
-
-		}
-		return ctrl.Result{}, nil
+		return r.removeMultiClusterResource(ctx, instance)
 	}
 	// find binding list, then sync clusterResource
-	err = r.syncBindingAndClusterResource(ctx, instance)
-	if err != nil {
-		return controllerCommon.ReQueueResult(err)
-	}
-
-	return ctrl.Result{}, nil
+	return r.syncBindingAndClusterResource(ctx, instance)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -92,21 +66,21 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 }
 
 // syncBindingAndClusterResource get binding list, and sync clusterResource
-func (r *Reconciler) syncBindingAndClusterResource(ctx context.Context, multiClusterResource *v1alpha1.MultiClusterResource) error {
+func (r *Reconciler) syncBindingAndClusterResource(ctx context.Context, multiClusterResource *v1alpha1.MultiClusterResource) (ctrl.Result, error) {
 	bindingList, err := getMultiClusterResourceBindingListForMultiClusterResource(ctx, r.Client, multiClusterResource)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("get multiClusterResourceBindingList failed, resource(%s)", multiClusterResource.Name))
-		return err
+		return controllerCommon.ReQueueResult(err)
 	}
 
 	for _, binding := range bindingList.Items {
 		err = resource_binding.SyncClusterResourceWithBinding(ctx, r.Client, &binding)
 		if err != nil {
 			r.log.Error(err, fmt.Sprintf("sync ClusterResource failed, resource(%s)", multiClusterResource.Name))
-			return err
+			return controllerCommon.ReQueueResult(err)
 		}
 	}
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // updateBinding update or delete binding when multiClusterResource deleted
@@ -142,6 +116,33 @@ func (r *Reconciler) updateBinding(ctx context.Context, multiClusterResource *v1
 		}
 	}
 	return nil
+}
+
+func (r *Reconciler) addFinalizer(ctx context.Context, instance *v1alpha1.MultiClusterResource) (ctrl.Result, error) {
+	err := controllerCommon.AddFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("append finalizer filed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) removeMultiClusterResource(ctx context.Context, instance *v1alpha1.MultiClusterResource) (ctrl.Result, error) {
+	// edit bindings
+	err := r.updateBinding(ctx, instance)
+	if err != nil {
+		return controllerCommon.ReQueueResult(err)
+	}
+	return r.removeFinalizer(ctx, instance)
+}
+
+func (r *Reconciler) removeFinalizer(ctx context.Context, instance *v1alpha1.MultiClusterResource) (ctrl.Result, error) {
+	err := controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("delete finalizer filed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
+	}
+	return ctrl.Result{}, nil
 }
 
 func getMultiClusterResourceBindingListForMultiClusterResource(ctx context.Context, clientSet client.Client, multiClusterResource *v1alpha1.MultiClusterResource) (*v1alpha1.MultiClusterResourceBindingList, error) {

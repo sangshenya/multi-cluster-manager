@@ -33,63 +33,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	instance := &v1alpha1.ClusterResource{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// add Finalizers
 	if controllerCommon.ShouldAddFinalizer(instance) {
-		err = controllerCommon.AddFinalizer(ctx, r.Client, instance)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("append finalizer filed to resource(%s) failed", instance.Name))
-			return controllerCommon.ReQueueResult(err)
-		}
-		return ctrl.Result{}, nil
+		return r.addFinalizer(ctx, instance)
 	}
 
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
-		err = r.deleteClusterResource(ctx, instance)
-		if err != nil {
-			return controllerCommon.ReQueueResult(err)
-		}
-		// delete finalizer
-		err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("delete finalizer filed from resource(%s) failed", instance.Name))
-			return controllerCommon.ReQueueResult(err)
-		}
-		return ctrl.Result{}, nil
-	}
-	// core
-	if managerCommon.IsControlPlane() {
-		err = sendClusterResourceToAgent(SyncEventTypeUpdate, instance)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("send ClusterResouce failed, resource(%s)", instance.Name))
-			return controllerCommon.ReQueueResult(err)
-		}
-		return ctrl.Result{}, nil
-	}
-	// agent
-	if len(instance.Status.Phase) == 0 || instance.Generation != instance.Status.ObservedReceiveGeneration {
-		// update status to creating
-		err = r.updateClusterResourceStatusWithPhaseCreate(ctx, instance)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("update status failed, resource(%s)", instance.Name))
-			return controllerCommon.ReQueueResult(err)
-		}
-		return ctrl.Result{}, nil
-	}
-	if instance.Status.Phase == common.Creating {
-		err = r.syncResourceAndUpdateStatus(ctx, instance)
-		if err != nil {
-			return controllerCommon.ReQueueResult(err)
-		}
+		return r.removeClusterResource(ctx, instance)
 	}
 
-	return ctrl.Result{}, nil
+	return r.syncClusterResource(ctx, instance)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -105,6 +62,69 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 		log:    logf.Log.WithName("cluster_resource_controller"),
 	}
 	return reconciler.SetupWithManager(mgr)
+}
+
+func (r *Reconciler) syncClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
+	if managerCommon.IsControlPlane() {
+		return r.syncCoreClusterResource(ctx, instance)
+	}
+	return r.syncAgentClusterResource(ctx, instance)
+}
+
+func (r *Reconciler) syncCoreClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
+	err := sendClusterResourceToAgent(SyncEventTypeUpdate, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("send ClusterResouce failed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) syncAgentClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
+	var err error
+	if len(instance.Status.Phase) == 0 || instance.Generation != instance.Status.ObservedReceiveGeneration {
+		// update status to creating
+		err = r.updateClusterResourceStatusWithPhaseCreate(ctx, instance)
+		if err != nil {
+			r.log.Error(err, fmt.Sprintf("update status failed, resource(%s)", instance.Name))
+			return controllerCommon.ReQueueResult(err)
+		}
+		return ctrl.Result{}, nil
+	}
+	if instance.Status.Phase == common.Creating {
+		err = r.syncResourceAndUpdateStatus(ctx, instance)
+		if err != nil {
+			return controllerCommon.ReQueueResult(err)
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) addFinalizer(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
+	err := controllerCommon.AddFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("append finalizer filed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) removeClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
+	err := r.deleteClusterResource(ctx, instance)
+	if err != nil {
+		return controllerCommon.ReQueueResult(err)
+	}
+	// delete finalizer
+	return r.removeFinalizer(ctx, instance)
+}
+
+func (r *Reconciler) removeFinalizer(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
+	err := controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("delete finalizer filed from resource(%s) failed", instance.Name))
+		return controllerCommon.ReQueueResult(err)
+	}
+	return ctrl.Result{}, nil
 }
 
 func (r *Reconciler) syncResourceAndUpdateStatus(ctx context.Context, instance *v1alpha1.ClusterResource) error {
