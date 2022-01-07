@@ -1,6 +1,8 @@
 package slice
 
-import "encoding/json"
+import (
+	"reflect"
+)
 
 func ContainsString(slice []string, s string) bool {
 	if len(slice) == 0 {
@@ -31,17 +33,9 @@ func GetIndexWithObject(slice []interface{}, obj interface{}) int {
 	if len(slice) == 0 {
 		return -1
 	}
-	objByte, err := json.Marshal(obj)
-	if err != nil {
-		return -1
-	}
 	index := -1
 	for i := 0; i < len(slice); i++ {
-		itemByte, err := json.Marshal(slice[i])
-		if err != nil {
-			continue
-		}
-		if string(objByte) == string(itemByte) {
+		if reflect.DeepEqual(obj, slice[i]) {
 			index = i
 			break
 		}

@@ -6,6 +6,7 @@ import (
 	namespaceMappingController "harmonycloud.cn/stellaris/pkg/controller/namespace_mapping"
 	clusterResourceController "harmonycloud.cn/stellaris/pkg/controller/cluster_resource"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
+	multiClusterRsourceController "harmonycloud.cn/stellaris/pkg/controller/multi_cluster_resource"
 	resourceBindingController "harmonycloud.cn/stellaris/pkg/controller/resource_binding"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -16,6 +17,7 @@ func Setup(mgr ctrl.Manager, args controllerCommon.Args) error {
 		namespaceMappingController.Setup,
 		clusterController.Setup,
 		resourceBindingController.Setup,
+		multiClusterRsourceController.Setup,
 		clusterResourceController.Setup,
 	}
 

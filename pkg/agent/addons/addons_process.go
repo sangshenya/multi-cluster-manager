@@ -1,7 +1,6 @@
 package addons
 
 import (
-	"fmt"
 	"github.com/sirupsen/logrus"
 	"harmonycloud.cn/stellaris/config"
 	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
@@ -17,13 +16,13 @@ const (
 	HeartbeatMessage     = "ok"
 )
 
-func Load(cfg *model.PluginsConfig) (*model.RegisterRequest, *model.AddonsChannel, error) {
+func Load(cfg *model.PluginsConfig) (*model.RegisterRequest, *model.AddonsChannel) {
 	var channels []chan *model.Addon
 	var monitorChannels []chan *model.Condition
 	inTreeLen := len(cfg.Plugins.InTree)
 	outTreeLen := len(cfg.Plugins.OutTree)
 	if inTreeLen <= 0 && outTreeLen <= 0 {
-		return nil, nil, fmt.Errorf("please specify at least one plugin")
+		return &model.RegisterRequest{}, &model.AddonsChannel{}
 	}
 	if inTreeLen > 0 {
 		inTreePlugins := cfg.Plugins.InTree
@@ -54,7 +53,7 @@ func Load(cfg *model.PluginsConfig) (*model.RegisterRequest, *model.AddonsChanne
 	addonsInfo := getAddonsInfo(addonsChannel)
 
 	result := &model.RegisterRequest{Addons: addonsInfo}
-	return result, &addonsChannel, nil
+	return result, &addonsChannel
 }
 
 func runInTreePlugins(name string, ch chan *model.Addon) {
@@ -70,7 +69,7 @@ func runInTreePlugins(name string, ch chan *model.Addon) {
 
 func runOutTreePlugins(name string, ch chan *model.Addon) {
 	res := model.Addon{}
-	// TODO RUN PLUGIN AND
+	// TODO RUN PLUGIN
 	for {
 		// return information
 		ch <- &res
