@@ -23,7 +23,7 @@ var _ = Describe("NamespaceMappingController", func() {
 	)
 	rule := make(map[string]string, 1)
 	rule[cluster] = ns
-	expectKey, _ := controllerCommon.GenerateLabelKey(cluster, ns)
+	expectKey, _ := controllerCommon.GenerateLabelKey(cluster, "mapping")
 	ctx := context.TODO()
 	namespaceMapping := &v1alpha1.NamespaceMapping{
 		ObjectMeta: metav1.ObjectMeta{
@@ -47,7 +47,7 @@ var _ = Describe("NamespaceMappingController", func() {
 		k8sClient.Get(context.TODO(), types.NamespacedName{Name: namespaceMapping.Namespace}, workspace)
 
 		labels := workspace.GetLabels()
-		Expect(labels[expectKey]).To(Equal("mapping"))
+		Expect(labels[expectKey]).To(Equal(ns))
 
 		// add finalizer
 		createdNamespaceMapping := &v1alpha1.NamespaceMapping{}
@@ -68,7 +68,7 @@ var _ = Describe("NamespaceMappingController", func() {
 		// update
 		ns = "ns2"
 		rule[cluster] = ns
-		expectKey, _ := controllerCommon.GenerateLabelKey(cluster, ns)
+		expectKey, _ := controllerCommon.GenerateLabelKey(cluster, "mapping")
 		ctx := context.TODO()
 		createdNamespaceMapping.Spec.Mapping[cluster]=ns
 
@@ -78,7 +78,7 @@ var _ = Describe("NamespaceMappingController", func() {
 		workspace := &corev1.Namespace{}
 		k8sClient.Get(context.TODO(), types.NamespacedName{Name: namespaceMapping.Namespace}, workspace)
 		labels := workspace.GetLabels()
-		Expect(labels[expectKey]).To(Equal("mapping"))
+		Expect(labels[expectKey]).To(Equal(ns))
 
 		createdNamespaceMapping = &v1alpha1.NamespaceMapping{}
 		_ = k8sClient.Get(context.TODO(), mappingNamespacedName, createdNamespaceMapping)

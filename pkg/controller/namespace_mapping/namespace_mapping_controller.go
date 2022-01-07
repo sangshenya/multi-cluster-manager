@@ -114,17 +114,15 @@ func (r *NamespaceMappingReconciler) mappingOperator(namespaceMapping *v1alpha1.
 		if option == createOrUpdateMapping {
 			if labels == nil {
 				labels = make(map[string]string, 1)
-			}else{
+			} else {
 				// if update,delete old labels
-				labels = updateLabel(labels, ruleK, namespaceMapping.Namespace)
+				labels = updateLabel(labels, ruleK, ruleV)
 			}
-
-
-			labelK, err := controllerCommon.GenerateLabelKey(ruleK, ruleV)
+			labelK, err := controllerCommon.GenerateLabelKey(ruleK, namespaceMapping.Namespace)
 			if err != nil {
 				return err
 			}
-			labels[labelK] = namespaceMapping.Namespace
+			labels[labelK] = ruleV
 			workspace.SetLabels(labels)
 			r.Client.Update(context.TODO(), workspace)
 		} else if option == removeMapping {
@@ -132,7 +130,7 @@ func (r *NamespaceMappingReconciler) mappingOperator(namespaceMapping *v1alpha1.
 			if labels == nil {
 				continue
 			}
-			labelK, err := controllerCommon.GenerateLabelKey(ruleK, ruleV)
+			labelK, err := controllerCommon.GenerateLabelKey(ruleK, namespaceMapping.Namespace)
 			if err != nil {
 				return err
 			}
@@ -159,9 +157,9 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 	return reconciler.SetupWithManager(mgr)
 }
 
-func updateLabel(labels map[string]string, cluster string, mappingNamespace string) map[string]string {
+func updateLabel(labels map[string]string, cluster string, ruleV string) map[string]string {
 	for k, v := range labels {
-		if v == mappingNamespace {
+		if v == ruleV {
 			part, _ := common.GenerateName(managerCommon.NamespaceMappingLabel, cluster)
 			update := strings.Contains(k, part+"_")
 			if update {
