@@ -20,6 +20,21 @@ const (
 	MultiClusterResourceLabelName               = "multicluster.harmonycloud.cn.MultiClusterResource"
 	MultiClusterResourceSchedulePolicyLabelName = "multicluster.harmonycloud.cn.SchedulePolicy"
 )
+const (
+	ClusterWorkspacePrefix = "stellaris-harmonycloud-cn-"
+)
+
+const (
+	NamespaceMappingLabel = "stellaris.harmonycloud.cn.namespacemapping/"
+)
+
+const (
+	ClusterControllerFinalizer = "stellaris/cluster-controller"
+)
+
+const (
+	NamespaceMappingControllerFinalizer = "stellaris/namespace-mapping-controller"
+)
 
 // TODO clusterName change to clusterNamespace
 func ClusterNamespace(clusterName string) string {
