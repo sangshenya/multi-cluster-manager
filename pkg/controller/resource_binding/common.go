@@ -14,6 +14,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func SyncClusterResourceWithBinding(ctx context.Context, clientSet client.Client, binding *v1alpha1.MultiClusterResourceBinding) error {
+	// get ClusterResourceList
+	clusterResourceList, err := getClusterResourceListForBinding(ctx, clientSet, binding)
+	if err != nil {
+		return err
+	}
+	return syncClusterResource(ctx, clientSet, clusterResourceList, binding)
+}
+
 // syncClusterResource update or create or delete ClusterResource
 func syncClusterResource(ctx context.Context, clientSet client.Client, clusterResourceList *v1alpha1.ClusterResourceList, binding *v1alpha1.MultiClusterResourceBinding) error {
 	if len(binding.Spec.Resources) == 0 {
@@ -32,7 +41,7 @@ func syncClusterResource(ctx context.Context, clientSet client.Client, clusterRe
 			clusterResource, ok := clusterResourceMap[key]
 			if !ok {
 				// new clusterResource
-				owner := metav1.NewControllerRef(binding, binding.GroupVersionKind())
+				owner := metav1.NewControllerRef(binding, v1alpha1.MultiClusterResourceBindingGroupVersionKind)
 				clusterResource = newClusterResource(binding.Name, cluster, owner, multiClusterResource)
 
 				// create clusterResource
@@ -83,7 +92,7 @@ func newClusterResource(bindingName string, cluster v1alpha1.MultiClusterResourc
 	clusterResource.SetName(clusterResourceName)
 	clusterResource.SetNamespace(clusterNamespace)
 	// set labels
-	newLabels := clusterResourceLabels(bindingName, multiClusterResource.Spec.ResourceRef)
+	newLabels := clusterResourceLabels(bindingName, multiClusterResource.GetName(), multiClusterResource.Spec.ResourceRef)
 	clusterResource.SetLabels(newLabels)
 	// set owner
 	clusterResource.SetOwnerReferences([]metav1.OwnerReference{*owner})
@@ -97,14 +106,18 @@ func newClusterResource(bindingName string, cluster v1alpha1.MultiClusterResourc
 	return clusterResource
 }
 
-func clusterResourceLabels(bindingName string, multiClusterResourceRef *metav1.GroupVersionKind) map[string]string {
+func clusterResourceLabels(bindingName, multiClusterResourceName string, multiClusterResourceRef *metav1.GroupVersionKind) map[string]string {
 	newLabels := map[string]string{}
 	newLabels[managerCommon.ResourceBindingLabelName] = bindingName
 	newLabels[managerCommon.ResourceGvkLabelName] = managerCommon.GvkLabelString(multiClusterResourceRef)
+	newLabels[managerCommon.MultiClusterResourceLabelName] = multiClusterResourceName
 	return newLabels
 }
 
 func removeItemForClusterStatusList(itemList []common.MultiClusterResourceClusterStatus, item common.MultiClusterResourceClusterStatus) []common.MultiClusterResourceClusterStatus {
+	if len(itemList) <= 0 {
+		return itemList
+	}
 	var objectList []interface{}
 	for _, items := range itemList {
 		objectList = append(objectList, items)
@@ -112,8 +125,8 @@ func removeItemForClusterStatusList(itemList []common.MultiClusterResourceCluste
 
 	index := sliceutil.GetIndexWithObject(objectList, item)
 	list := sliceutil.RemoveObjectWithIndex(objectList, index)
-	if len(list) <= 0 {
-		return itemList
+	if len(list) == 0 {
+		return []common.MultiClusterResourceClusterStatus{}
 	}
 	var statusList []common.MultiClusterResourceClusterStatus
 	for _, obj := range list {
@@ -126,7 +139,7 @@ func removeItemForClusterStatusList(itemList []common.MultiClusterResourceCluste
 
 func getClusterResourceName(bindingName string, gvk *metav1.GroupVersionKind) string {
 	gvkString := managerCommon.GvkLabelString(gvk)
-	return bindingName + gvkString
+	return bindingName + ":" + gvkString
 }
 
 func mapKey(resourceNamespace, resourceName string) string {
