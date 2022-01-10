@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"harmonycloud.cn/stellaris/pkg/util/core"
 	"time"
+
+	"harmonycloud.cn/stellaris/pkg/core/monitor"
+
+	"harmonycloud.cn/stellaris/pkg/util/core"
 
 	"github.com/sirupsen/logrus"
 	"harmonycloud.cn/stellaris/config"
@@ -63,6 +66,9 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 		logrus.Errorf("cannot register cluster %s in k8s", err)
 		core.SendErrResponse(req.ClusterName, err, stream)
 	}
+
+	// start check cluster status
+	monitor.StartCheckClusterStatus(s.mClient)
 
 	// write stream into stream table
 	if err := table.Insert(req.ClusterName, &table.Stream{
@@ -123,11 +129,26 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 		if _, err := s.mClient.MulticlusterV1alpha1().Clusters().Update(ctx, existCluster, v1.UpdateOptions{}); err != nil {
 			return err
 		}
-	} else {
-		if _, err := s.mClient.MulticlusterV1alpha1().Clusters().Create(ctx, cluster, v1.CreateOptions{}); err != nil {
-			return err
-		}
+		// update cluster status
+		return updateClusterStatus(ctx, s.mClient, existCluster)
 	}
 
+	if _, err := s.mClient.MulticlusterV1alpha1().Clusters().Create(ctx, cluster, v1.CreateOptions{}); err != nil {
+		return err
+	}
+	// update cluster status
+	return updateClusterStatus(ctx, s.mClient, cluster)
+}
+
+func updateClusterStatus(ctx context.Context, mClient *multclusterclient.Clientset, cluster *v1alpha1.Cluster) error {
+	cluster.Status.Status = v1alpha1.OnlineStatus
+	cluster.Status.LastUpdateTimestamp = v1.Now()
+	cluster.Status.LastReceiveHeartBeatTimestamp = v1.Now()
+	// TODO cluster healthy validate
+	cluster.Status.Healthy = true
+
+	if _, err := mClient.MulticlusterV1alpha1().Clusters().UpdateStatus(ctx, cluster, v1.UpdateOptions{}); err != nil {
+		return err
+	}
 	return nil
 }

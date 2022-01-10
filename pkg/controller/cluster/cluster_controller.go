@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
@@ -50,7 +51,6 @@ func (r *ClusterReconciler) syncCluster(cluster *v1alpha1.Cluster) (ctrl.Result,
 		return ctrl.Result{Requeue: true}, err
 	}
 	return r.ensureFinalizer(cluster)
-
 }
 
 func (r *ClusterReconciler) createWorkspace(cluster *v1alpha1.Cluster) error {
@@ -135,10 +135,8 @@ func (r *ClusterReconciler) ensureFinalizer(cluster *v1alpha1.Cluster) (ctrl.Res
 	// make sure finalizer is added
 	if controllerutil.ContainsFinalizer(cluster, managerCommon.ClusterControllerFinalizer) {
 		return ctrl.Result{}, nil
-	}else{
-		controllerutil.AddFinalizer(cluster, managerCommon.ClusterControllerFinalizer)
 	}
-
+	controllerutil.AddFinalizer(cluster, managerCommon.ClusterControllerFinalizer)
 	if err := r.Client.Update(context.TODO(), cluster); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
@@ -146,7 +144,7 @@ func (r *ClusterReconciler) ensureFinalizer(cluster *v1alpha1.Cluster) (ctrl.Res
 }
 
 func (r *ClusterReconciler) workspaceExist(cluster string) (bool, error) {
-	clusterWorkspaceName, err := common.GenerateName( managerCommon.ClusterWorkspacePrefix,cluster)
+	clusterWorkspaceName, err := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster)
 	if err != nil {
 		klog.Errorf("failed to generate workspace for cluster %s, %v", cluster, err)
 		return false, err
@@ -162,7 +160,7 @@ func (r *ClusterReconciler) workspaceExist(cluster string) (bool, error) {
 		klog.Errorf("failed to get workspace for cluster %s: %v", cluster, err)
 		return false, nil
 	}
-	if clusterWorkspaceExist.Status.Phase == corev1.NamespaceTerminating{
+	if clusterWorkspaceExist.Status.Phase == corev1.NamespaceTerminating {
 		klog.V(2).Infof("workspace for cluster %s is Terminating", cluster)
 		return false, nil
 	}
