@@ -47,6 +47,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&MultiClusterResourceList{},
 		&MultiClusterResourceBinding{},
 		&MultiClusterResourceBindingList{},
+		&MultiClusterResourceSchedulePolicy{},
+		&MultiClusterResourceSchedulePolicyList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
