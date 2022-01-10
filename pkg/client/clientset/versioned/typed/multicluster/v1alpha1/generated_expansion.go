@@ -34,6 +34,8 @@ type MultiClusterResourceAggregateRuleExpansion interface{}
 
 type MultiClusterResourceBindingExpansion interface{}
 
+type MultiClusterResourceSchedulePolicyExpansion interface{}
+
 type NamespaceMappingExpansion interface{}
 
 type ResourceAggregatePolicyExpansion interface{}

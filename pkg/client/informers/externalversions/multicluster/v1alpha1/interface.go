@@ -40,6 +40,8 @@ type Interface interface {
 	MultiClusterResourceAggregateRules() MultiClusterResourceAggregateRuleInformer
 	// MultiClusterResourceBindings returns a MultiClusterResourceBindingInformer.
 	MultiClusterResourceBindings() MultiClusterResourceBindingInformer
+	// MultiClusterResourceSchedulePolicies returns a MultiClusterResourceSchedulePolicyInformer.
+	MultiClusterResourceSchedulePolicies() MultiClusterResourceSchedulePolicyInformer
 	// NamespaceMappings returns a NamespaceMappingInformer.
 	NamespaceMappings() NamespaceMappingInformer
 	// ResourceAggregatePolicies returns a ResourceAggregatePolicyInformer.
@@ -95,6 +97,11 @@ func (v *version) MultiClusterResourceAggregateRules() MultiClusterResourceAggre
 // MultiClusterResourceBindings returns a MultiClusterResourceBindingInformer.
 func (v *version) MultiClusterResourceBindings() MultiClusterResourceBindingInformer {
 	return &multiClusterResourceBindingInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// MultiClusterResourceSchedulePolicies returns a MultiClusterResourceSchedulePolicyInformer.
+func (v *version) MultiClusterResourceSchedulePolicies() MultiClusterResourceSchedulePolicyInformer {
+	return &multiClusterResourceSchedulePolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // NamespaceMappings returns a NamespaceMappingInformer.
