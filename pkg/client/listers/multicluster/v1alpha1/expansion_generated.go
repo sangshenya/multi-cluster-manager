@@ -74,6 +74,14 @@ type MultiClusterResourceBindingListerExpansion interface{}
 // MultiClusterResourceBindingNamespaceLister.
 type MultiClusterResourceBindingNamespaceListerExpansion interface{}
 
+// MultiClusterResourceSchedulePolicyListerExpansion allows custom methods to be added to
+// MultiClusterResourceSchedulePolicyLister.
+type MultiClusterResourceSchedulePolicyListerExpansion interface{}
+
+// MultiClusterResourceSchedulePolicyNamespaceListerExpansion allows custom methods to be added to
+// MultiClusterResourceSchedulePolicyNamespaceLister.
+type MultiClusterResourceSchedulePolicyNamespaceListerExpansion interface{}
+
 // NamespaceMappingListerExpansion allows custom methods to be added to
 // NamespaceMappingLister.
 type NamespaceMappingListerExpansion interface{}

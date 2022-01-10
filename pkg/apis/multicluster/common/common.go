@@ -27,3 +27,10 @@ const (
 	Terminating MultiClusterResourcePhase = "Terminating"
 	Unknown     MultiClusterResourcePhase = "Unknown"
 )
+
+type ClusterType string
+
+const (
+	ClusterTypeClusterSet ClusterType = "clusterset"
+	ClusterTypeClusters   ClusterType = "clusters"
+)
