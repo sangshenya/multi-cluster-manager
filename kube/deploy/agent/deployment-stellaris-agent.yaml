@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: stellaris-webhook
+  name: stellaris-agent-manager
   namespace: stellaris-system
 
 ---
@@ -9,7 +9,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: stellaris-webhook-core-clusterrolebinding
+  name: stellaris-agent-manager-clusterrolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -24,7 +24,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: stellaris-webhook-core-role
+  name: stellaris-agent-manager-role
   namespace: stellaris-system
 rules:
   - apiGroups:
@@ -59,15 +59,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: stellaris-webhook-core-rolebinding
+  name: stellaris-agent-manager-rolebinding
   namespace: stellaris-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: stellaris-webhook-core-role
+  name: stellaris-agent-manager-role
 subjects:
   - kind: ServiceAccount
-    name: stellaris-webhook
+    name: stellaris-agent-manager
     namespace: stellaris-system
 
 ---
@@ -75,40 +75,27 @@ subjects:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: stellaris-webhook-deployment
+  name: stellaris-agent-manager
   namespace: stellaris-system
   labels:
-    app: stellaris-webhook
+    app: stellaris-agent-manager
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: stellaris-webhook
+      app: stellaris-agent-manager
   template:
     metadata:
       labels:
-        app: stellaris-webhook
+        app: stellaris-agent-manager
     spec:
-      serviceAccountName: stellaris-webhook
+      serviceAccountName: stellaris-agent-manager
       containers:
-        - name: stellaris-admission-webhook
-          image: sangshen/stellairis-core:v1.0.0
+        - name: stellaris-agent-manager
+          image: sangshen/stellairis-agent:v1.0.0
           imagePullPolicy: Always
           args:
-            - --master=https://10.1.11.238:6443
-            - --listen-port=8080
+            - --heartbeat-send-period=30
+            - --core-address=10.1.11.238:38089
             - --health-probe-addr=:9001
-            - --webhook-cert-dir=/etc/k8s-webhook-certs
-            - --webhook-port=9443
-          ports:
-            - containerPort: 9443
-              name: webhook-server
-              protocol: TCP
-          volumeMounts:
-            - mountPath: /etc/k8s-webhook-certs
-              name: webhook-certs
-              readOnly: true
-      volumes:
-        - name: webhook-certs
-          secret:
-            secretName: stellaris-webhook-cert
+            - --cluster-name=cluster90

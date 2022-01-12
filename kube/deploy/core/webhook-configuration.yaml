@@ -41,3 +41,4 @@ webhooks:
         path: "/validating-v1alpha1-multiclusterresourceaggregaterules"
     failurePolicy: Ignore
     timeoutSeconds: 5
+  - name: validating.multicluster.harmonycloud.cn.v1alpha1.

@@ -4,7 +4,7 @@ metadata:
   name: stellaris-webhook-svc
   namespace: stellaris-system
   labels:
-    app: stellaris-webhook
+    app: stellaris-core-manager
 spec:
   type: ClusterIP
   ports:
@@ -12,5 +12,9 @@ spec:
       targetPort: 9443
       protocol: TCP
       name: https
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: grcp
   selector:
-    app: stellaris-webhook
+    app: stellaris-core-manager
