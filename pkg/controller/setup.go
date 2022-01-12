@@ -2,11 +2,11 @@ package controller
 
 import (
 	clusterController "harmonycloud.cn/stellaris/pkg/controller/cluster"
-	clusterSetController "harmonycloud.cn/stellaris/pkg/controller/cluster_set"
-	namespaceMappingController "harmonycloud.cn/stellaris/pkg/controller/namespace_mapping"
 	clusterResourceController "harmonycloud.cn/stellaris/pkg/controller/cluster_resource"
+	clusterSetController "harmonycloud.cn/stellaris/pkg/controller/cluster_set"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
 	multiClusterRsourceController "harmonycloud.cn/stellaris/pkg/controller/multi_cluster_resource"
+	namespaceMappingController "harmonycloud.cn/stellaris/pkg/controller/namespace_mapping"
 	resourceBindingController "harmonycloud.cn/stellaris/pkg/controller/resource_binding"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -19,6 +19,11 @@ func Setup(mgr ctrl.Manager, args controllerCommon.Args) error {
 		resourceBindingController.Setup,
 		multiClusterRsourceController.Setup,
 		clusterResourceController.Setup,
+	}
+	if !args.IsControlPlane {
+		controllerSetupFunctions = []func(ctrl.Manager, controllerCommon.Args) error{
+			clusterResourceController.Setup,
+		}
 	}
 
 	for _, setupFunc := range controllerSetupFunctions {

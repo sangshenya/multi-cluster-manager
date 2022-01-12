@@ -2,15 +2,17 @@ package handler
 
 import (
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"harmonycloud.cn/stellaris/pkg/agent/addons"
 	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
+	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
 	"harmonycloud.cn/stellaris/pkg/model"
 	"harmonycloud.cn/stellaris/pkg/util/agent"
 	"harmonycloud.cn/stellaris/pkg/util/common"
 )
 
-func Register(cfg *agentconfig.Configuration) error {
+func Register(cfg *agentconfig.Configuration, agentClient *multclusterclient.Clientset) error {
 	stream, err := agent.Connection(cfg)
 	if err != nil {
 		return fmt.Errorf("call err: %v", err)
@@ -39,6 +41,6 @@ func Register(cfg *agentconfig.Configuration) error {
 	}
 	logrus.Printf("stream get from server:%v", resp)
 	// TODO After Receive Response
-	go addons.Heartbeat(channel, stream, cfg)
+	go addons.Heartbeat(channel, stream, cfg, agentClient)
 	return nil
 }

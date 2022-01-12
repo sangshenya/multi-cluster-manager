@@ -13,8 +13,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"harmonycloud.cn/stellaris/pkg/util/core"
-
+	managerHelper "harmonycloud.cn/stellaris/pkg/common/helper"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
 	managerWebhook "harmonycloud.cn/stellaris/pkg/webhook"
 
@@ -72,7 +71,7 @@ func main() {
 	}
 
 	// construct client
-	kubeCfg, err := core.GetKubeConfig(masterURL)
+	kubeCfg, err := managerHelper.GetKubeConfig(masterURL)
 	if err != nil {
 		logrus.Fatalf("failed connect kube-apiserver: %s", err)
 	}
@@ -109,7 +108,9 @@ func main() {
 		logrus.Fatalf("failed create manager: %s", err)
 	}
 
-	controllerArgs := controllerCommon.Args{ManagerClientSet: mClient}
+	controllerArgs := controllerCommon.Args{
+		IsControlPlane: true,
+	}
 	// register webhook
 	managerWebhook.Register(mgr, controllerArgs)
 	if err := waitWebhookSecretVolume(certDir, 90*time.Second, 2*time.Second); err != nil {

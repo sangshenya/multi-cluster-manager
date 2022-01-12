@@ -1,8 +1,11 @@
-package cluster_resource_aggregate_rule
+package multi_cluster_resource
 
 import (
 	"context"
 	"net/http"
+	"strings"
+
+	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	validationCommon "harmonycloud.cn/stellaris/pkg/common/validation"
@@ -10,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// ValidatingAdmission validates aggregateRule object when creating/updating/deleting.
+// ValidatingAdmission validates multiClusterResource object when creating/updating/deleting.
 type ValidatingAdmission struct {
 	decoder *admission.Decoder
 }
@@ -18,16 +21,26 @@ type ValidatingAdmission struct {
 // Handle implements admission.Handler interface.
 // It yields a response to an AdmissionRequest.
 func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request) admission.Response {
-	aggregateRule := &v1alpha1.MultiClusterResourceAggregateRule{}
-	err := v.decoder.Decode(req, aggregateRule)
+	multiClusterResource := &v1alpha1.MultiClusterResource{}
+	err := v.decoder.Decode(req, multiClusterResource)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	klog.V(2).Infof("Validating aggregateRule(%s) for request: %s", aggregateRule.Name, req.Operation)
-	// TODO(chenkun) currently we only validate whether it contains CUE.
-	if len(aggregateRule.Spec.Rule.Cue) <= 0 {
-		klog.Error(validationCommon.CueIsEmpty)
-		return admission.Denied(validationCommon.CueIsEmpty)
+	klog.V(2).Infof("Validating multiClusterResource(%s) for request: %s", multiClusterResource.Name, req.Operation)
+
+	if multiClusterResource.Spec.Resource == nil {
+		klog.Error(validationCommon.ResourceIsNil)
+		return admission.Denied(validationCommon.ResourceIsNil)
+	}
+
+	if multiClusterResource.Spec.ResourceRef == nil {
+		klog.Error(validationCommon.ResourceRefIsNil)
+		return admission.Denied(validationCommon.ResourceRefIsNil)
+	}
+
+	if !strings.HasPrefix(multiClusterResource.GetName(), managerCommon.GvkLabelString(multiClusterResource.Spec.ResourceRef)) {
+		klog.Error(validationCommon.NamePrefixedGVK)
+		return admission.Denied(validationCommon.NamePrefixedGVK)
 	}
 
 	return admission.Allowed("")

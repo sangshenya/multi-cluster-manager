@@ -4,7 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
+
+	clusterController "harmonycloud.cn/stellaris/pkg/controller/cluster"
+
+	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster_health"
 
 	"harmonycloud.cn/stellaris/pkg/core/monitor"
 
@@ -52,6 +57,7 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 		logrus.Errorf("cannot convert request to cluster resource", err)
 		core.SendErrResponse(req.ClusterName, err, stream)
 	}
+
 	cluster := &v1alpha1.Cluster{
 		ObjectMeta: v1.ObjectMeta{
 			Name: req.ClusterName,
@@ -89,6 +95,19 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 }
 
 func (s *CoreServer) Heartbeat(req *config.Request, stream config.Channel_EstablishServer) {
+	// convert data to cluster cr
+	data := &model.HeartbeatWithChangeRequest{}
+	err := json.Unmarshal([]byte(req.Body), data)
+	if err != nil {
+		logrus.Errorf("unmarshal data error: %s", err)
+		core.SendErrResponse(req.ClusterName, err, stream)
+	}
+
+	err = s.updateClusterWithHeartbeat(req.ClusterName, data)
+	if err != nil {
+		logrus.Errorf("update cluster failed: %s", err)
+		core.SendErrResponse(req.ClusterName, err, stream)
+	}
 	// TODO update proxy monitor data and refresh stream table status
 
 	res := &config.Response{
@@ -108,6 +127,58 @@ func (s *CoreServer) registerHandler(typ string, fn Fn) {
 	s.Handlers[typ] = fns
 }
 
+func (s *CoreServer) updateClusterWithHeartbeat(clusterName string, heartbeatRequest *model.HeartbeatWithChangeRequest) error {
+	ctx := context.Background()
+	cluster, err := s.mClient.MulticlusterV1alpha1().Clusters().Get(ctx, clusterName, v1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	cluster, err = s.updateClusterWithHeartbeatAddons(ctx, heartbeatRequest.Addons, cluster)
+	if err != nil {
+		return err
+	}
+
+	return s.updateClusterStatusWithHeartbeat(ctx, cluster, heartbeatRequest.Conditions, heartbeatRequest.Healthy)
+}
+
+func (s *CoreServer) updateClusterStatusWithHeartbeat(ctx context.Context, cluster *v1alpha1.Cluster, conditions []model.Condition, healthy bool) error {
+	if len(conditions) > 0 {
+		clusterConditions := core.ConvertCondition2KubeCondition(conditions)
+		cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
+	}
+	if cluster.Status.Status == v1alpha1.OfflineStatus {
+		clusterConditions := clusterHealth.GenerateReadyCondition(true, healthy)
+		cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
+	}
+	nowTime := v1.Now()
+	cluster.Status.Status = v1alpha1.OnlineStatus
+	cluster.Status.Healthy = healthy
+	cluster.Status.LastReceiveHeartBeatTimestamp = nowTime
+	cluster.Status.LastUpdateTimestamp = nowTime
+
+	_, err := clusterController.UpdateClusterStatus(ctx, s.mClient, cluster)
+	return err
+}
+
+func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addons []model.Addon, cluster *v1alpha1.Cluster) (*v1alpha1.Cluster, error) {
+	if len(addons) <= 0 {
+		return cluster, nil
+	}
+	clusterAddons, err := core.ConvertRegisterAddons2KubeAddons(addons)
+	if err != nil {
+		return cluster, err
+	}
+	if !reflect.DeepEqual(cluster.Spec.Addons, clusterAddons) {
+		cluster.Spec.Addons = clusterAddons
+		cluster, err = clusterController.UpdateCluster(ctx, s.mClient, cluster)
+		if err != nil {
+			return cluster, err
+		}
+	}
+	return cluster, nil
+}
+
 func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 	ctx := context.Background()
 	update := true
@@ -120,35 +191,35 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 			return err
 		}
 	}
-
+	nowTime := v1.Now()
+	createStatus := v1alpha1.ClusterStatus{
+		Conditions:                    clusterHealth.GenerateReadyCondition(true, true),
+		LastReceiveHeartBeatTimestamp: nowTime,
+		LastUpdateTimestamp:           nowTime,
+		Healthy:                       true,
+		Status:                        v1alpha1.OnlineStatus,
+	}
 	if update {
 		if cluster.Status.Status == v1alpha1.OnlineStatus {
 			return fmt.Errorf("cluster %s is online now", cluster.Name)
 		}
 		existCluster.Spec = cluster.Spec
-		if _, err := s.mClient.MulticlusterV1alpha1().Clusters().Update(ctx, existCluster, v1.UpdateOptions{}); err != nil {
+		existCluster, err = clusterController.UpdateCluster(ctx, s.mClient, existCluster)
+		if err != nil {
 			return err
 		}
 		// update cluster status
-		return updateClusterStatus(ctx, s.mClient, existCluster)
+		existCluster.Status = createStatus
+		_, err = clusterController.UpdateClusterStatus(ctx, s.mClient, existCluster)
+		return err
 	}
 
 	if _, err := s.mClient.MulticlusterV1alpha1().Clusters().Create(ctx, cluster, v1.CreateOptions{}); err != nil {
 		return err
 	}
+
 	// update cluster status
-	return updateClusterStatus(ctx, s.mClient, cluster)
-}
-
-func updateClusterStatus(ctx context.Context, mClient *multclusterclient.Clientset, cluster *v1alpha1.Cluster) error {
-	cluster.Status.Status = v1alpha1.OnlineStatus
-	cluster.Status.LastUpdateTimestamp = v1.Now()
-	cluster.Status.LastReceiveHeartBeatTimestamp = v1.Now()
-	// TODO cluster healthy validate
-	cluster.Status.Healthy = true
-
-	if _, err := mClient.MulticlusterV1alpha1().Clusters().UpdateStatus(ctx, cluster, v1.UpdateOptions{}); err != nil {
-		return err
-	}
-	return nil
+	cluster.Status = createStatus
+	_, err = clusterController.UpdateClusterStatus(ctx, s.mClient, cluster)
+	return err
 }

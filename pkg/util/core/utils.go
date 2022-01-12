@@ -2,10 +2,8 @@ package core
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
-	"os/user"
-	"path/filepath"
+
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 
 	"github.com/sirupsen/logrus"
 	"harmonycloud.cn/stellaris/config"
@@ -13,8 +11,6 @@ import (
 	"harmonycloud.cn/stellaris/pkg/model"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 func SendResponse(res *config.Response, stream config.Channel_EstablishServer) {
@@ -64,6 +60,20 @@ func ConvertRegisterAddons2KubeAddons(addons []model.Addon) ([]v1alpha1.ClusterA
 	return result, nil
 }
 
+func ConvertCondition2KubeCondition(conditions []model.Condition) []common.Condition {
+	result := make([]common.Condition, len(conditions))
+	for _, condition := range conditions {
+		clusterCondition := common.Condition{
+			Timestamp: condition.Timestamp,
+			Message:   condition.Message,
+			Reason:    condition.Reason,
+			Type:      condition.Type,
+		}
+		result = append(result, clusterCondition)
+	}
+	return result
+}
+
 func Object2RawExtension(obj interface{}) (*runtime.RawExtension, error) {
 	b, err := json.Marshal(obj)
 	if err != nil {
@@ -72,22 +82,4 @@ func Object2RawExtension(obj interface{}) (*runtime.RawExtension, error) {
 	return &runtime.RawExtension{
 		Raw: b,
 	}, nil
-}
-
-func GetKubeConfig(masterURL string) (*rest.Config, error) {
-	if len(os.Getenv("KUBECONFIG")) > 0 {
-		return clientcmd.BuildConfigFromFlags(masterURL, os.Getenv("KUBECONFIG"))
-	}
-	if c, err := rest.InClusterConfig(); err == nil {
-		return c, nil
-	}
-	if usr, err := user.Current(); err == nil {
-		if c, err := clientcmd.BuildConfigFromFlags(
-			"",
-			filepath.Join(usr.HomeDir, ".kube", "config"),
-		); err == nil {
-			return c, nil
-		}
-	}
-	return nil, fmt.Errorf("could not locate a kubeconfig")
 }

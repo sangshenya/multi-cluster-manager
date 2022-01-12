@@ -1,13 +1,18 @@
 package addons
 
 import (
+	"reflect"
+	"time"
+
+	"harmonycloud.cn/stellaris/pkg/agent/condition"
+
 	"github.com/sirupsen/logrus"
 	"harmonycloud.cn/stellaris/config"
 	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
+	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
+	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster_health"
 	"harmonycloud.cn/stellaris/pkg/model"
 	"harmonycloud.cn/stellaris/pkg/util/common"
-	"reflect"
-	"time"
 )
 
 const (
@@ -18,7 +23,6 @@ const (
 
 func Load(cfg *model.PluginsConfig) (*model.RegisterRequest, *model.AddonsChannel) {
 	var channels []chan *model.Addon
-	var monitorChannels []chan *model.Condition
 	inTreeLen := len(cfg.Plugins.InTree)
 	outTreeLen := len(cfg.Plugins.OutTree)
 	if inTreeLen <= 0 && outTreeLen <= 0 {
@@ -30,11 +34,8 @@ func Load(cfg *model.PluginsConfig) (*model.RegisterRequest, *model.AddonsChanne
 			// make channel
 			inTreeCh := make(chan *model.Addon)
 			channels = append(channels, inTreeCh)
-			inTreeMonitorCh := make(chan *model.Condition)
-			monitorChannels = append(monitorChannels, inTreeMonitorCh)
 
 			go runInTreePlugins(name.Name, inTreeCh)
-			go startMonitor(name.Name, inTreeMonitorCh)
 		}
 	}
 	if outTreeLen > 0 {
@@ -42,14 +43,11 @@ func Load(cfg *model.PluginsConfig) (*model.RegisterRequest, *model.AddonsChanne
 		for _, name := range outTreePlugins {
 			outTreeCh := make(chan *model.Addon)
 			channels = append(channels, outTreeCh)
-			outTreeMonitorCh := make(chan *model.Condition)
-			monitorChannels = append(monitorChannels, outTreeMonitorCh)
 
 			go runOutTreePlugins(name.Name, outTreeCh)
-			go startMonitor(name.Name, outTreeMonitorCh)
 		}
 	}
-	addonsChannel := model.AddonsChannel{Channels: channels, MonitorChannels: monitorChannels}
+	addonsChannel := model.AddonsChannel{Channels: channels}
 	addonsInfo := getAddonsInfo(addonsChannel)
 
 	result := &model.RegisterRequest{Addons: addonsInfo}
@@ -94,31 +92,19 @@ func getAddonsInfo(channels model.AddonsChannel) []model.Addon {
 
 }
 
-func getAddonsCondition(channels model.AddonsChannel) []model.Condition {
-	var conditions []model.Condition
-
-	for _, channel := range channels.MonitorChannels {
-		addon := <-channel
-		conditions = append(conditions, *addon)
-	}
-	return conditions
-
-}
-
-func Heartbeat(channel *model.AddonsChannel, stream config.Channel_EstablishClient, cfg *agentconfig.Configuration) error {
+func Heartbeat(channel *model.AddonsChannel, stream config.Channel_EstablishClient, cfg *agentconfig.Configuration, agentClient *multclusterclient.Clientset) error {
 	var heartbeatWithChange model.HeartbeatWithChangeRequest
 	lastHeartbeatTime := time.Now()
 	lastHeartbeat := &model.HeartbeatWithChangeRequest{}
 	firstTime := true
 	for {
 		sendFlag := false
+
 		var addonsInfo []model.Addon
-		var addonsCondition []model.Condition
 		// if plugins are specified
 		if len(channel.Channels) > 0 {
 			// get info
 			addonsInfo = getAddonsInfo(*channel)
-			addonsCondition = getAddonsCondition(*channel)
 			// if not the first time,compare
 			if !firstTime {
 				for i, addon := range addonsInfo {
@@ -126,26 +112,21 @@ func Heartbeat(channel *model.AddonsChannel, stream config.Channel_EstablishClie
 						sendFlag = true
 					}
 				}
-				if sendFlag == false {
-					// get conditions
-					for i, condition := range addonsCondition {
-						if condition != lastHeartbeat.Conditions[i] {
-							sendFlag = true
-						}
-					}
-				}
 			} else {
 				firstTime = false
 				sendFlag = true
 			}
 		}
-		// TODO CHECK HEALTH
+		// get condition
+		conditions := condition.GetAgentCondition()
+		// CHECK HEALTH
+		_, healthy := clusterHealth.GetClusterHealthStatus(agentClient)
 		// send
 		if (sendFlag) || ((!sendFlag) && ((time.Now().Sub(lastHeartbeatTime)) > forceSynchronization*time.Second)) {
 			if len(channel.Channels) > 0 {
-				heartbeatWithChange = model.HeartbeatWithChangeRequest{Healthy: true, Addons: addonsInfo, Conditions: addonsCondition}
+				heartbeatWithChange = model.HeartbeatWithChangeRequest{Healthy: healthy, Addons: addonsInfo, Conditions: conditions}
 			} else {
-				heartbeatWithChange = model.HeartbeatWithChangeRequest{Healthy: true}
+				heartbeatWithChange = model.HeartbeatWithChangeRequest{Healthy: healthy}
 			}
 			lastHeartbeat = &heartbeatWithChange
 			request, err := common.GenerateRequest("HeartbeatWithChange", heartbeatWithChange, cfg.ClusterName)

@@ -10,6 +10,8 @@ import (
 
 var table map[string]*Stream
 
+var lock sync.RWMutex
+
 const (
 	OK     = "ok"
 	Expire = "expire"
@@ -27,17 +29,18 @@ func init() {
 }
 
 func Insert(clusterName string, stream *Stream) error {
-	mu := sync.Mutex{}
-	mu.Lock()
+	lock.Lock()
+	defer lock.Unlock()
 	// TODO insert table should has no health stream
 	if table[clusterName] != nil && table[clusterName].Status == OK {
 		return fmt.Errorf("failed insert stream table")
 	}
 	table[clusterName] = stream
-	mu.Unlock()
 	return nil
 }
 
 func FindStream(clusterName string) *Stream {
+	lock.RLock()
+	defer lock.RUnlock()
 	return table[clusterName]
 }
