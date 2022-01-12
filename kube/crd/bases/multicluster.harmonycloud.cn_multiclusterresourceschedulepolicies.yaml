@@ -47,6 +47,13 @@ spec:
                       type: string
                   type: object
                 type: array
+              outTreePolicy:
+                properties:
+                  properties:
+                    type: object
+                  url:
+                    type: string
+                type: object
               policy:
                 items:
                   properties:
@@ -56,10 +63,10 @@ spec:
                       type: integer
                     name:
                       type: string
+                    role:
+                      type: string
                     weight:
                       type: integer
-                  required:
-                  - name
                   type: object
                 type: array
               replicas:
@@ -71,8 +78,6 @@ spec:
                   properties:
                     name:
                       type: string
-                  required:
-                  - name
                   type: object
                 type: array
               scheduleMode:
