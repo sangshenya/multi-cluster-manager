@@ -58,8 +58,6 @@ spec:
                       type: string
                     weight:
                       type: integer
-                  required:
-                  - name
                   type: object
                 type: array
               replicas:

@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,8 +20,9 @@ import (
 
 type Reconciler struct {
 	client.Client
-	log    logr.Logger
-	Scheme *runtime.Scheme
+	log            logr.Logger
+	Scheme         *runtime.Scheme
+	isControlPlane bool
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -57,15 +57,16 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 	reconciler := Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		log:    logf.Log.WithName("cluster_resource_controller"),
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		log:            logf.Log.WithName("cluster_resource_controller"),
+		isControlPlane: controllerCommon.IsControlPlane,
 	}
 	return reconciler.SetupWithManager(mgr)
 }
 
 func (r *Reconciler) syncClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
-	if managerCommon.IsControlPlane() {
+	if r.isControlPlane {
 		return r.syncCoreClusterResource(ctx, instance)
 	}
 	return r.syncAgentClusterResource(ctx, instance)
@@ -244,7 +245,7 @@ func sendClusterResourceToAgent(eventType SyncEventType, clusterResource *v1alph
 }
 
 func (r *Reconciler) deleteClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) error {
-	if !managerCommon.IsControlPlane() {
+	if !r.isControlPlane {
 		if instance.Status.Phase != common.Terminating {
 			// delete resource
 			err := deleteResource(ctx, r.Client, instance.Spec.Resource)

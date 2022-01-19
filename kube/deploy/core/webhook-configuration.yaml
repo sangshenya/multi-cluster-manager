@@ -41,4 +41,21 @@ webhooks:
         path: "/validating-v1alpha1-multiclusterresourceaggregaterules"
     failurePolicy: Ignore
     timeoutSeconds: 5
-  - name: validating.multicluster.harmonycloud.cn.v1alpha1.
+  - name: validating.multicluster.harmonycloud.cn.v1alpha1.multiclusterresource
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations: [ "CREATE", "UPDATE" ]
+        apiGroups: [ "multicluster.harmonycloud.cn" ]
+        apiVersions: [ "v1alpha1" ]
+        resources: [ "multiclusterresources" ]
+        scope: "Namespaced"
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: stellaris-webhook-svc
+        namespace: stellaris-system
+        path: "/validating-v1alpha1-multiclusterresource"
+    failurePolicy: Ignore
+    timeoutSeconds: 5

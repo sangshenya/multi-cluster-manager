@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster_health"
+
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
@@ -56,13 +58,13 @@ func (r *ClusterReconciler) syncCluster(cluster *v1alpha1.Cluster) (ctrl.Result,
 func (r *ClusterReconciler) createWorkspace(cluster *v1alpha1.Cluster) error {
 	clusterWorkspaceName, err := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster.Name)
 	if err != nil {
-		klog.Errorf("failed to generate workspace for cluster %s, %v", cluster.Name, err)
+		r.log.Error(err, "failed to generate workspace for cluster: %s", cluster.Name)
 		return err
 	}
 	clusterWorkspaceExist := &corev1.Namespace{}
 	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist); err != nil {
 		if !errors.IsNotFound(err) {
-			klog.Errorf("failed to get namespace %s: %v", clusterWorkspaceName, err)
+			r.log.Error(err, "failed to get namespace %s", clusterWorkspaceName)
 		}
 		clusterWorkspace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -71,11 +73,10 @@ func (r *ClusterReconciler) createWorkspace(cluster *v1alpha1.Cluster) error {
 		}
 		err := r.Client.Create(context.TODO(), clusterWorkspace)
 		if err != nil {
-			klog.Errorf("failed to create workspace for cluster %s : %v", cluster.Name, err)
+			r.log.Error(err, "failed to create workspace for cluster %s", cluster.Name)
 			return err
 		}
-		klog.V(2).Infof("Created workspace %s for cluster %s", clusterWorkspaceName, cluster.Name)
-
+		r.log.Info("Created workspace %s for cluster %s", clusterWorkspaceName, cluster.Name)
 	}
 	return nil
 
@@ -131,11 +132,33 @@ func (r *ClusterReconciler) removeFinalizer(cluster *v1alpha1.Cluster) (ctrl.Res
 	return ctrl.Result{}, nil
 }
 
+func (r *ClusterReconciler) addCreateStatus(cluster *v1alpha1.Cluster) (ctrl.Result, error) {
+	nowTime := metav1.Now()
+	createStatus := v1alpha1.ClusterStatus{
+		Conditions:                    clusterHealth.GenerateReadyCondition(true, true),
+		LastReceiveHeartBeatTimestamp: nowTime,
+		LastUpdateTimestamp:           nowTime,
+		Healthy:                       true,
+		Status:                        v1alpha1.OnlineStatus,
+	}
+	cluster.Status = createStatus
+	if err := r.Status().Update(context.TODO(), cluster); err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+	return ctrl.Result{}, nil
+}
+
 func (r *ClusterReconciler) ensureFinalizer(cluster *v1alpha1.Cluster) (ctrl.Result, error) {
 	// make sure finalizer is added
 	if controllerutil.ContainsFinalizer(cluster, managerCommon.ClusterControllerFinalizer) {
 		return ctrl.Result{}, nil
 	}
+
+	// no Finalizer mean create just now
+	if cluster.Status.LastReceiveHeartBeatTimestamp.IsZero() {
+		return r.addCreateStatus(cluster)
+	}
+
 	controllerutil.AddFinalizer(cluster, managerCommon.ClusterControllerFinalizer)
 	if err := r.Client.Update(context.TODO(), cluster); err != nil {
 		return ctrl.Result{Requeue: true}, err

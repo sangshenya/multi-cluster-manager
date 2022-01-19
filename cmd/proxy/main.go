@@ -4,6 +4,12 @@ import (
 	"flag"
 	"time"
 
+	agentStream "harmonycloud.cn/stellaris/pkg/agent/stream"
+
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"harmonycloud.cn/stellaris/pkg/agent/handler"
 
 	"harmonycloud.cn/stellaris/pkg/controller"
@@ -16,6 +22,7 @@ import (
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -28,10 +35,10 @@ var (
 	probeAddr       string
 )
 
-var scheme = runtime.NewScheme()
+var agentScheme = runtime.NewScheme()
 
 func init() {
-	flag.DurationVar(&heartbeatPeriod, "heartbeat-send-period", 30, "The period of heartbeat send interval")
+	flag.DurationVar(&heartbeatPeriod, "heartbeat-send-period", 30*time.Second, "The period of heartbeat send interval")
 	flag.StringVar(&coreAddress, "core-address", "", "address of stellaris")
 	flag.StringVar(&clusterName, "cluster-name", "", "name of agent-cluster")
 	flag.StringVar(&addonPath, "addon-path", "", "path of addon config")
@@ -39,11 +46,17 @@ func init() {
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9000", "The address the metrics endpoint binds to")
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
 
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(agentScheme))
+	utilruntime.Must(scheme.AddToScheme(agentScheme))
 
 }
 func main() {
+
 	flag.Parse()
+
+	klog.InitFlags(nil)
+
+	logf.SetLogger(klogr.New())
 
 	cfg := agentcfg.DefaultConfiguration()
 	cfg.HeartbeatPeriod = heartbeatPeriod
@@ -53,7 +66,7 @@ func main() {
 
 	restCfg := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
-		Scheme:                 scheme,
+		Scheme:                 agentScheme,
 		MetricsBindAddress:     metricsAddr,
 		HealthProbeBindAddress: probeAddr,
 	})
@@ -69,6 +82,25 @@ func main() {
 		logrus.Fatalf("failed to create controller: %s", err)
 	}
 
+	agentClient, err := clientset.NewForConfig(restCfg)
+	if err != nil {
+		logrus.Fatalf("failed get agentClient, clusterName:%s", cfg.ClusterName)
+	}
+
+	// new agentConfig
+	agentcfg.NewAgentConfig(cfg, agentClient)
+
+	// new stream
+	stream := agentStream.GetConnection()
+	if stream == nil {
+		logrus.Fatalf("failed get connection %s", cfg.CoreAddress)
+	}
+
+	err = handler.Register()
+	if err != nil {
+		logrus.Fatalf("failed send register request, cluster: %s", err)
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		logrus.Fatalf("failed to setup health check")
 	}
@@ -77,12 +109,6 @@ func main() {
 	}
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		logrus.Fatalf("failed running manager: %s", err)
-	}
-
-	agentClient, err := clientset.NewForConfig(restCfg)
-	err = handler.Register(cfg, agentClient)
-	if err != nil {
-		logrus.Fatalf("failed register cluster: %s", err)
 	}
 
 }

@@ -16,7 +16,7 @@ roleRef:
   name: "cluster-admin"
 subjects:
   - kind: ServiceAccount
-    name: stellaris-webhook
+    name: stellaris-agent-manager
     namespace: stellaris-system
 
 ---

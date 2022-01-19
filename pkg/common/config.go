@@ -11,14 +11,14 @@ import (
 
 const (
 	// TODO set manager default namespace
-	ManagerNamespace = "chenkun"
+	ManagerNamespace = "stellaris-system"
 	// TODO set manager default FinalizerName
-	FinalizerName                               = "multicluster.harmonycloud.cn.Finalizer"
-	ClusterResourceLabelName                    = "multicluster.harmonycloud.cn.ClusterResource"
-	ResourceBindingLabelName                    = "multicluster.harmonycloud.cn.ResourceBinding"
-	ResourceGvkLabelName                        = "multicluster.harmonycloud.cn.ResourceGvk"
-	MultiClusterResourceLabelName               = "multicluster.harmonycloud.cn.MultiClusterResource"
-	MultiClusterResourceSchedulePolicyLabelName = "multicluster.harmonycloud.cn.SchedulePolicy"
+	FinalizerName                               = "stellaris.Finalizer"
+	ClusterResourceLabelName                    = "stellaris.ClusterResource"
+	ResourceBindingLabelName                    = "stellaris.ResourceBinding"
+	ResourceGvkLabelName                        = "stellaris.ResourceGvk"
+	MultiClusterResourceLabelName               = "stellaris.MultiClusterResource"
+	MultiClusterResourceSchedulePolicyLabelName = "stellaris.SchedulePolicy"
 )
 const (
 	ClusterWorkspacePrefix = "stellaris-harmonycloud-cn-"

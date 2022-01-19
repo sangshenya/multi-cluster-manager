@@ -19,29 +19,24 @@ func SendResponse(res *config.Response, stream config.Channel_EstablishServer) {
 	}
 }
 
-func SendErrResponse(clusterName string, err error, stream config.Channel_EstablishServer) {
+func SendErrResponse(clusterName string, responseType model.ServiceResponseType, err error, stream config.Channel_EstablishServer) {
 	res := &config.Response{
-		Type:        "Error",
+		Type:        responseType.String(),
 		ClusterName: clusterName,
 		Body:        err.Error(),
 	}
 	SendResponse(res, stream)
 }
 
-func convertRegisterRequest2Cluster(req *config.Request) (*v1alpha1.Cluster, error) {
-	data := &model.RegisterRequest{}
-	if err := json.Unmarshal([]byte(req.Body), data); err != nil {
-		return nil, err
-	}
-
+func NewCluster(clusterName string) *v1alpha1.Cluster {
 	return &v1alpha1.Cluster{
 		ObjectMeta: v1.ObjectMeta{
-			Name: req.ClusterName,
+			Name: clusterName,
 		},
 		Spec: v1alpha1.ClusterSpec{
 			Addons: nil,
 		},
-	}, nil
+	}
 }
 
 func ConvertRegisterAddons2KubeAddons(addons []model.Addon) ([]v1alpha1.ClusterAddons, error) {

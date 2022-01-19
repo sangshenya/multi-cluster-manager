@@ -11,6 +11,11 @@ import (
 	"strconv"
 	"time"
 
+	"harmonycloud.cn/stellaris/pkg/core/monitor"
+
+	"k8s.io/klog/v2/klogr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"k8s.io/klog/v2"
 
 	managerHelper "harmonycloud.cn/stellaris/pkg/common/helper"
@@ -27,12 +32,13 @@ import (
 	"harmonycloud.cn/stellaris/pkg/core/handler"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 )
 
 var (
-	scheme = runtime.NewScheme()
+	coreScheme = runtime.NewScheme()
 )
 
 var (
@@ -50,19 +56,25 @@ var (
 func init() {
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	flag.IntVar(&lisPort, "listen-port", 8080, "Bind port used to provider grpc serve")
-	flag.DurationVar(&heartbeatExpirePeriod, "heartbeat-expire-period", 30, "The period of maximum heartbeat interval")
-	flag.DurationVar(&clusterStatusCheckPeriod, "cluster-status-check-period", 60, "The period of check cluster status interval")
-	flag.DurationVar(&onlineExpirationTime, "online-expiration-time", 90, "cluster status online expiration time")
+	flag.DurationVar(&heartbeatExpirePeriod, "heartbeat-expire-period", 30*time.Second, "The period of maximum heartbeat interval")
+	flag.DurationVar(&clusterStatusCheckPeriod, "cluster-status-check-period", 60*time.Second, "The period of check cluster status interval")
+	flag.DurationVar(&onlineExpirationTime, "online-expiration-time", 90*time.Second, "cluster status online expiration time")
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9000", "The address the metrics endpoint binds to")
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
 	flag.StringVar(&certDir, "webhook-cert-dir", "/k8s-webhook-server/serving-certs", "Admission webhook cert/key dir.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, "admission webhook listen address")
 
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(coreScheme))
+	utilruntime.Must(scheme.AddToScheme(coreScheme))
 }
 
 func main() {
+
 	flag.Parse()
+
+	klog.InitFlags(nil)
+
+	logf.SetLogger(klogr.New())
 
 	addr := ":" + strconv.Itoa(lisPort)
 	l, err := net.Listen("tcp", addr)
@@ -98,7 +110,7 @@ func main() {
 
 	restCfg := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
-		Scheme:                 scheme,
+		Scheme:                 coreScheme,
 		MetricsBindAddress:     metricsAddr,
 		CertDir:                certDir,
 		Port:                   webhookPort,
@@ -117,6 +129,9 @@ func main() {
 		klog.ErrorS(err, "Unable to get webhook secret")
 		os.Exit(1)
 	}
+	// monitor
+	go monitor.StartCheckClusterStatus(mClient, cfg)
+
 	// setup controllers
 	if err = controller.Setup(mgr, controllerArgs); err != nil {
 		logrus.Fatalf("failed to create controller: %s", err)
