@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -39,10 +40,11 @@ type MultiClusterResourceSchedulePolicySpec struct {
 	Reschedule     bool                     `json:"reschedule,omitempty"`
 	Policy         []SchedulePolicy         `json:"policy,omitempty"`
 	FailoverPolicy []ScheduleFailoverPolicy `json:"failoverPolicy,omitempty"`
+	OutTreePolicy  ScheduleOutTreePolicy    `json:"outTreePolicy,omitempty"`
 }
 
 type SchedulePolicyResource struct {
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
 }
 
 type SchedulePolicy struct {
@@ -56,6 +58,11 @@ type SchedulePolicy struct {
 type ScheduleFailoverPolicy struct {
 	Name string             `json:"name,omitempty"`
 	Type common.ClusterType `json:"type,omitempty"`
+}
+
+type ScheduleOutTreePolicy struct {
+	Url        string                `json:"url,omitempty"`
+	Properties *runtime.RawExtension `json:"properties,omitempty"`
 }
 
 type MultiClusterResourceSchedulePolicyStatus struct {
