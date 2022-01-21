@@ -17,6 +17,7 @@ import (
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sort"
 	"strconv"
 	"time"
@@ -38,6 +39,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	}
 	err = r.updateLastModifyTime(schedulePolicy)
 	if err != nil {
+		r.log.Error(err,"fail to update status")
 		return ctrl.Result{Requeue: true}, err
 	}
 	if schedulePolicy.Spec.Reschedule {
@@ -56,28 +58,29 @@ func (r *Reconciler) doSchedule(policy *v1alpha1.MultiClusterResourceSchedulePol
 	case v1alpha1.ClusterSourceTypeAssign:
 		binding, err = r.scheduleByAssign(policy)
 		if err != nil {
+			r.log.Error(err,"fail to do schedule")
 			return ctrl.Result{Requeue: true}, err
 		}
 	case v1alpha1.ClusterSourceTypeClusterset:
 		binding, err = r.scheduleByClusterSet(policy)
 		if err != nil {
+			r.log.Error(err,"fail to do schedule")
 			return ctrl.Result{Requeue: true}, err
 		}
 	}
 	// create only when changed
-	same, err := r.compareBinding(binding)
-	if err != nil {
-		return ctrl.Result{Requeue: true}, err
-	}
+	same := r.compareBinding(binding)
 	if !same {
-		err := r.Client.Create(context.TODO(), binding)
+		err = r.Client.Create(context.TODO(), binding)
 		if err != nil {
+			r.log.Error(err,"fail to create resource binding")
 			return ctrl.Result{Requeue: true}, err
 		}
 	}
 
 	err = r.updateLastScheduleTime(policy)
 	if err != nil {
+		r.log.Error(err,"fail to update status")
 		return ctrl.Result{Requeue: true}, err
 	}
 
@@ -132,10 +135,12 @@ func (r *Reconciler) scheduleByClusterSet(policy *v1alpha1.MultiClusterResourceS
 func (r *Reconciler) doTypeDuplicated(policy *v1alpha1.MultiClusterResourceSchedulePolicy) (*v1alpha1.MultiClusterResourceBinding, error) {
 	failClusterIndex, unavailableFailoverClusters, err := r.checkClusters(policy)
 	if err != nil {
+		r.log.Error(err,"check clusters err")
 		return nil, err
 	}
 	binding, err := r.generateBindingByDuplicated(policy, failClusterIndex, unavailableFailoverClusters)
 	if err != nil {
+		r.log.Error(err,"generate resource binding err")
 		return nil, err
 	}
 	return binding, nil
@@ -145,10 +150,12 @@ func (r *Reconciler) doTypeDuplicated(policy *v1alpha1.MultiClusterResourceSched
 func (r *Reconciler) doTypeWeighted(policy *v1alpha1.MultiClusterResourceSchedulePolicy) (*v1alpha1.MultiClusterResourceBinding, error) {
 	failClusterIndex, unavailableFailoverClusters, err := r.checkClusters(policy)
 	if err != nil {
+		r.log.Error(err,"check clusters err")
 		return nil, err
 	}
 	binding, err := r.generateBindingByWeighted(policy, failClusterIndex, unavailableFailoverClusters)
 	if err != nil {
+		r.log.Error(err,"generate resource binding err")
 		return nil, err
 	}
 
@@ -158,10 +165,12 @@ func (r *Reconciler) doTypeWeighted(policy *v1alpha1.MultiClusterResourceSchedul
 func (r *Reconciler) doTypeClusterRole(policy *v1alpha1.MultiClusterResourceSchedulePolicy, clusterSet *v1alpha1.ClusterSet) (*v1alpha1.MultiClusterResourceBinding, error) {
 	failClusterIndex, unavailableFailoverClusters, err := r.checkClusters(policy)
 	if err != nil {
+		r.log.Error(err,"check clusters err")
 		return nil, err
 	}
 	binding, err := r.generateBindingByClusterRole(policy, clusterSet, failClusterIndex, unavailableFailoverClusters)
 	if err != nil {
+		r.log.Error(err,"generate resource binding err")
 		return nil, err
 	}
 
@@ -171,10 +180,12 @@ func (r *Reconciler) doTypeClusterRole(policy *v1alpha1.MultiClusterResourceSche
 func (r *Reconciler) doTypeClusterSelector(policy *v1alpha1.MultiClusterResourceSchedulePolicy, clusterSet *v1alpha1.ClusterSet) (*v1alpha1.MultiClusterResourceBinding, error) {
 	failClusterIndex, unavailableFailoverClusters, err := r.checkClusters(policy)
 	if err != nil {
+		r.log.Error(err,"check clusters err")
 		return nil, err
 	}
 	binding, err := r.generateBindingByClusterSelector(policy, clusterSet, failClusterIndex, unavailableFailoverClusters)
 	if err != nil {
+		r.log.Error(err,"generate resource binding err")
 		return nil, err
 	}
 
@@ -932,7 +943,7 @@ func (r *Reconciler) updateLastModifyTime(policy *v1alpha1.MultiClusterResourceS
 	// TODO
 	modifyTime := metav1.Time{Time: time.Now()}
 	policy.Status.Schedule.LastModifyTime = &modifyTime
-	err := r.Client.Update(context.TODO(), policy)
+	err := r.Client.Status().Update(context.TODO(), policy)
 	if err != nil {
 		return err
 	}
@@ -942,7 +953,7 @@ func (r *Reconciler) updateLastModifyTime(policy *v1alpha1.MultiClusterResourceS
 func (r *Reconciler) updateLastScheduleTime(policy *v1alpha1.MultiClusterResourceSchedulePolicy) error {
 	scheduleTime := metav1.Time{Time: time.Now()}
 	policy.Status.Schedule.LastScheduleTime = &scheduleTime
-	err := r.Client.Update(context.TODO(), policy)
+	err := r.Client.Status().Update(context.TODO(), policy)
 	if err != nil {
 		return err
 	}
@@ -950,16 +961,16 @@ func (r *Reconciler) updateLastScheduleTime(policy *v1alpha1.MultiClusterResourc
 
 }
 
-func (r *Reconciler) compareBinding(binding *v1alpha1.MultiClusterResourceBinding) (bool, error) {
+func (r *Reconciler) compareBinding(binding *v1alpha1.MultiClusterResourceBinding) bool {
 	previousBinding := &v1alpha1.MultiClusterResourceBinding{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, previousBinding)
 	if err != nil {
-		return false, client.IgnoreNotFound(err)
+		return false
 	}
 	if !reflect.DeepEqual(previousBinding.Spec, binding.Spec) {
-		return false, nil
+		return false
 	}
-	return true, nil
+	return true
 }
 
 func (r *Reconciler) doSortPolicyList(policy *v1alpha1.MultiClusterResourceSchedulePolicy) *controllerCommon.SortPolicy {
@@ -971,4 +982,19 @@ func (r *Reconciler) doSortPolicyList(policy *v1alpha1.MultiClusterResourceSched
 	sortPolicyListIndex := 0
 	sortPolicy := &controllerCommon.SortPolicy{SortPolicyList: sortPolicyList, SortPolicyListIndex: sortPolicyListIndex}
 	return sortPolicy
+}
+
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha1.MultiClusterResourceSchedulePolicy{}).
+		Complete(r)
+}
+
+func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
+	reconciler := Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		log:    logf.Log.WithName("schedule_policy_controller"),
+	}
+	return reconciler.SetupWithManager(mgr)
 }
