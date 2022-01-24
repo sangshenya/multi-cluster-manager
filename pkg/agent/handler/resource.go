@@ -1,41 +1,66 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
+	clusterResourceController "harmonycloud.cn/stellaris/pkg/controller/cluster_resource"
+
 	"harmonycloud.cn/stellaris/config"
-	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
 	"harmonycloud.cn/stellaris/pkg/model"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var resourceLog = logf.Log.WithName("agent_resource")
 
-func SendSyncResourceRequest() {
-	resourceLog.Info(fmt.Sprintf("start send resource request to core"))
+func RecvSyncResourceResponse(response *config.Response) {
+	resourceLog.Info(fmt.Sprintf("recv resource response form core: %s", response.String()))
+	switch response.Type {
+	case model.ResourceStatusUpdateFailed.String():
+		resourceLog.Error(errors.New(response.Body), "cluster resource status update failed")
+	case model.ResourceStatusUpdateSuccess.String():
+		resourceLog.Info(fmt.Sprintf("cluster resource status update success"))
+	case model.ResourceUpdateOrCreate.String():
+		syncClusterResource(response)
+	case model.ResourceDelete.String():
+		syncClusterResource(response)
+	}
 }
 
-func NewResourceRequest(clusterResourceList []*v1alpha1.ClusterResource, clusterName string) (*config.Request, error) {
-	request := &model.ResourceRequest{}
-	for _, clusterResource := range clusterResourceList {
-		status := model.ClusterResourceStatus{}
-		status.Name = clusterResource.Name
-		status.Namespace = clusterResource.Namespace
-		data, err := json.Marshal(&clusterResource.Status)
-		if err != nil {
-			return nil, err
-		}
-		status.Status = string(data)
-		request.ClusterResourceStatusList = append(request.ClusterResourceStatusList, status)
-	}
-	requestData, err := json.Marshal(request)
+func syncClusterResource(response *config.Response) {
+	resourceRes := &model.SyncResourceResponse{}
+	err := json.Unmarshal([]byte(response.Body), resourceRes)
 	if err != nil {
-		return nil, err
+		resourceLog.Error(err, fmt.Sprintf("sync agent(%s) clusterResource failed", response.ClusterName))
+		return
 	}
-	return &config.Request{
-		Type:        model.Resource.String(),
-		ClusterName: clusterName,
-		Body:        string(requestData),
-	}, nil
+	ctx := context.Background()
+	for _, clusterResource := range resourceRes.ClusterResourceList {
+		resource, err := clusterResourceController.GetClusterResourceObjectForRawExtension(clusterResource)
+		if err != nil {
+			continue
+		}
+		clusterResource.SetNamespace(resource.GetNamespace())
+		if response.Type == model.ResourceUpdateOrCreate.String() {
+			err = clusterResourceController.SyncAgentClusterResource(ctx, agentconfig.AgentConfig.AgentClient, clusterResource)
+			if err != nil {
+				resourceLog.Error(err, fmt.Sprintf("updateOrCreate ClusterResource(%s:%s) failed", clusterResource.Namespace, clusterResource.Name))
+				continue
+			} else {
+				resourceLog.Info(fmt.Sprintf("updateOrCreate ClusterResource(%s:%s) success", clusterResource.Namespace, clusterResource.Name))
+
+			}
+		} else if response.Type == model.ResourceDelete.String() {
+			err = clusterResourceController.DeleteAgentClusterResource(ctx, agentconfig.AgentConfig.AgentClient, clusterResource)
+			if err != nil {
+				resourceLog.Error(err, fmt.Sprintf("delete ClusterResource(%s:%s) failed", clusterResource.Namespace, clusterResource.Name))
+				continue
+			} else {
+				resourceLog.Info(fmt.Sprintf("delete ClusterResource(%s:%s) success", clusterResource.Namespace, clusterResource.Name))
+			}
+		}
+	}
 }

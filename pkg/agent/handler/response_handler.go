@@ -24,7 +24,7 @@ const (
 
 func RecvResponse() {
 	for {
-		stream := agentStream.GetConnection("")
+		stream := agentStream.GetConnection()
 		if stream == nil {
 			err := errors.New("get stream failed")
 			registerLog.Error(err, "recv response")
@@ -39,13 +39,21 @@ func RecvResponse() {
 		case model.Unknown.String():
 		case model.Error.String():
 		case model.RegisterSuccess.String():
+			RecvRegisterResponse(response)
 		case model.RegisterFailed.String():
+			RecvRegisterResponse(response)
 		case model.HeartbeatSuccess.String():
+			RecvHeartbeatResponse(response)
 		case model.HeartbeatFailed.String():
+			RecvHeartbeatResponse(response)
 		case model.ResourceUpdateOrCreate.String():
+			RecvSyncResourceResponse(response)
 		case model.ResourceDelete.String():
+			RecvSyncResourceResponse(response)
 		case model.ResourceStatusUpdateSuccess.String():
+			RecvSyncResourceResponse(response)
 		case model.ResourceStatusUpdateFailed.String():
+			RecvSyncResourceResponse(response)
 
 		}
 	}

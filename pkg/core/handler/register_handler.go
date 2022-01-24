@@ -48,14 +48,12 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 	coreRegisterLog.Info(fmt.Sprintf("register cluster(%s) success", cluster.Name))
 
 	// write stream into stream table
-	if err := table.Insert(req.ClusterName, &table.Stream{
+	table.Insert(req.ClusterName, &table.Stream{
 		ClusterName: req.ClusterName,
 		Stream:      stream,
 		Status:      table.OK,
-		Expire:      time.Now().Add(s.Config.HeartbeatExpirePeriod * time.Second),
-	}); err != nil {
-		coreRegisterLog.Error(err, "insert stream table failed")
-	}
+		Expire:      timeutil.NowTimeWithLoc().Add(s.Config.HeartbeatExpirePeriod * time.Second),
+	})
 
 	res := s.newResponse(req.ClusterName)
 	core.SendResponse(res, stream)

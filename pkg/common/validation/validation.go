@@ -6,7 +6,7 @@ import (
 	kubevalidationpath "k8s.io/apimachinery/pkg/api/validation/path"
 )
 
-const clusterResourceNameMaxLength int = 64
+const clusterResourceNameMaxLength int = 100
 
 const (
 	CueIsEmpty       = "cue is empty"

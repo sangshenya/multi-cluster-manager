@@ -6,6 +6,9 @@ import (
 	"os/user"
 	"path/filepath"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -26,4 +29,10 @@ func GetKubeConfig(masterURL string) (*rest.Config, error) {
 		}
 	}
 	return nil, fmt.Errorf("could not locate a kubeconfig")
+}
+
+func RemoveSurplusParam(obj client.Object) {
+	obj.SetResourceVersion("")
+	obj.SetUID("")
+	obj.SetCreationTimestamp(metav1.Time{})
 }

@@ -139,11 +139,11 @@ func removeItemForClusterStatusList(itemList []common.MultiClusterResourceCluste
 
 func getClusterResourceName(bindingName string, gvk *metav1.GroupVersionKind) string {
 	gvkString := managerCommon.GvkLabelString(gvk)
-	return bindingName + ":" + gvkString
+	return bindingName + "." + gvkString
 }
 
 func mapKey(resourceNamespace, resourceName string) string {
-	return resourceNamespace + ":" + resourceName
+	return resourceNamespace + "." + resourceName
 }
 
 // getClusterResourceListForBinding change clusterResource list to map

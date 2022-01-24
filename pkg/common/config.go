@@ -36,13 +36,15 @@ const (
 	NamespaceMappingControllerFinalizer = "stellaris/namespace-mapping-controller"
 )
 
-// TODO clusterName change to clusterNamespace
 func ClusterNamespace(clusterName string) string {
-	return clusterName
+	return ClusterWorkspacePrefix + clusterName
 }
 
 func ClusterName(clusterNamespace string) string {
-	return clusterNamespace
+	if strings.Contains(clusterNamespace, ClusterWorkspacePrefix) {
+		return strings.Replace(clusterNamespace, ClusterWorkspacePrefix, "", -1)
+	}
+	return ""
 }
 
 func GvkLabelString(gvk *metav1.GroupVersionKind) string {
@@ -58,9 +60,4 @@ func GetMultiClusterResourceSelectorForMultiClusterResourceName(multiClusterReso
 		return nil, errors.New("multiClusterResourceName is empty")
 	}
 	return labels.Parse(MultiClusterResourceLabelName + "." + multiClusterResourceName + "=1")
-}
-
-// TODO should determine the cluster role
-func IsControlPlane() bool {
-	return true
 }

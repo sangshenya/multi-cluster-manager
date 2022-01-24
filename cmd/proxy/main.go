@@ -4,6 +4,8 @@ import (
 	"flag"
 	"time"
 
+	"harmonycloud.cn/stellaris/pkg/agent/send"
+
 	agentStream "harmonycloud.cn/stellaris/pkg/agent/stream"
 
 	"k8s.io/klog/v2"
@@ -27,18 +29,19 @@ import (
 )
 
 var (
-	heartbeatPeriod time.Duration
-	coreAddress     string
-	clusterName     string
-	addonPath       string
-	metricsAddr     string
-	probeAddr       string
+	heartbeatPeriod  int
+	coreAddress      string
+	clusterName      string
+	addonPath        string
+	metricsAddr      string
+	probeAddr        string
+	addonLoadTimeout int
 )
 
 var agentScheme = runtime.NewScheme()
 
 func init() {
-	flag.DurationVar(&heartbeatPeriod, "heartbeat-send-period", 30*time.Second, "The period of heartbeat send interval")
+	flag.IntVar(&heartbeatPeriod, "heartbeat-send-period", 30, "The period of heartbeat send interval")
 	flag.StringVar(&coreAddress, "core-address", "", "address of stellaris")
 	flag.StringVar(&clusterName, "cluster-name", "", "name of agent-cluster")
 	flag.StringVar(&addonPath, "addon-path", "", "path of addon config")
@@ -46,6 +49,7 @@ func init() {
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9000", "The address the metrics endpoint binds to")
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
 
+	flag.IntVar(&addonLoadTimeout, "addon-load-timeout", 3, "Load addon timeout")
 	utilruntime.Must(v1alpha1.AddToScheme(agentScheme))
 	utilruntime.Must(scheme.AddToScheme(agentScheme))
 
@@ -59,10 +63,11 @@ func main() {
 	logf.SetLogger(klogr.New())
 
 	cfg := agentcfg.DefaultConfiguration()
-	cfg.HeartbeatPeriod = heartbeatPeriod
+	cfg.HeartbeatPeriod = time.Duration(heartbeatPeriod) * time.Second
 	cfg.ClusterName = clusterName
 	cfg.CoreAddress = coreAddress
 	cfg.AddonPath = addonPath
+	cfg.AddonLoadTimeout = time.Duration(addonLoadTimeout) * time.Second
 
 	restCfg := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
@@ -88,7 +93,7 @@ func main() {
 	}
 
 	// new agentConfig
-	agentcfg.NewAgentConfig(cfg, agentClient)
+	agentcfg.NewAgentConfig(cfg, agentClient, mgr.GetClient())
 
 	// new stream
 	stream := agentStream.GetConnection()
@@ -96,10 +101,12 @@ func main() {
 		logrus.Fatalf("failed get connection %s", cfg.CoreAddress)
 	}
 
-	err = handler.Register()
+	err = send.Register()
 	if err != nil {
 		logrus.Fatalf("failed send register request, cluster: %s", err)
 	}
+
+	go handler.RecvResponse()
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		logrus.Fatalf("failed to setup health check")

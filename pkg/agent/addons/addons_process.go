@@ -4,15 +4,11 @@ import (
 	"context"
 	"time"
 
+	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"harmonycloud.cn/stellaris/pkg/model"
-)
-
-const (
-	forceSynchronization = 30
-	timeOut              = 10
-	HeartbeatMessage     = "ok"
 )
 
 var addonsLog = logf.Log.WithName("agent_addon")
@@ -22,7 +18,7 @@ func LoadAddon(cfg *model.PluginsConfig) []model.Addon {
 		return []model.Addon{}
 	}
 
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(agentconfig.AgentConfig.Cfg.AddonLoadTimeout)
 	deadlineCtx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 

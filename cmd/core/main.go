@@ -43,9 +43,9 @@ var (
 
 var (
 	lisPort                  int
-	heartbeatExpirePeriod    time.Duration
-	onlineExpirationTime     time.Duration
-	clusterStatusCheckPeriod time.Duration
+	heartbeatExpirePeriod    int
+	onlineExpirationTime     int
+	clusterStatusCheckPeriod int
 	masterURL                string
 	metricsAddr              string
 	probeAddr                string
@@ -56,9 +56,9 @@ var (
 func init() {
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	flag.IntVar(&lisPort, "listen-port", 8080, "Bind port used to provider grpc serve")
-	flag.DurationVar(&heartbeatExpirePeriod, "heartbeat-expire-period", 30*time.Second, "The period of maximum heartbeat interval")
-	flag.DurationVar(&clusterStatusCheckPeriod, "cluster-status-check-period", 60*time.Second, "The period of check cluster status interval")
-	flag.DurationVar(&onlineExpirationTime, "online-expiration-time", 90*time.Second, "cluster status online expiration time")
+	flag.IntVar(&heartbeatExpirePeriod, "heartbeat-expire-period", 30, "The period of maximum heartbeat interval")
+	flag.IntVar(&clusterStatusCheckPeriod, "cluster-status-check-period", 60, "The period of check cluster status interval")
+	flag.IntVar(&onlineExpirationTime, "online-expiration-time", 90, "cluster status online expiration time")
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9000", "The address the metrics endpoint binds to")
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
 	flag.StringVar(&certDir, "webhook-cert-dir", "/k8s-webhook-server/serving-certs", "Admission webhook cert/key dir.")
@@ -93,9 +93,9 @@ func main() {
 	}
 
 	cfg := corecfg.DefaultConfiguration()
-	cfg.HeartbeatExpirePeriod = heartbeatExpirePeriod
-	cfg.ClusterStatusCheckPeriod = clusterStatusCheckPeriod
-	cfg.OnlineExpirationTime = onlineExpirationTime
+	cfg.HeartbeatExpirePeriod = time.Duration(heartbeatExpirePeriod) * time.Second
+	cfg.ClusterStatusCheckPeriod = time.Duration(clusterStatusCheckPeriod) * time.Second
+	cfg.OnlineExpirationTime = time.Duration(onlineExpirationTime) * time.Second
 
 	s := grpc.NewServer()
 	config.RegisterChannelServer(s, &handler.Channel{

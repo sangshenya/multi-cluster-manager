@@ -3,6 +3,8 @@ package resource_binding
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strings"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 
@@ -42,6 +44,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
 		return r.removeFinalizer(ctx, instance)
+	}
+
+	// add labels
+	if shouldChangeBindingLabels(instance) {
+		return r.addBindingLabels(ctx, instance)
 	}
 
 	return r.updateStatusAndSyncClusterResource(ctx, instance)
@@ -165,7 +172,7 @@ func bindingClusterStatusMap(binding *v1alpha1.MultiClusterResourceBinding) map[
 }
 
 func bindingClusterStatusMapKey(clusterName, resourceName string) string {
-	return clusterName + ":" + resourceName
+	return clusterName + "." + resourceName
 }
 
 func statusEqual(clusterResourceStatus v1alpha1.ClusterResourceStatus, bindingStatus common.MultiClusterResourceClusterStatus) bool {
@@ -173,4 +180,65 @@ func statusEqual(clusterResourceStatus v1alpha1.ClusterResourceStatus, bindingSt
 		return false
 	}
 	return true
+}
+
+// add labels
+func shouldChangeBindingLabels(binding *v1alpha1.MultiClusterResourceBinding) bool {
+	if len(binding.Spec.Resources) <= 0 {
+		return false
+	}
+	currentLabels := getMultiClusterResourceLabels(binding)
+	if len(currentLabels) <= 0 {
+		return true
+	}
+	existLabels := shouldExistLabels(binding)
+	if reflect.DeepEqual(existLabels, currentLabels) {
+		return false
+	}
+	return true
+}
+func (r *Reconciler) addBindingLabels(ctx context.Context, binding *v1alpha1.MultiClusterResourceBinding) (ctrl.Result, error) {
+	currentLabels := getMultiClusterResourceLabels(binding)
+	existLabels := shouldExistLabels(binding)
+
+	binding.SetLabels(replaceLabels(binding.GetLabels(), currentLabels, existLabels))
+	err := r.Client.Update(ctx, binding)
+	if err != nil {
+		return controllerCommon.ReQueueResult(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func replaceLabels(bindingLabels, removeLabels, addLabels map[string]string) map[string]string {
+	if len(bindingLabels) <= 0 || len(removeLabels) <= 0 {
+		return addLabels
+	}
+	if reflect.DeepEqual(bindingLabels, removeLabels) {
+		return addLabels
+	}
+	for removeKey, _ := range removeLabels {
+		delete(bindingLabels, removeKey)
+	}
+	for addKey, addValue := range addLabels {
+		bindingLabels[addKey] = addValue
+	}
+	return bindingLabels
+}
+
+func shouldExistLabels(binding *v1alpha1.MultiClusterResourceBinding) map[string]string {
+	existLabels := map[string]string{}
+	for _, resource := range binding.Spec.Resources {
+		existLabels[managerCommon.MultiClusterResourceLabelName+resource.Name] = "1"
+	}
+	return existLabels
+}
+
+func getMultiClusterResourceLabels(binding *v1alpha1.MultiClusterResourceBinding) map[string]string {
+	labels := map[string]string{}
+	for k, v := range binding.GetLabels() {
+		if strings.HasPrefix(k, managerCommon.MultiClusterResourceLabelName) {
+			labels[k] = v
+		}
+	}
+	return labels
 }

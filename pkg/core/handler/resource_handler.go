@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 
@@ -57,6 +58,12 @@ func (s *CoreServer) syncClusterResourceStatus(statusList []model.ClusterResourc
 			resourceHandlerLog.Error(err, fmt.Sprintf("unmarshal clusterResource(%s:%s) status failed", item.Namespace, item.Name))
 			return err
 		}
+		ma, _ := json.Marshal(clusterResource.Status)
+		resourceHandlerLog.Info(fmt.Sprintf("status:(%s), clusterResourceStatus(%s)", item.Status, string(ma)))
+		if reflect.DeepEqual(clusterResource.Status, *status) {
+			resourceHandlerLog.Info(fmt.Sprintf("clusterResource(%s:%s) status is no changed", item.Namespace, item.Name))
+			continue
+		}
 		clusterResource.Status = *status
 		_, err = s.mClient.MulticlusterV1alpha1().ClusterResources(item.Namespace).UpdateStatus(ctx, clusterResource, metav1.UpdateOptions{})
 		if err != nil {
@@ -70,6 +77,11 @@ func (s *CoreServer) syncClusterResourceStatus(statusList []model.ClusterResourc
 // send request to agent
 func SendResourceToAgent(clusterName string, resourceResponse *config.Response) error {
 	stream := table.FindStream(clusterName)
+	if stream == nil {
+		err := errors.New(fmt.Sprintf("can not find agent(%s) stream", clusterName))
+		resourceHandlerLog.Error(err, "find agent stream failed")
+		return err
+	}
 	err := stream.Stream.Send(resourceResponse)
 	if err != nil {
 		resourceHandlerLog.Error(err, "send resource to agent failed")

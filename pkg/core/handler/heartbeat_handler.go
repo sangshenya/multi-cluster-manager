@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"time"
+
+	table "harmonycloud.cn/stellaris/pkg/core/stream"
 
 	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
 
@@ -37,7 +40,13 @@ func (s *CoreServer) Heartbeat(req *config.Request, stream config.Channel_Establ
 		coreHeartbeatLog.Error(err, "update cluster failed")
 		core.SendErrResponse(req.ClusterName, model.HeartbeatFailed, err, stream)
 	}
-	// TODO update proxy monitor data and refresh stream table status
+
+	table.Insert(req.ClusterName, &table.Stream{
+		ClusterName: req.ClusterName,
+		Stream:      stream,
+		Status:      table.OK,
+		Expire:      timeutil.NowTimeWithLoc().Add(s.Config.HeartbeatExpirePeriod * time.Second),
+	})
 
 	res := &config.Response{
 		Type:        model.HeartbeatSuccess.String(),
