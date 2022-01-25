@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"harmonycloud.cn/stellaris/pkg/util/core"
@@ -52,19 +50,11 @@ func (s *CoreServer) syncClusterResourceStatus(statusList []model.ClusterResourc
 			resourceHandlerLog.Error(err, fmt.Sprintf("get clusterResource(%s:%s) failed", item.Namespace, item.Name))
 			return err
 		}
-		status := &v1alpha1.ClusterResourceStatus{}
-		err = json.Unmarshal([]byte(item.Status), status)
-		if err != nil {
-			resourceHandlerLog.Error(err, fmt.Sprintf("unmarshal clusterResource(%s:%s) status failed", item.Namespace, item.Name))
-			return err
-		}
-		ma, _ := json.Marshal(clusterResource.Status)
-		resourceHandlerLog.Info(fmt.Sprintf("status:(%s), clusterResourceStatus(%s)", item.Status, string(ma)))
-		if reflect.DeepEqual(clusterResource.Status, *status) {
+		if reflect.DeepEqual(clusterResource.Status, item.Status) {
 			resourceHandlerLog.Info(fmt.Sprintf("clusterResource(%s:%s) status is no changed", item.Namespace, item.Name))
 			continue
 		}
-		clusterResource.Status = *status
+		clusterResource.Status = item.Status
 		_, err = s.mClient.MulticlusterV1alpha1().ClusterResources(item.Namespace).UpdateStatus(ctx, clusterResource, metav1.UpdateOptions{})
 		if err != nil {
 			resourceHandlerLog.Error(err, fmt.Sprintf("update clusterResource(%s:%s) status failed", item.Namespace, item.Name))
@@ -76,6 +66,7 @@ func (s *CoreServer) syncClusterResourceStatus(statusList []model.ClusterResourc
 
 // send request to agent
 func SendResourceToAgent(clusterName string, resourceResponse *config.Response) error {
+	resourceHandlerLog.Info(fmt.Sprintf("start to send resource request to agent"))
 	stream := table.FindStream(clusterName)
 	if stream == nil {
 		err := errors.New(fmt.Sprintf("can not find agent(%s) stream", clusterName))
@@ -87,6 +78,7 @@ func SendResourceToAgent(clusterName string, resourceResponse *config.Response) 
 		resourceHandlerLog.Error(err, "send resource to agent failed")
 		return err
 	}
+	resourceHandlerLog.Info(fmt.Sprintf("send resource request to agent success"))
 	return nil
 }
 

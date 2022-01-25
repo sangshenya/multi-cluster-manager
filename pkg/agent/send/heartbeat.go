@@ -58,7 +58,7 @@ func (heartbeat *HeartbeatObject) start() {
 		}
 
 		stream := agentStream.GetConnection()
-		if err != nil {
+		if stream == nil {
 			heartbeatLog.Error(err, "new stream failed")
 			continue
 		}

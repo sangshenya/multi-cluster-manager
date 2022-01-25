@@ -64,6 +64,11 @@ var _ = Describe("Test ControlPlane ClusterResource Controller", func() {
 
 	ctx := context.TODO()
 
+	It("clusterResource", func() {
+		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "binding-test.apps.v1.deployment", Namespace: "stellaris-harmonycloud-cn-cluster238"}})
+		Expect(err).Should(BeNil())
+	})
+
 	clusterName = "test-multi-cluster"
 	resourceName = "test-resource"
 	clusterResource = &v1alpha1.ClusterResource{

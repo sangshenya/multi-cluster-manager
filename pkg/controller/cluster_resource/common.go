@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"k8s.io/klog/v2"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"harmonycloud.cn/stellaris/pkg/common/helper"
 
@@ -27,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var clusterResourceCommonLog = logf.Log.WithName("agent_clusterResource_common")
+
 // sync clusterResource when update/create/none
 func SyncAgentClusterResource(ctx context.Context, agentClient *multclusterclient.Clientset, clusterResource *v1alpha1.ClusterResource) error {
 	existClusterResource, err := agentClient.MulticlusterV1alpha1().ClusterResources(clusterResource.GetNamespace()).Get(ctx, clusterResource.Name, metav1.GetOptions{})
@@ -39,7 +41,7 @@ func SyncAgentClusterResource(ctx context.Context, agentClient *multclusterclien
 		return err
 	}
 	if reflect.DeepEqual(clusterResource.Spec, existClusterResource.Spec) {
-		return syncResource(ctx, agentconfig.AgentConfig.ControllerClient, existClusterResource)
+		return nil
 	}
 	existClusterResource.Spec = clusterResource.Spec
 	_, err = agentClient.MulticlusterV1alpha1().ClusterResources(existClusterResource.GetNamespace()).Update(ctx, existClusterResource, metav1.UpdateOptions{})
@@ -57,13 +59,88 @@ func DeleteAgentClusterResource(ctx context.Context, agentClient *multclustercli
 	return agentClient.MulticlusterV1alpha1().ClusterResources(clusterResource.Namespace).Delete(ctx, clusterResource.Name, metav1.DeleteOptions{})
 }
 
+// resource compare
 func resourceEqual(old, new *unstructured.Unstructured) bool {
-	oldSpec, oldOk := old.Object["spec"]
-	newSpec, newOk := new.Object["spec"]
-	if !(oldOk && newOk) {
+	annotationValue, ok := old.GetAnnotations()[managerCommon.ResourceAnnotationKey]
+	if !ok {
+		return resourceDeepEqual(old.Object, new.Object)
+	}
+	newAnnotationValue, err := getResourceAnnotations(new)
+	if err != nil || len(annotationValue) == 0 {
 		return false
 	}
-	return reflect.DeepEqual(oldSpec, newSpec)
+	return newAnnotationValue == annotationValue
+}
+
+func resourceDeepEqual(old, new map[string]interface{}) bool {
+	newSpecObject, ok := new["spec"]
+	if !ok {
+		return false
+	}
+	oldSpecObject, ok := old["spec"]
+	if !ok {
+		return false
+	}
+	return reflect.DeepEqual(newSpecObject, oldSpecObject)
+}
+
+func getUpdateResource(old, new *unstructured.Unstructured) *unstructured.Unstructured {
+	_, ok := old.Object["spec"]
+	if !ok {
+		clusterResourceCommonLog.Info(fmt.Sprintf("can not find old resource(%s:%s) spec", old.GetNamespace(), old.GetName()))
+		return changeNoSpecResource(old, new)
+	}
+	_, ok = new.Object["spec"]
+	if !ok {
+		clusterResourceCommonLog.Info(fmt.Sprintf("can not find new resource(%s:%s) spec", new.GetNamespace(), new.GetName()))
+		delete(old.Object, "spec")
+		return changeNoSpecResource(old, new)
+	}
+	old.Object["spec"] = new.Object["spec"]
+	newAnnotationValue, err := getResourceAnnotations(new)
+	if err != nil {
+		return old
+	}
+	annotation := old.GetAnnotations()
+	annotation[managerCommon.ResourceAnnotationKey] = newAnnotationValue
+	old.SetAnnotations(annotation)
+	return old
+}
+
+func changeNoSpecResource(old, new *unstructured.Unstructured) *unstructured.Unstructured {
+	for k, v := range new.Object {
+		if k == "apiVersion" || k == "kind" || k == "metadata" || k == "status" {
+			continue
+		}
+		old.Object[k] = v
+	}
+	return old
+}
+
+func createResource(ctx context.Context, clientSet client.Client, resourceObject *unstructured.Unstructured) error {
+	annotationValue, _ := getResourceAnnotations(resourceObject)
+	if len(annotationValue) > 0 {
+		resourceObject.SetAnnotations(map[string]string{
+			managerCommon.ResourceAnnotationKey: annotationValue,
+		})
+	}
+	err := clientSet.Create(ctx, resourceObject)
+	if apierrors.IsAlreadyExists(err) {
+		return nil
+	}
+	return err
+}
+
+func getResourceAnnotations(resource *unstructured.Unstructured) (string, error) {
+	specObject, ok := resource.Object["spec"]
+	if !ok {
+		return "", errors.New("get spec failed")
+	}
+	specData, err := json.Marshal(specObject)
+	if err != nil {
+		return "", errors.New("spec json marshal failed")
+	}
+	return string(specData), nil
 }
 
 type SyncEventType string
@@ -98,11 +175,7 @@ func newUpdateClusterResourceStatusRequest(clusterResourceList []*v1alpha1.Clust
 		status := model.ClusterResourceStatus{}
 		status.Name = clusterResource.Name
 		status.Namespace = managerCommon.ClusterNamespace(clusterName)
-		data, err := json.Marshal(&clusterResource.Status)
-		if err != nil {
-			return nil, err
-		}
-		status.Status = string(data)
+		status.Status = clusterResource.Status
 		request.ClusterResourceStatusList = append(request.ClusterResourceStatusList, status)
 	}
 	requestData, err := json.Marshal(request)
@@ -154,24 +227,19 @@ func syncResource(ctx context.Context, clientSet client.Client, instance *v1alph
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err = clientSet.Create(ctx, resourceObject)
-			if apierrors.IsAlreadyExists(err) {
-				return nil
-			}
-			return err
+			return createResource(ctx, clientSet, resourceObject)
 		}
-		klog.V(1).ErrorS(err, fmt.Sprintf("get resource(%s:%s) failed", existResource.GetNamespace(), existResource.GetName()))
+		clusterResourceCommonLog.Error(err, fmt.Sprintf("get resource(%s:%s) failed", existResource.GetNamespace(), existResource.GetName()))
 		return err
 	}
 
 	if resourceEqual(existResource, resourceObject) {
 		return nil
 	}
-	existResource.Object["spec"] = resourceObject.Object["spec"]
-
+	existResource = getUpdateResource(existResource, resourceObject)
 	err = clientSet.Update(ctx, existResource)
 	if err != nil {
-		klog.V(1).ErrorS(err, fmt.Sprintf("update resource(%s:%s) failed", existResource.GetNamespace(), existResource.GetName()))
+		clusterResourceCommonLog.Error(err, fmt.Sprintf("update resource(%s:%s) failed", existResource.GetNamespace(), existResource.GetName()))
 	}
 	return err
 }
@@ -193,12 +261,7 @@ func GetClusterResourceObjectForRawExtension(instance *v1alpha1.ClusterResource)
 	if instance.Spec.Resource == nil {
 		return nil, errors.New("resource is empty")
 	}
-	resourceByte, err := instance.Spec.Resource.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	resourceObject := &unstructured.Unstructured{}
-	err = resourceObject.UnmarshalJSON(resourceByte)
+	resourceObject, err := helper.GetResourceForRawExtension(instance.Spec.Resource)
 	if err != nil {
 		return nil, err
 	}

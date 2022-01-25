@@ -2,6 +2,9 @@ package handler
 
 import (
 	"errors"
+	"time"
+
+	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
 
 	agentStream "harmonycloud.cn/stellaris/pkg/agent/stream"
 	"harmonycloud.cn/stellaris/pkg/model"
@@ -28,11 +31,15 @@ func RecvResponse() {
 		if stream == nil {
 			err := errors.New("get stream failed")
 			registerLog.Error(err, "recv response")
+			agentStream.SetEmptyConnection()
+			time.Sleep(agentconfig.AgentConfig.Cfg.HeartbeatPeriod)
 			continue
 		}
 		response, err := stream.Recv()
 		if err != nil {
 			registerLog.Error(err, "recv response failed")
+			agentStream.SetEmptyConnection()
+			time.Sleep(agentconfig.AgentConfig.Cfg.HeartbeatPeriod)
 			continue
 		}
 		switch response.Type {

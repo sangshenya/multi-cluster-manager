@@ -26,8 +26,6 @@ type Reconciler struct {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	r.log.Info("Reconciling ClusterResource")
 	// core focus on clusterNamespaces ClusterResource
 	if r.isControlPlane && !strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
 		return ctrl.Result{}, nil
@@ -36,6 +34,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	if !r.isControlPlane && strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
 		return ctrl.Result{}, nil
 	}
+
+	r.log.Info(fmt.Sprintf("Reconciling ClusterResource(%s:%s)", request.Namespace, request.Name))
 
 	// get ClusterResource
 	instance := &v1alpha1.ClusterResource{}
@@ -78,6 +78,7 @@ func (r *Reconciler) syncClusterResource(ctx context.Context, instance *v1alpha1
 	if r.isControlPlane {
 		return r.syncCoreClusterResource(ctx, instance)
 	}
+	// TODO agent should listen for the deletion of corresponding resources
 	return r.syncAgentClusterResource(ctx, instance)
 }
 
@@ -92,15 +93,6 @@ func (r *Reconciler) syncCoreClusterResource(ctx context.Context, instance *v1al
 
 func (r *Reconciler) syncAgentClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
 	var err error
-	if len(instance.Status.Phase) == 0 {
-		// update status to creating
-		err = r.updateClusterResourceStatusWithPhaseCreate(ctx, instance)
-		if err != nil {
-			r.log.Error(err, fmt.Sprintf("update status failed, resource(%s)", instance.Name))
-			return controllerCommon.ReQueueResult(err)
-		}
-		return ctrl.Result{}, nil
-	}
 	// create or complete status should sync resource(eg: resource deleted when clusterResource status is complete)
 	err = r.syncResourceAndUpdateStatus(ctx, instance)
 	if err != nil {
@@ -164,14 +156,13 @@ func (r *Reconciler) syncResourceAndUpdateStatus(ctx context.Context, instance *
 	// create/update resource
 	err := syncResource(ctx, r.Client, instance)
 	if err != nil {
-		r.log.Info(fmt.Sprintf("ClusterResource(%s:%s) sync resource failed", instance.Namespace, instance.Name))
+		r.log.Error(err, fmt.Sprintf("ClusterResource(%s:%s) sync resource failed", instance.Namespace, instance.Name))
 		// update status, add sync error message
 		updateStatusError := r.updateClusterResourceStatusWithCreateErrorMessage(ctx, err.Error(), instance)
 		if updateStatusError != nil {
 			r.log.Error(updateStatusError, fmt.Sprintf("update status failed, resource(%s)", instance.Name))
 			return updateStatusError
 		}
-		r.log.Error(err, fmt.Sprintf("sync resource fail, resource (%s)", instance.Name))
 		return err
 	}
 	// update status,change phase to complete
@@ -185,7 +176,7 @@ func (r *Reconciler) syncResourceAndUpdateStatus(ctx context.Context, instance *
 // sync clusterResource status
 func (r *Reconciler) updateClusterResourceStatusWithCreateErrorMessage(ctx context.Context, errorMessage string, instance *v1alpha1.ClusterResource) error {
 	// update status errorInfo
-	newStatus := newClusterResourceStatus(common.Complete, errorMessage, instance.Status.ObservedReceiveGeneration)
+	newStatus := newClusterResourceStatus(common.Creating, errorMessage, instance.Generation)
 	err := updateClusterResourceStatus(ctx, r.Client, instance, newStatus)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("update clusterResource(%s:%s) status failed", instance.Namespace, instance.Name))

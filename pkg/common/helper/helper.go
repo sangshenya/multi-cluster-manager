@@ -6,6 +6,9 @@ import (
 	"os/user"
 	"path/filepath"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -35,4 +38,17 @@ func RemoveSurplusParam(obj client.Object) {
 	obj.SetResourceVersion("")
 	obj.SetUID("")
 	obj.SetCreationTimestamp(metav1.Time{})
+}
+
+func GetResourceForRawExtension(resource *runtime.RawExtension) (*unstructured.Unstructured, error) {
+	resourceByte, err := resource.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	resourceObject := &unstructured.Unstructured{}
+	err = resourceObject.UnmarshalJSON(resourceByte)
+	if err != nil {
+		return nil, err
+	}
+	return resourceObject, nil
 }

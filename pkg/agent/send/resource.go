@@ -13,7 +13,7 @@ import (
 var resourceLog = logf.Log.WithName("agent_send_resource")
 
 func SendSyncResourceRequest(request *config.Request) error {
-	resourceLog.Info(fmt.Sprintf("start send resource request to core"))
+	resourceLog.Info(fmt.Sprintf("start send resource request to core, request Data:%s", request.Body))
 	stream := agentStream.GetConnection()
 	var err error
 	if stream == nil {

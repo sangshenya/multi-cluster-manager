@@ -228,7 +228,7 @@ func replaceLabels(bindingLabels, removeLabels, addLabels map[string]string) map
 func shouldExistLabels(binding *v1alpha1.MultiClusterResourceBinding) map[string]string {
 	existLabels := map[string]string{}
 	for _, resource := range binding.Spec.Resources {
-		existLabels[managerCommon.MultiClusterResourceLabelName+resource.Name] = "1"
+		existLabels[managerCommon.MultiClusterResourceLabelName+"."+resource.Name] = "1"
 	}
 	return existLabels
 }

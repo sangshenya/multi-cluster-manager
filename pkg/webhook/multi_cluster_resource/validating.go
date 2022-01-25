@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"harmonycloud.cn/stellaris/pkg/common/helper"
+
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
@@ -41,6 +43,34 @@ func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request)
 	if !strings.HasPrefix(multiClusterResource.GetName(), managerCommon.GvkLabelString(multiClusterResource.Spec.ResourceRef)) {
 		klog.Error(validationCommon.NamePrefixedGVK)
 		return admission.Denied(validationCommon.NamePrefixedGVK)
+	}
+
+	oldMultiClusterResource := &v1alpha1.MultiClusterResource{}
+	err = v.decoder.DecodeRaw(req.OldObject, oldMultiClusterResource)
+	if err != nil {
+		return admission.Errored(http.StatusBadRequest, err)
+	}
+
+	if oldMultiClusterResource.Spec.ResourceRef.String() != multiClusterResource.Spec.ResourceRef.String() {
+		klog.Error(validationCommon.CanNotChangedGVK)
+		return admission.Denied(validationCommon.CanNotChangedGVK)
+	}
+
+	oldResource, err := helper.GetResourceForRawExtension(oldMultiClusterResource.Spec.Resource)
+	if err != nil {
+		klog.Error(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
+		return admission.Denied(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
+	}
+
+	newResource, err := helper.GetResourceForRawExtension(multiClusterResource.Spec.Resource)
+	if err != nil {
+		klog.Error(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
+		return admission.Denied(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
+	}
+
+	if oldResource.GetName() != newResource.GetName() || oldResource.GetNamespace() != oldResource.GetNamespace() {
+		klog.Error(validationCommon.CanNotChangedIdentity)
+		return admission.Denied(validationCommon.CanNotChangedIdentity)
 	}
 
 	return admission.Allowed("")

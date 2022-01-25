@@ -36,6 +36,10 @@ const (
 	NamespaceMappingControllerFinalizer = "stellaris/namespace-mapping-controller"
 )
 
+const (
+	ResourceAnnotationKey = "stellaris-annotation"
+)
+
 func ClusterNamespace(clusterName string) string {
 	return ClusterWorkspacePrefix + clusterName
 }
@@ -59,5 +63,6 @@ func GetMultiClusterResourceSelectorForMultiClusterResourceName(multiClusterReso
 	if len(multiClusterResourceName) == 0 {
 		return nil, errors.New("multiClusterResourceName is empty")
 	}
-	return labels.Parse(MultiClusterResourceLabelName + "." + multiClusterResourceName + "=1")
+	str := MultiClusterResourceLabelName + "." + multiClusterResourceName + "=1"
+	return labels.Parse(str)
 }

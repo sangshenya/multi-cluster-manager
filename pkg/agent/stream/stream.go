@@ -5,8 +5,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
-
 	"k8s.io/klog/v2"
 
 	agentcfg "harmonycloud.cn/stellaris/pkg/agent/config"
@@ -20,10 +18,6 @@ var mux sync.Mutex
 var stream config.Channel_EstablishClient
 
 func GetConnection() config.Channel_EstablishClient {
-	if timeutil.NowTimeWithLoc().Minute() == 9 || timeutil.NowTimeWithLoc().Minute() == 39 {
-		atomic.StoreUint32(&initialized, 0)
-		stream = nil
-	}
 	if atomic.LoadUint32(&initialized) == 1 {
 		return stream
 	}
@@ -48,4 +42,9 @@ func getConnection() (config.Channel_EstablishClient, error) {
 	}
 	grpcClient := config.NewChannelClient(conn)
 	return grpcClient.Establish(context.Background())
+}
+
+func SetEmptyConnection() {
+	atomic.StoreUint32(&initialized, 0)
+	stream = nil
 }

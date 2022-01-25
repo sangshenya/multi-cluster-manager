@@ -9,10 +9,13 @@ import (
 const clusterResourceNameMaxLength int = 100
 
 const (
-	CueIsEmpty       = "cue is empty"
-	ResourceIsNil    = "resource field should not be nil"
-	ResourceRefIsNil = "resourceRef field should not be nil"
-	NamePrefixedGVK  = "name must be prefixed with resourceGVK"
+	CueIsEmpty            = "cue is empty"
+	ResourceIsNil         = "resource field should not be nil"
+	ResourceRefIsNil      = "resourceRef field should not be nil"
+	NamePrefixedGVK       = "name must be prefixed with resourceGVK"
+	CanNotChangedGVK      = "can not changed resourceGVK"
+	ResourceMarshalFail   = "marshal resource failed"
+	CanNotChangedIdentity = "can not changed resource identity"
 )
 
 func ValidateClusterResourceName(name string) []string {

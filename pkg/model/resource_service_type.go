@@ -9,7 +9,7 @@ type ResourceRequest struct {
 type ClusterResourceStatus struct {
 	Name      string
 	Namespace string
-	Status    string
+	Status    v1alpha1.ClusterResourceStatus
 }
 
 type SyncResourceResponse struct {
