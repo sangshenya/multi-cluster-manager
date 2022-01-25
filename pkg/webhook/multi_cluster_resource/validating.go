@@ -2,8 +2,11 @@ package multi_cluster_resource
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
+
+	admissionv1 "k8s.io/api/admission/v1"
 
 	"harmonycloud.cn/stellaris/pkg/common/helper"
 
@@ -45,35 +48,41 @@ func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request)
 		return admission.Denied(validationCommon.NamePrefixedGVK)
 	}
 
-	oldMultiClusterResource := &v1alpha1.MultiClusterResource{}
-	err = v.decoder.DecodeRaw(req.OldObject, oldMultiClusterResource)
-	if err != nil {
-		return admission.Errored(http.StatusBadRequest, err)
+	if req.Operation == admissionv1.Update {
+		oldMultiClusterResource := &v1alpha1.MultiClusterResource{}
+		err = v.decoder.DecodeRaw(req.OldObject, oldMultiClusterResource)
+		if err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+		err = updateValidate(oldMultiClusterResource, multiClusterResource)
+		if err != nil {
+			klog.Error(err)
+			return admission.Denied(err.Error())
+		}
 	}
 
+	return admission.Allowed("")
+}
+
+func updateValidate(oldMultiClusterResource, multiClusterResource *v1alpha1.MultiClusterResource) error {
 	if oldMultiClusterResource.Spec.ResourceRef.String() != multiClusterResource.Spec.ResourceRef.String() {
-		klog.Error(validationCommon.CanNotChangedGVK)
-		return admission.Denied(validationCommon.CanNotChangedGVK)
+		return errors.New(validationCommon.CanNotChangedGVK)
 	}
 
 	oldResource, err := helper.GetResourceForRawExtension(oldMultiClusterResource.Spec.Resource)
 	if err != nil {
-		klog.Error(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
-		return admission.Denied(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
+		return errors.New(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
 	}
 
 	newResource, err := helper.GetResourceForRawExtension(multiClusterResource.Spec.Resource)
 	if err != nil {
-		klog.Error(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
-		return admission.Denied(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
+		return errors.New(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
 	}
 
 	if oldResource.GetName() != newResource.GetName() || oldResource.GetNamespace() != oldResource.GetNamespace() {
-		klog.Error(validationCommon.CanNotChangedIdentity)
-		return admission.Denied(validationCommon.CanNotChangedIdentity)
+		return errors.New(validationCommon.CanNotChangedIdentity)
 	}
-
-	return admission.Allowed("")
+	return nil
 }
 
 // InjectDecoder implements admission.DecoderInjector interface.
