@@ -1,0 +1,33 @@
+# Build the stellaris-proxy binary
+FROM golang:1.16 as builder
+
+WORKDIR /workspace
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN go mod download
+
+# Copy the go source
+COPY cmd cmd/
+COPY pkg pkg/
+COPY config config/
+COPY proto proto/
+
+# Build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o stellaris-proxy ./cmd/proxy/main.go
+
+# Build Runtime
+FROM alpine:3.11
+WORKDIR /
+# install tools
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    apk update
+RUN apk add curl --no-cache && \
+    apk add bash --no-cache && \
+    apk add net-tools --no-cache && \
+    apk add tzdata --no-cache
+COPY --from=builder /workspace/stellaris-proxy ./stellaris-proxy
+
+ENTRYPOINT ["/stellaris-proxy"]
