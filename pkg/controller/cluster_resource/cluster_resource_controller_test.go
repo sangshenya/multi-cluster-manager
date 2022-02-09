@@ -64,6 +64,11 @@ var _ = Describe("Test ControlPlane ClusterResource Controller", func() {
 
 	ctx := context.TODO()
 
+	It("clusterResource", func() {
+		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "binding-test.apps.v1.deployment", Namespace: "stellaris-harmonycloud-cn-cluster238"}})
+		Expect(err).Should(BeNil())
+	})
+
 	clusterName = "test-multi-cluster"
 	resourceName = "test-resource"
 	clusterResource = &v1alpha1.ClusterResource{
@@ -96,7 +101,7 @@ var _ = Describe("Test ControlPlane ClusterResource Controller", func() {
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterResourceNamespacedName})
 		Expect(err).Should(BeNil())
 
-		if managerCommon.IsControlPlane() {
+		if reconciler.isControlPlane {
 			// controlPlane will send ClusterResource to agent
 			// agent get clusterResource will update status and send update status request to core
 			agentSendUpdateStatusRequestToCore(ctx, v1alpha1.ClusterResourceStatus{
@@ -145,7 +150,7 @@ var _ = Describe("Test ControlPlane ClusterResource Controller", func() {
 		// check
 		err = k8sClient.Get(ctx, clusterResourceNamespacedName, clusterResource)
 		Expect(apierrors.IsNotFound(err)).Should(BeTrue())
-		if !managerCommon.IsControlPlane() {
+		if !reconciler.isControlPlane {
 			unObject := FormatDataToUnstructured(clusterResource.Spec.Resource)
 
 			un := &unstructured.Unstructured{}

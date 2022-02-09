@@ -85,9 +85,10 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).NotTo(HaveOccurred())
 
 	reconciler = &Reconciler{
-		Scheme: testScheme,
-		Client: k8sClient,
-		log:    logf.Log.WithName("cluster_resource_controller"),
+		Scheme:         testScheme,
+		Client:         k8sClient,
+		log:            logf.Log.WithName("cluster_resource_controller"),
+		isControlPlane: true,
 	}
 
 	var ctx context.Context

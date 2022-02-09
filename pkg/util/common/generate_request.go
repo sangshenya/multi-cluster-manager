@@ -3,6 +3,7 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+
 	"harmonycloud.cn/stellaris/config"
 )
 
@@ -17,5 +18,4 @@ func GenerateRequest(sendType string, v interface{}, clusterName string) (*confi
 		Body:        string(requestBody),
 	}
 	return request, nil
-
 }

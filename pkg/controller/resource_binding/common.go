@@ -2,6 +2,7 @@ package resource_binding
 
 import (
 	"context"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -139,11 +140,11 @@ func removeItemForClusterStatusList(itemList []common.MultiClusterResourceCluste
 
 func getClusterResourceName(bindingName string, gvk *metav1.GroupVersionKind) string {
 	gvkString := managerCommon.GvkLabelString(gvk)
-	return bindingName + ":" + gvkString
+	return bindingName + "." + gvkString
 }
 
 func mapKey(resourceNamespace, resourceName string) string {
-	return resourceNamespace + ":" + resourceName
+	return resourceNamespace + "." + resourceName
 }
 
 // getClusterResourceListForBinding change clusterResource list to map
@@ -151,6 +152,9 @@ func mapKey(resourceNamespace, resourceName string) string {
 func changeClusterResourceListToMap(resourceList *v1alpha1.ClusterResourceList) map[string]*v1alpha1.ClusterResource {
 	resourceMap := map[string]*v1alpha1.ClusterResource{}
 	for _, resource := range resourceList.Items {
+		if !strings.HasPrefix(resource.GetNamespace(), managerCommon.ClusterWorkspacePrefix) {
+			continue
+		}
 		key := mapKey(resource.GetNamespace(), resource.GetName())
 		resourceMap[key] = &resource
 	}

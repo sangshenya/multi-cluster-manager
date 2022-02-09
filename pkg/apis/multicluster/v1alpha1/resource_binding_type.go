@@ -22,8 +22,9 @@ type MultiClusterResourceBindingSpec struct {
 }
 
 type MultiClusterResourceBindingResource struct {
-	Name     string                               `json:"name,omitempty"`
-	Clusters []MultiClusterResourceBindingCluster `json:"clusters,omitempty"`
+	Name      string                               `json:"name,omitempty"`
+	Namespace string                               `json:"namespace,omitempty"`
+	Clusters  []MultiClusterResourceBindingCluster `json:"clusters,omitempty"`
 }
 
 type MultiClusterResourceBindingCluster struct {

@@ -2,6 +2,10 @@ package addons_test
 
 import (
 	"flag"
+	"net"
+	"strconv"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
@@ -9,6 +13,7 @@ import (
 	"harmonycloud.cn/stellaris/config"
 	"harmonycloud.cn/stellaris/pkg/agent/addons"
 	agentcfg "harmonycloud.cn/stellaris/pkg/agent/config"
+	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
 	clientset "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
 	corecfg "harmonycloud.cn/stellaris/pkg/core/config"
 	"harmonycloud.cn/stellaris/pkg/core/handler"
@@ -16,9 +21,6 @@ import (
 	"harmonycloud.cn/stellaris/pkg/util/agent"
 	"harmonycloud.cn/stellaris/pkg/util/common"
 	"k8s.io/client-go/tools/clientcmd"
-	"net"
-	"strconv"
-	"time"
 )
 
 var _ = Describe("Addons", func() {
@@ -66,7 +68,14 @@ var _ = Describe("Addons", func() {
 				addonsInfoExcept = append(addonsInfoExcept, outTreeRes)
 				requestExcept = &model.RegisterRequest{Addons: addonsInfoExcept}
 
-				registerRequest, _ := addons.Load(&addonConfig)
+				//registerRequest, _ := addons.Load(&addonConfig)
+				registerRequest := &model.RegisterRequest{}
+				if agentconfig.AgentConfig.Cfg.AddonPath != "" {
+					addonConfig, err := agent.GetAddonConfig(agentconfig.AgentConfig.Cfg.AddonPath)
+					Expect(err).Should(BeNil())
+					addonsList := addons.LoadAddon(addonConfig)
+					registerRequest.Addons = addonsList
+				}
 				Expect(registerRequest).To(Equal(requestExcept))
 			})
 			It("Register", func() {

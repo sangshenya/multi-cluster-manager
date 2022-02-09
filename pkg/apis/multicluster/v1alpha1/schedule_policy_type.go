@@ -48,8 +48,8 @@ type SchedulePolicyResource struct {
 }
 
 type SchedulePolicy struct {
-	Role   string `json:"role,omitempty"`
 	Name   string `json:"name,omitempty"`
+	Role   string `json:"role,omitempty"`
 	Weight int    `json:"weight,omitempty"`
 	Min    int    `json:"min,omitempty"`
 	Max    int    `json:"max,omitempty"`

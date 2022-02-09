@@ -1,0 +1,10 @@
+apiVersion: multicluster.harmonycloud.cn/v1alpha1
+kind: MultiClusterResourceBinding
+metadata:
+  name: binding-test
+  namespace: stellaris-system
+spec:
+  resources:
+    - name: apps.v1.deployment.resource
+      clusters:
+        - name: cluster238

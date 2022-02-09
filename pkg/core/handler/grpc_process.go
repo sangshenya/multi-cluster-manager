@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"io"
 
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/sirupsen/logrus"
 	"harmonycloud.cn/stellaris/config"
 )
+
+var coreServerLog = logf.Log.WithName("core_server")
 
 type Fn func(request *config.Request, stream config.Channel_EstablishServer)
 
@@ -37,7 +41,7 @@ func (c *Channel) Establish(stream config.Channel_EstablishServer) error {
 		}
 	}
 
-	logrus.Infof("connection with %s interrupt", clusterName)
+	coreServerLog.Info(fmt.Sprintf("connection with %s interrupt", clusterName))
 	return nil
 }
 
