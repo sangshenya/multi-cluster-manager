@@ -1,120 +1,126 @@
 package addons_test
 
 import (
+	"encoding/json"
 	"flag"
-	"net"
-	"strconv"
+	"fmt"
+	"reflect"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	agentcfg "harmonycloud.cn/stellaris/pkg/agent/config"
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+	clientset "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"harmonycloud.cn/stellaris/config"
 	"harmonycloud.cn/stellaris/pkg/agent/addons"
-	agentcfg "harmonycloud.cn/stellaris/pkg/agent/config"
-	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
-	clientset "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
-	corecfg "harmonycloud.cn/stellaris/pkg/core/config"
-	"harmonycloud.cn/stellaris/pkg/core/handler"
 	"harmonycloud.cn/stellaris/pkg/model"
 	"harmonycloud.cn/stellaris/pkg/util/agent"
-	"harmonycloud.cn/stellaris/pkg/util/common"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/kubernetes/scheme"
 )
+
+var cfg *rest.Config
+var k8sClient client.Client
+var testScheme = runtime.NewScheme()
 
 var _ = Describe("Addons", func() {
 	var (
-		inTree      []model.In
-		outTree     []model.Out
+		in          []model.In
+		out         []model.Out
 		plugins     model.Plugins
 		addonConfig model.PluginsConfig
-
-		addonsInfoExcept []model.Addon
-		requestExcept    *model.RegisterRequest
-
-		lisPort = 8080
 	)
-	k8sconfig := flag.String("k8sconfig", "C:/Users/kuangye/Desktop/k8s/config", "kubernetes test")
-	kubeCfg, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
 
-	cfg := agentcfg.DefaultConfiguration()
-	cfg.HeartbeatPeriod = 30 * time.Second
-	cfg.ClusterName = "cluster238"
-	cfg.CoreAddress = ":8080"
-	cfg.AddonPath = ""
+	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-238", "kubernetes auth config")
+	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
+	cfg = config
+
+	err := v1alpha1.SchemeBuilder.AddToScheme(testScheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = scheme.AddToScheme(testScheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient, err = client.New(cfg, client.Options{Scheme: testScheme})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(k8sClient).ToNot(BeNil())
+
+	agentCfg := agentcfg.DefaultConfiguration()
+	agentCfg.HeartbeatPeriod = 30 * time.Second
+	agentCfg.ClusterName = "cluster238"
+	agentCfg.CoreAddress = ":8080"
+	agentCfg.AddonPath = "/Users/chenkun/Desktop/Go_Ad/src/harmonycloud.cn/stellaris/test.yaml"
+	agentCfg.AddonLoadTimeout = 3 * time.Second
+
+	agentClient, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		logrus.Fatalf("failed get agentClient, clusterName:%s", agentCfg.ClusterName)
+	}
+
+	// new agentConfig
+	agentcfg.NewAgentConfig(agentCfg, agentClient, k8sClient)
 
 	Describe("Addons starting", func() {
 		Context("Load", func() {
 			It("Get addons config", func() {
-				in := model.In{Name: "addon1"}
-				out := model.Out{Name: "addon2", Url: "www.123.com"}
-				inTree = append(inTree, in)
-				outTree = append(outTree, out)
-				plugins = model.Plugins{InTree: inTree, OutTree: outTree}
+				in1 := model.In{Name: "apiserver"}
+				in2 := model.In{Name: "etcd"}
+				out1 := model.Out{Name: "test", Url: "http://47.97.243.214/goad/health"}
+				in = append(in, in2, in1)
+				out = append(out, out1)
+				plugins = model.Plugins{InTree: in, OutTree: out}
 				addonConfig = model.PluginsConfig{Plugins: plugins}
 
-				res, _ := agent.GetAddonConfig("path/to/test.yaml")
-				Expect(res).To(Equal(&addonConfig))
-			})
-			It("Load addons,will run thread for each plugin,and write data into a channel", func() {
-				inTreeProperties := make(map[string]string)
-				inTreeProperties["inTree"] = "addon1"
-				inTreeRes := model.Addon{Name: "addon1", Properties: inTreeProperties}
-				outTreeProperties := make(map[string]string)
-				outTreeProperties["outTree"] = "www.123.com"
-				outTreeRes := model.Addon{Name: "addon2", Properties: outTreeProperties}
-				addonsInfoExcept = append(addonsInfoExcept, inTreeRes)
-				addonsInfoExcept = append(addonsInfoExcept, outTreeRes)
-				requestExcept = &model.RegisterRequest{Addons: addonsInfoExcept}
+				res, err := agent.GetAddonConfig(agentCfg.AddonPath)
+				Expect(err).Should(BeNil())
+				Expect(reflect.DeepEqual(*res, addonConfig)).Should(BeTrue())
 
-				//registerRequest, _ := addons.Load(&addonConfig)
-				registerRequest := &model.RegisterRequest{}
-				if agentconfig.AgentConfig.Cfg.AddonPath != "" {
-					addonConfig, err := agent.GetAddonConfig(agentconfig.AgentConfig.Cfg.AddonPath)
-					Expect(err).Should(BeNil())
-					addonsList := addons.LoadAddon(addonConfig)
-					registerRequest.Addons = addonsList
+				addonsList1 := addons.LoadAddon(res)
+
+				addonsList2 := addons.LoadAddon(&addonConfig)
+				Expect(len(addonsList1)).Should(Equal(len(addonsList2)))
+				for _, item1 := range addonsList1 {
+					for _, item2 := range addonsList2 {
+						if item1.Name == item2.Name {
+							fmt.Println(item1, item2)
+							Expect(AddonPropertiesEqual(item1, item2)).Should(BeTrue())
+						}
+					}
 				}
-				Expect(registerRequest).To(Equal(requestExcept))
 			})
-			It("Register", func() {
-				// server
-				addr := ":" + strconv.Itoa(lisPort)
-				l, _ := net.Listen("tcp", addr)
-				// construct client
-				mClient, _ := clientset.NewForConfig(kubeCfg)
-				serverConfig := corecfg.DefaultConfiguration()
-				serverConfig.HeartbeatExpirePeriod = 30 * time.Second
-
-				s := grpc.NewServer()
-				config.RegisterChannelServer(s, &handler.Channel{
-					Server: handler.NewCoreServer(serverConfig, mClient),
-				})
-				go func() {
-					logrus.Infof("listening port %d", lisPort)
-					err := s.Serve(l)
-					Expect(err).Should(BeNil())
-				}()
-
-				// client
-				stream, err := agent.Connection(cfg)
-				Expect(err).Should(BeNil())
-				addonInfo := &model.RegisterRequest{}
-				request, _ := common.GenerateRequest("Register", addonInfo, cfg.ClusterName)
-				err = stream.Send(request)
-				Expect(err).Should(BeNil())
-				resp, err := stream.Recv()
-				Expect(err).Should(BeNil())
-				respExpect := &config.Response{
-					Type:        "RegisterSuccess",
-					ClusterName: "cluster238",
-				}
-				Expect(resp.Type).Should(Equal(respExpect.Type))
-				Expect(resp.ClusterName).Should(Equal(respExpect.ClusterName))
-
-			})
-			// TODO HEARTBEAT TEST
 		})
 	})
 })
+
+func AddonPropertiesEqual(addon1, addon2 model.Addon) bool {
+	if addon1.Name != addon2.Name {
+		return false
+	}
+	data1 := marshal(addon1.Properties)
+	if data1 == nil {
+		return false
+	}
+	data2 := marshal(addon2.Properties)
+	if data2 == nil {
+		return false
+	}
+	return reflect.DeepEqual(data1.Data, data2.Data)
+}
+
+func marshal(p interface{}) *model.PluginsData {
+	ma, err := json.Marshal(p)
+	if err != nil {
+		return nil
+	}
+	b := &model.PluginsData{}
+	err = json.Unmarshal(ma, b)
+	if err != nil {
+		return nil
+	}
+	return b
+}

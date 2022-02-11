@@ -34,8 +34,8 @@ func SyncAgentClusterResource(ctx context.Context, agentClient *multclusterclien
 	existClusterResource, err := agentClient.MulticlusterV1alpha1().ClusterResources(clusterResource.GetNamespace()).Get(ctx, clusterResource.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			helper.RemoveSurplusParam(clusterResource)
-			_, err = agentClient.MulticlusterV1alpha1().ClusterResources(clusterResource.GetNamespace()).Create(ctx, clusterResource, metav1.CreateOptions{})
+			newClusterResourceObject := newClusterResource(clusterResource)
+			_, err = agentClient.MulticlusterV1alpha1().ClusterResources(newClusterResourceObject.GetNamespace()).Create(ctx, newClusterResourceObject, metav1.CreateOptions{})
 			return err
 		}
 		return err
@@ -277,4 +277,12 @@ func newClusterResourceStatus(phase common.MultiClusterResourcePhase, message st
 		Phase:                     phase,
 		Message:                   message,
 	}
+}
+
+func newClusterResource(clusterResource *v1alpha1.ClusterResource) *v1alpha1.ClusterResource {
+	newClusterResourceObject := &v1alpha1.ClusterResource{}
+	newClusterResourceObject.Name = clusterResource.Name
+	newClusterResourceObject.Namespace = clusterResource.Namespace
+	newClusterResourceObject.Spec = clusterResource.Spec
+	return newClusterResourceObject
 }

@@ -15,3 +15,8 @@ type Out struct {
 	Name string
 	Url  string
 }
+
+type PluginsData struct {
+	Uid  string
+	Data interface{}
+}

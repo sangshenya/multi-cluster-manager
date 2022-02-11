@@ -19,5 +19,5 @@ func (r *RegisterResponse) IsEmpty() bool {
 
 type Addon struct {
 	Name       string
-	Properties map[string]string
+	Properties interface{}
 }
