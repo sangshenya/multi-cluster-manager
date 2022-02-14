@@ -1,0 +1,16 @@
+replicas: 1
+
+image:
+  registry: harmonycloud
+  repository: stellaris-core
+  tag: 0.0.1
+
+listenPort: 8080
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+rbac:
+  clusterRole: cluster-admin

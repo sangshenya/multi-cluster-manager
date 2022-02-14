@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-proxy
+  labels:
+    app: {{ .Release.Name }}-proxy
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-proxy
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-proxy
+    spec:
+      serviceAccountName: {{ .Release.Name }}-proxy
+      containers:
+      - name: stellaris-proxy
+        image: {{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}
+        args:
+          - --core-address={{ .Values.coreAddr }}
+          - --cluster-name={{ .Values.clusterName }}
+        {{- with .Values.resources }}
+        resources:
+          {{ toYaml . | nindent 10 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
