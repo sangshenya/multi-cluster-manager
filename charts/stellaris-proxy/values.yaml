@@ -1,0 +1,17 @@
+replicas: 1
+
+image:
+  registry: harmonycloud
+  repository: stellaris-proxy
+  tag: 0.0.1
+
+coreAddr: example.core.addr:8080
+clusterName: example-cluster
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+rbac:
+  clusterRole: cluster-admin
