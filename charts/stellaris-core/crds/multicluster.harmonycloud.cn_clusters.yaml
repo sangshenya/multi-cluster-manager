@@ -43,7 +43,6 @@ spec:
                     name:
                       type: string
                   required:
-                  - info
                   - name
                   type: object
                 type: array

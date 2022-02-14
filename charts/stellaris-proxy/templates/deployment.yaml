@@ -21,10 +21,21 @@ spec:
         args:
           - --core-address={{ .Values.coreAddr }}
           - --cluster-name={{ .Values.clusterName }}
+          - --addon-path=/config/{{ .Values.pluginsConfig.name }}
+        volumeMounts:
+          - mountPath: /config
+            name: {{ .Release.Name }}-proxy
         {{- with .Values.resources }}
         resources:
           {{ toYaml . | nindent 10 }}
         {{- end }}
+      volumes:
+        - configMap:
+            items:
+              - key: {{ .Values.pluginsConfig.name }}
+                path: {{ .Values.pluginsConfig.name }}
+            name: {{ .Release.Name }}-proxy
+          name: {{ .Release.Name }}-proxy
       {{- with .Values.nodeSelector }}
       nodeSelector:
       {{- toYaml . | nindent 8 }}

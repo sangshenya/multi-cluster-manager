@@ -114,10 +114,13 @@ func (r *Reconciler) updateStatusAndSyncClusterResource(ctx context.Context, ins
 	return ctrl.Result{}, nil
 }
 
-func getMultiClusterResourceForName(ctx context.Context, clientSet client.Client, multiClusterResourceName string) (*v1alpha1.MultiClusterResource, error) {
+func getMultiClusterResourceForName(ctx context.Context, clientSet client.Client, multiClusterResourceName, multiClusterResourceNamespace string) (*v1alpha1.MultiClusterResource, error) {
 	object := &v1alpha1.MultiClusterResource{}
+	if len(multiClusterResourceNamespace) == 0 {
+		multiClusterResourceNamespace = managerCommon.ManagerNamespace
+	}
 	namespacedName := types.NamespacedName{
-		Namespace: managerCommon.ManagerNamespace,
+		Namespace: multiClusterResourceNamespace,
 		Name:      multiClusterResourceName,
 	}
 	err := clientSet.Get(ctx, namespacedName, object)
