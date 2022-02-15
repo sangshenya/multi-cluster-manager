@@ -23,6 +23,11 @@ func Setup(mgr ctrl.Manager, args controllerCommon.Args) error {
 		resourceSchedulePolicyController.Setup,
 
 	}
+	if !args.IsControlPlane {
+		controllerSetupFunctions = []func(ctrl.Manager, controllerCommon.Args) error{
+			clusterResourceController.Setup,
+		}
+	}
 
 	for _, setupFunc := range controllerSetupFunctions {
 		if err := setupFunc(mgr, args); err != nil {

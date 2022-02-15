@@ -101,6 +101,14 @@ var (
 var _ = Describe("Test multiClusterResourceController", func() {
 	ctx := context.TODO()
 
+	It("1111", func() {
+		list, err := getBindingList(ctx)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(len(list.Items))
+	})
+
 	// 1、create multiClusterResource,then check Finalizers
 	// 2、create binding and edit multiClusterResource, then check binding and clusterResource
 	// 3、delete multiClusterResource,then check clusterResource alive or not
@@ -211,6 +219,19 @@ var _ = Describe("Test multiClusterResourceController", func() {
 	})
 
 })
+
+func getBindingList(ctx context.Context) (*v1alpha1.MultiClusterResourceBindingList, error) {
+	str := managerCommon.MultiClusterResourceLabelName + "." + "apps.v1.deployment.resource" + "=1"
+	selector, err := labels.Parse(str)
+	if err != nil {
+		return nil, err
+	}
+	bindingList := &v1alpha1.MultiClusterResourceBindingList{}
+	err = k8sClient.List(ctx, bindingList, &client.ListOptions{
+		LabelSelector: selector,
+	})
+	return bindingList, err
+}
 
 func getClusterResourceList(ctx context.Context, multiClusterResource *v1alpha1.MultiClusterResource) *v1alpha1.ClusterResourceList {
 	clusterResourceList := &v1alpha1.ClusterResourceList{}

@@ -5,10 +5,18 @@ import (
 	"sync"
 	"time"
 
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
+
 	"harmonycloud.cn/stellaris/config"
 )
 
 var table map[string]*Stream
+
+var lock sync.RWMutex
+
+var tableLog = logf.Log.WithName("core_table")
 
 const (
 	OK     = "ok"
@@ -26,18 +34,26 @@ func init() {
 	table = make(map[string]*Stream)
 }
 
-func Insert(clusterName string, stream *Stream) error {
-	mu := sync.Mutex{}
-	mu.Lock()
-	// TODO insert table should has no health stream
-	if table[clusterName] != nil && table[clusterName].Status == OK {
-		return fmt.Errorf("failed insert stream table")
+func Insert(clusterName string, stream *Stream) {
+	lock.RLock()
+	existStream, _ := table[clusterName]
+	lock.RUnlock()
+
+	lock.Lock()
+	defer lock.Unlock()
+	if existStream != nil && existStream.Status == OK && !existStream.isExpire() {
+		return
 	}
 	table[clusterName] = stream
-	mu.Unlock()
-	return nil
+	tableLog.Info(fmt.Sprintf("insert agent(%s) stream success", clusterName))
 }
 
 func FindStream(clusterName string) *Stream {
+	lock.RLock()
+	defer lock.RUnlock()
 	return table[clusterName]
+}
+
+func (s *Stream) isExpire() bool {
+	return timeutil.NowTimeWithLoc().Sub(s.Expire) > 0
 }

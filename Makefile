@@ -1,3 +1,9 @@
+VERSION ?= $(shell git show -s --pretty=format:%H)
+CORE_IMG ?= stellaris-core:$(VERSION)
+PROXY_IMG ?= stellaris-proxy:$(VERSION)
+
+REGISTRY ?= docker.io/harmonycloud
+
 .PHONY: generate
 generate: controller-gen
 	./hack/code-generator/update-codegen.sh
@@ -21,3 +27,21 @@ GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+.PHONY: push
+push: build
+	docker tag $(CORE_IMG) $(REGISTRY)/$(CORE_IMG)
+	docker tag $(PROXY_IMG) $(REGISTRY)/$(PROXY_IMG)
+	docker push $(REGISTRY)/$(CORE_IMG)
+	docker push $(REGISTRY)/$(PROXY_IMG)
+
+.PHONY: build
+build: build-core build-proxy
+
+.PHONY: build-core
+build-core:
+	docker build -f build/Dockerfile-core -t $(CORE_IMG) .
+
+.PHONY: build-proxy
+build-proxy:
+	docker build -f build/Dockerfile-proxy -t $(PROXY_IMG) .

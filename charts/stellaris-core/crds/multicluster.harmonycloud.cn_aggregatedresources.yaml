@@ -1,0 +1,85 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: aggregatedresources.multicluster.harmonycloud.cn
+spec:
+  group: multicluster.harmonycloud.cn
+  names:
+    kind: AggregatedResource
+    listKind: AggregatedResourceList
+    plural: aggregatedresources
+    singular: aggregatedresource
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          aggregation:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          clusters:
+            properties:
+              name:
+                type: string
+              resourceName:
+                type: string
+              result:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            required:
+            - name
+            - resourceName
+            type: object
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          status:
+            properties:
+              clusters:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    resourceName:
+                      type: string
+                    status:
+                      type: string
+                    updateTime:
+                      format: date-time
+                      type: string
+                  required:
+                  - name
+                  - resourceName
+                  - status
+                  - updateTime
+                  type: object
+                type: array
+            type: object
+        required:
+        - status
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
