@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -65,6 +67,9 @@ func checkClusterStatus() {
 func policyReSchedule(ctx context.Context, cluster *v1alpha1.Cluster) error {
 	policyList, err := client.MulticlusterV1alpha1().MultiClusterResourceSchedulePolicies(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
 		return err
 	}
 

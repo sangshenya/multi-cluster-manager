@@ -12,6 +12,13 @@ resources: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+pluginsConfig:
+  name: plugins_config.yaml
+  config:
+    plugins:
+      inTree:
+        - name: etcd
+        - name: apiserver
 
 rbac:
   clusterRole: cluster-admin

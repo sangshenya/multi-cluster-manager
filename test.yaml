@@ -1,6 +1,7 @@
 plugins:
   inTree:
-  - name: addon1
+    - name: etcd
+    - name: apiserver
   outTree:
-  - name: addon2
-    url: www.123.com
+    - name: test
+      url: "http://47.97.243.214/goad/health"

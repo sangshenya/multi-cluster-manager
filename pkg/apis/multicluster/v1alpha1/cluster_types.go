@@ -34,7 +34,7 @@ type ClusterStatus struct {
 type ClusterAddons struct {
 	Name string `json:"name"`
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Info *runtime.RawExtension `json:"info"`
+	Info *runtime.RawExtension `json:"info,omitempty"`
 }
 
 type ClusterStatusType string
