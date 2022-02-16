@@ -19,6 +19,18 @@ const (
 	ResourceGvkLabelName                        = "stellaris.ResourceGvk"
 	MultiClusterResourceLabelName               = "stellaris.MultiClusterResource"
 	MultiClusterResourceSchedulePolicyLabelName = "stellaris.SchedulePolicy"
+	V1alpha1Apiversion                          = "stellaris/v1alpha1"
+	Scheduler                                   = "multiclusterresourceschedulepolicy"
+)
+
+const (
+	BindingPathNamespace = "/metadata/namespace"
+	BindingOpAdd     = "add"
+	BindingOpRemove  = "remove"
+	BindingOpReplace = "replace"
+	BindingOpMove    = "move"
+	BindingOpCopy    = "copy"
+	BindingOpTest    = "test"
 )
 const (
 	ClusterWorkspacePrefix = "stellaris-harmonycloud-cn-"

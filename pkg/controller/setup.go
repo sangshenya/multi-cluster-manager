@@ -8,6 +8,7 @@ import (
 	multiClusterRsourceController "harmonycloud.cn/stellaris/pkg/controller/multi_cluster_resource"
 	namespaceMappingController "harmonycloud.cn/stellaris/pkg/controller/namespace_mapping"
 	resourceBindingController "harmonycloud.cn/stellaris/pkg/controller/resource_binding"
+	resourceSchedulePolicyController "harmonycloud.cn/stellaris/pkg/controller/resource_schedule_policy"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -19,6 +20,8 @@ func Setup(mgr ctrl.Manager, args controllerCommon.Args) error {
 		resourceBindingController.Setup,
 		multiClusterRsourceController.Setup,
 		clusterResourceController.Setup,
+		resourceSchedulePolicyController.Setup,
+
 	}
 	if !args.IsControlPlane {
 		controllerSetupFunctions = []func(ctrl.Manager, controllerCommon.Args) error{
