@@ -16,11 +16,11 @@ type EtcdAddonsInfo struct {
 func (e *etcdAddons) Load() (*model.PluginsData, error) {
 	etcdPodList, err := PodList("kube-system", "component=etcd")
 	if err != nil {
-		addonsRegisterLog.Error(err, "get apiServer pod list failed")
+		addonsRegisterLog.Error(err, "get etcd pod list failed")
 		return nil, err
 	}
 	if len(etcdPodList.Items) == 0 {
-		err = errors.New("can not find apiServer pod list")
+		err = errors.New("can not find etcd pod list")
 		addonsRegisterLog.Error(err, "")
 		return nil, err
 	}
