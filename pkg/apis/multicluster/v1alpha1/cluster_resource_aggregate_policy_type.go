@@ -1,6 +1,9 @@
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -14,43 +17,46 @@ type MultiClusterResourceAggregatePolicy struct {
 	Status MultiClusterResourceAggregatePolicyStatus `json:"status,omitempty"`
 }
 
-type AggregatePolicy string
+type AggregatePolicyType string
 
 const (
-	AggregatePolicySameNsMappingName AggregatePolicy = "sameNamespaceMappingName"
+	AggregatePolicySameNsMappingName AggregatePolicyType = "sameNamespaceMappingName"
 )
 
 type MultiClusterResourceAggregatePolicySpec struct {
-	AggregateRules []string                                     `json:"aggregateRules"`
-	Clusters       *MultiClusterResourceAggregatePolicyClusters `json:"clusters"`
-	Policy         AggregatePolicy                              `json:"policy"`
-	Limit          *MultiClusterResourceAggregatePolicyLimit    `json:"limit,omitempty"`
+	AggregateRules []string                 `json:"aggregateRules"`
+	Clusters       *AggregatePolicyClusters `json:"clusters"`
+	Policy         AggregatePolicyType      `json:"policy"`
+	Limit          *AggregatePolicyLimit    `json:"limit,omitempty"`
 }
 
-type AggregatePolicyClusterType string
-
-const (
-	AggregatePolicyClusterTypeClusterSet AggregatePolicyClusterType = "clusterset"
-	AggregatePolicyClusterTypeClusters   AggregatePolicyClusterType = "clusters"
-)
-
-type MultiClusterResourceAggregatePolicyClusters struct {
-	Type       AggregatePolicyClusterType `json:"type"`
-	Clusters   []string                   `json:"clusters,omitempty"`
-	Clusterset string                     `json:"clusterset,omitempty"`
+type AggregatePolicyClusters struct {
+	ClusterType common.ClusterType `json:"clusterType"`
+	Clusters    []string           `json:"clusters,omitempty"`
+	Clusterset  string             `json:"clusterset,omitempty"`
 }
 
-type MultiClusterResourceAggregatePolicyLimit struct {
-	Requests []MultiClusterResourceAggregatePolicyLimitRule `json:"requests,omitempty"`
-	Ignores  []MultiClusterResourceAggregatePolicyLimitRule `json:"ignores,omitempty"`
+type AggregatePolicyLimit struct {
+	Requests AggregatePolicyLimitRule `json:"requests,omitempty"`
+	Ignores  AggregatePolicyLimitRule `json:"ignores,omitempty"`
 }
 
-type MultiClusterResourceAggregatePolicyLimitRule struct {
-	Namespaces string                                            `json:"namespaces"`
-	NameMatch  MultiClusterResourceAggregatePolicyLimitRuleMatch `json:"nameMatch,omitempty"`
+type AggregatePolicyLimitRule struct {
+	LabelsMatch LabelsMatch `json:"labelsMatch,omitempty"`
+	Match       []Match     `json:"match,omitempty"`
 }
 
-type MultiClusterResourceAggregatePolicyLimitRuleMatch struct {
+type LabelsMatch struct {
+	LabelSelector     *metav1.LabelSelector `json:"labelSelector,omitempty"`
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
+}
+
+type Match struct {
+	Namespaces string     `json:"namespaces,omitempty"`
+	NameMatch  MatchScope `json:"nameMatch,omitempty"`
+}
+
+type MatchScope struct {
 	Regexp string   `json:"regexp,omitempty"`
 	List   []string `json:"list,omitempty"`
 }

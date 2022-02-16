@@ -15,8 +15,8 @@ type ResourceAggregatePolicy struct {
 }
 
 type ResourceAggregatePolicySpec struct {
-	ResourceRef *metav1.GroupVersionKind                  `json:"resourceRef,omitempty"`
-	Limit       *MultiClusterResourceAggregatePolicyLimit `json:"limit,omitempty"`
+	ResourceRef *metav1.GroupVersionKind `json:"resourceRef,omitempty"`
+	Limit       *AggregatePolicyLimit    `json:"limit,omitempty"`
 }
 
 type ResourceAggregatePolicyStatus struct {

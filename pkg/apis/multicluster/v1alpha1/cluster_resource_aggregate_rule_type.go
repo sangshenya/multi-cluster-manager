@@ -15,11 +15,11 @@ type MultiClusterResourceAggregateRule struct {
 }
 
 type MultiClusterResourceAggregateRuleSpec struct {
-	ResourceRef *metav1.GroupVersionKind              `json:"resourceRef"`
-	Rule        MultiClusterResourceAggregateRuleRule `json:"rule"`
+	ResourceRef *metav1.GroupVersionKind `json:"resourceRef"`
+	Rule        AggregateRuleCue         `json:"rule"`
 }
 
-type MultiClusterResourceAggregateRuleRule struct {
+type AggregateRuleCue struct {
 	Cue string `json:"cue"`
 }
 
