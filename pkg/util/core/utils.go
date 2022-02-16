@@ -42,14 +42,21 @@ func NewCluster(clusterName string) *v1alpha1.Cluster {
 func ConvertRegisterAddons2KubeAddons(addons []model.Addon) ([]v1alpha1.ClusterAddons, error) {
 	result := make([]v1alpha1.ClusterAddons, len(addons))
 	for _, addon := range addons {
+		if len(addon.Name) <= 0 {
+			continue
+		}
+		clusterAddon := v1alpha1.ClusterAddons{
+			Name: addon.Name,
+		}
+		if addon.Properties == nil {
+			result = append(result, clusterAddon)
+			continue
+		}
 		raw, err := Object2RawExtension(addon.Properties)
 		if err != nil {
 			return nil, err
 		}
-		clusterAddon := v1alpha1.ClusterAddons{
-			Name: addon.Name,
-			Info: raw,
-		}
+		clusterAddon.Info = raw
 		result = append(result, clusterAddon)
 	}
 	return result, nil

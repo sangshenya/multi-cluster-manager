@@ -1,4 +1,11 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: stellaris-system
+
+---
+
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: stellaris-agent-manager
@@ -13,7 +20,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: "cluster-admin"
+  name: cluster-admin
 subjects:
   - kind: ServiceAccount
     name: stellaris-agent-manager
@@ -27,48 +34,25 @@ metadata:
   name: stellaris-agent-manager-role
   namespace: stellaris-system
 rules:
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - patch
-      - delete
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps/status
-    verbs:
-      - get
-      - update
-      - patch
-  - apiGroups:
-      - ""
-    resources:
-      - events
-    verbs:
-      - create
+  - apiGroups: ['*']
+    resources: ['*']
+    verbs: ["get", "watch", "list", "create", "update", "delete"]
 
 ---
 
-apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: stellaris-agent-manager-rolebinding
   namespace: stellaris-system
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: stellaris-agent-manager-role
 subjects:
   - kind: ServiceAccount
     name: stellaris-agent-manager
     namespace: stellaris-system
+roleRef:
+  kind: Role
+  name: stellaris-agent-manager-role
+  apiGroup: rbac.authorization.k8s.io
 
 ---
 
@@ -92,10 +76,9 @@ spec:
       serviceAccountName: stellaris-agent-manager
       containers:
         - name: stellaris-agent-manager
-          image: sangshen/stellairis-agent:v1.0.0
+          image: sangshen/stellairis-agent:v1.0.39
           imagePullPolicy: Always
           args:
-            - --heartbeat-send-period=30
-            - --core-address=10.1.11.238:38089
+            - --core-address=10.1.11.46:38089
             - --health-probe-addr=:9001
-            - --cluster-name=cluster90
+            - --cluster-name=cluster62

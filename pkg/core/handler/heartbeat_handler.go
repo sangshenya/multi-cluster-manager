@@ -98,7 +98,7 @@ func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addon
 	if err != nil {
 		return cluster, err
 	}
-	if !reflect.DeepEqual(cluster.Spec.Addons, clusterAddons) {
+	if !addonsEqual(cluster.Spec.Addons, clusterAddons) {
 		cluster.Spec.Addons = clusterAddons
 		cluster, err = clusterController.UpdateCluster(ctx, s.mClient, cluster)
 		if err != nil {
@@ -106,4 +106,25 @@ func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addon
 		}
 	}
 	return cluster, nil
+}
+
+func addonsEqual(old, new []v1alpha1.ClusterAddons) bool {
+	if len(old) != len(new) {
+		return false
+	}
+	for _, oldItem := range old {
+		equalName := false
+		for _, newItem := range new {
+			if oldItem.Name == newItem.Name {
+				equalName = true
+				if !reflect.DeepEqual(oldItem.Info, newItem.Info) {
+					return false
+				}
+			}
+		}
+		if !equalName {
+			return false
+		}
+	}
+	return true
 }

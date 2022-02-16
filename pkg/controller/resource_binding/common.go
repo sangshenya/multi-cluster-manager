@@ -33,7 +33,7 @@ func syncClusterResource(ctx context.Context, clientSet client.Client, clusterRe
 	clusterResourceMap := changeClusterResourceListToMap(clusterResourceList)
 	for _, resource := range binding.Spec.Resources {
 		for _, cluster := range resource.Clusters {
-			multiClusterResource, err := getMultiClusterResourceForName(ctx, clientSet, resource.Name)
+			multiClusterResource, err := getMultiClusterResourceForName(ctx, clientSet, resource.Name, resource.Namespace)
 			if err != nil {
 				continue
 			}
