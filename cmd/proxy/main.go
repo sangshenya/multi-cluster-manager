@@ -44,9 +44,10 @@ func init() {
 	flag.IntVar(&heartbeatPeriod, "heartbeat-send-period", 30, "The period of heartbeat send interval")
 	//flag.StringVar(&coreAddress, "core-address", "10.1.11.46:32696", "address of stellaris")
 	//flag.StringVar(&clusterName, "cluster-name", "example-test-1", "name of agent-cluster")
+	//flag.StringVar(&addonPath, "addon-path", "/Users/chenkun/Desktop/Go_Ad/src/harmonycloud.cn/stellaris/test.yaml", "path of addon config")
 	flag.StringVar(&coreAddress, "core-address", "", "address of stellaris")
 	flag.StringVar(&clusterName, "cluster-name", "", "name of agent-cluster")
-	flag.StringVar(&addonPath, "addon-path", "/Users/chenkun/Desktop/Go_Ad/src/harmonycloud.cn/stellaris/test.yaml", "path of addon config")
+	flag.StringVar(&addonPath, "addon-path", "", "path of addon config")
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9000", "The address the metrics endpoint binds to")
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
