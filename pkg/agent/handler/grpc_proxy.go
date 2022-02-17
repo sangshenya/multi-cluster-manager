@@ -8,7 +8,7 @@ import (
 
 	"harmonycloud.cn/stellaris/pkg/agent/send"
 
-	clusterResourceController "harmonycloud.cn/stellaris/pkg/controller/cluster_resource"
+	clusterResourceController "harmonycloud.cn/stellaris/pkg/controller/cluster-resource"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	clusterResourceController "harmonycloud.cn/stellaris/pkg/controller/cluster_resource"
+	clusterResourceController "harmonycloud.cn/stellaris/pkg/controller/cluster-resource"
 
 	"harmonycloud.cn/stellaris/config"
 	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"

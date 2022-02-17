@@ -5,7 +5,7 @@ import (
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
-	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster_health"
+	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

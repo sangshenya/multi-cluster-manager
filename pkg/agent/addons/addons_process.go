@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	inTree "harmonycloud.cn/stellaris/pkg/agent/addons/in_tree"
+	inTree "harmonycloud.cn/stellaris/pkg/agent/addons/in-tree"
 
-	outTree "harmonycloud.cn/stellaris/pkg/agent/addons/out_tree"
+	outTree "harmonycloud.cn/stellaris/pkg/agent/addons/out-tree"
 
 	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
 

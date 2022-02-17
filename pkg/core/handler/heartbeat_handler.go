@@ -15,7 +15,7 @@ import (
 
 	"harmonycloud.cn/stellaris/config"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster_health"
+	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
 	clusterController "harmonycloud.cn/stellaris/pkg/controller/cluster"
 	"harmonycloud.cn/stellaris/pkg/model"
 	"harmonycloud.cn/stellaris/pkg/util/core"
