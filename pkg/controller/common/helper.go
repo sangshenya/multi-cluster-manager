@@ -2,7 +2,16 @@ package common
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
+
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
+
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -41,4 +50,61 @@ func ReQueueResult(err error) (ctrl.Result, error) {
 		Requeue:      true,
 		RequeueAfter: 30 * time.Second,
 	}, err
+}
+
+func GetClusterNamespaces(ctx context.Context, clientSet client.Client, sourceType common.ClusterType, clusterNames []string, clusterSetName string) ([]string, error) {
+	var clusterNamespaces []string
+	switch sourceType {
+	case common.ClusterTypeClusters:
+		if len(clusterNames) == 0 {
+			return clusterNamespaces, errors.New("clusterNames is empty")
+		}
+		for _, item := range clusterNames {
+			clusterNamespaces = append(clusterNamespaces, managerCommon.ClusterNamespace(item))
+		}
+
+	case common.ClusterTypeClusterSet:
+		if len(clusterSetName) == 0 {
+			return clusterNamespaces, errors.New("clusterSetName is empty")
+		}
+		// TODO get clusters from clusterset
+		namespaces, err := getClustersNameSpaceFromClusterSet(ctx, clientSet, clusterSetName)
+		if err != nil {
+			return clusterNamespaces, err
+		}
+		clusterNamespaces = namespaces
+	}
+	return clusterNamespaces, nil
+}
+
+func getClustersNameSpaceFromClusterSet(ctx context.Context, clientSet client.Client, clusterSetName string) ([]string, error) {
+	clusterSet := &v1alpha1.ClusterSet{}
+	err := clientSet.Get(ctx, types.NamespacedName{
+		Name: clusterSetName,
+	}, clusterSet)
+	if err != nil {
+		return nil, err
+	}
+	if len(clusterSet.Spec.Clusters) == 0 && (clusterSet.Spec.Selector.Labels == nil || len(clusterSet.Spec.Selector.Labels) == 0) {
+		return nil, errors.New(fmt.Sprintf("clusterSet(%s) is empty", clusterSetName))
+	}
+	var clusterNamespaces []string
+	if len(clusterSet.Spec.Clusters) > 0 {
+		for _, item := range clusterSet.Spec.Clusters {
+			clusterNamespaces = append(clusterNamespaces, managerCommon.ClusterNamespace(item.Name))
+		}
+		return clusterNamespaces, nil
+	}
+
+	clusterList := &v1alpha1.ClusterList{}
+	err = clientSet.List(ctx, clusterList, &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(clusterSet.Spec.Selector.Labels),
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range clusterList.Items {
+		clusterNamespaces = append(clusterNamespaces, managerCommon.ClusterNamespace(item.Name))
+	}
+	return clusterNamespaces, nil
 }

@@ -6,14 +6,14 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: multiclusterresourcebindings.multicluster.harmonycloud.cn
+  name: multiclusterresourceschedulepolicies.multicluster.harmonycloud.cn
 spec:
   group: multicluster.harmonycloud.cn
   names:
-    kind: MultiClusterResourceBinding
-    listKind: MultiClusterResourceBindingList
-    plural: multiclusterresourcebindings
-    singular: multiclusterresourcebinding
+    kind: MultiClusterResourceSchedulePolicy
+    listKind: MultiClusterResourceSchedulePolicyList
+    plural: multiclusterresourceschedulepolicies
+    singular: multiclusterresourceschedulepolicy
   scope: Namespaced
   versions:
   - name: v1alpha1
@@ -34,52 +34,72 @@ spec:
             type: object
           spec:
             properties:
+              clusterSource:
+                type: string
+              clusterset:
+                type: string
+              failoverPolicy:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      type: string
+                  type: object
+                type: array
+              outTreePolicy:
+                properties:
+                  properties:
+                    type: object
+                  url:
+                    type: string
+                type: object
+              policy:
+                items:
+                  properties:
+                    max:
+                      type: integer
+                    min:
+                      type: integer
+                    name:
+                      type: string
+                    role:
+                      type: string
+                    weight:
+                      type: integer
+                  type: object
+                type: array
+              replicas:
+                type: integer
+              reschedule:
+                type: boolean
               resources:
                 items:
                   properties:
-                    clusters:
-                      items:
-                        properties:
-                          name:
-                            type: string
-                          override:
-                            items:
-                              properties:
-                                op:
-                                  type: string
-                                path:
-                                  type: string
-                                value:
-                                  type: string
-                              type: object
-                            type: array
-                        type: object
-                      type: array
                     name:
                       type: string
                   type: object
                 type: array
+              scheduleMode:
+                type: string
+            required:
+            - replicas
             type: object
           status:
             properties:
-              clusters:
-                items:
-                  properties:
-                    binding:
-                      type: string
-                    message:
-                      type: string
-                    name:
-                      type: string
-                    observedReceiveGeneration:
-                      format: int64
-                      type: integer
-                    phase:
-                      type: string
-                    resource:
-                      type: string
-                  type: object
-                type: array
+              schedule:
+                properties:
+                  lastModifyTime:
+                    format: date-time
+                    type: string
+                  lastScheduleTime:
+                    format: date-time
+                    type: string
+                  message:
+                    type: string
+                  status:
+                    type: boolean
+                type: object
             type: object
         type: object
     served: true

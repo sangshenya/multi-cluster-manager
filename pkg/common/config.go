@@ -13,24 +13,26 @@ const (
 	// TODO set manager default namespace
 	ManagerNamespace = "stellaris-system"
 	// TODO set manager default FinalizerName
-	FinalizerName                               = "stellaris.Finalizer"
-	ClusterResourceLabelName                    = "stellaris.ClusterResource"
-	ResourceBindingLabelName                    = "stellaris.ResourceBinding"
-	ResourceGvkLabelName                        = "stellaris.ResourceGvk"
-	MultiClusterResourceLabelName               = "stellaris.MultiClusterResource"
-	MultiClusterResourceSchedulePolicyLabelName = "stellaris.SchedulePolicy"
+	FinalizerName                               = "stellaris/Finalizer"
+	ClusterResourceLabelName                    = "stellaris/ClusterResource"
+	ResourceBindingLabelName                    = "stellaris/ResourceBinding"
+	ResourceGvkLabelName                        = "stellaris/ResourceGvk"
+	MultiClusterResourceLabelName               = "stellaris/MultiClusterResource"
+	MultiClusterResourceSchedulePolicyLabelName = "stellaris/SchedulePolicy"
 	V1alpha1Apiversion                          = "stellaris/v1alpha1"
 	Scheduler                                   = "multiclusterresourceschedulepolicy"
+	AggregateResourceGvkLabelName               = "stellaris/AggregateResourceGvk"
+	AggregateRuleLabelName                      = "stellaris/AggregateRule"
 )
 
 const (
 	BindingPathNamespace = "/metadata/namespace"
-	BindingOpAdd     = "add"
-	BindingOpRemove  = "remove"
-	BindingOpReplace = "replace"
-	BindingOpMove    = "move"
-	BindingOpCopy    = "copy"
-	BindingOpTest    = "test"
+	BindingOpAdd         = "add"
+	BindingOpRemove      = "remove"
+	BindingOpReplace     = "replace"
+	BindingOpMove        = "move"
+	BindingOpCopy        = "copy"
+	BindingOpTest        = "test"
 )
 const (
 	ClusterWorkspacePrefix = "stellaris-harmonycloud-cn-"
