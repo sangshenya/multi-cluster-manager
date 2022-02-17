@@ -17,6 +17,6 @@ type Out struct {
 }
 
 type PluginsData struct {
-	Uid  string
-	Data interface{}
+	Uid  string      `json:"uid"`
+	Data interface{} `json:"data"`
 }

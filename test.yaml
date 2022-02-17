@@ -2,6 +2,3 @@ plugins:
   inTree:
     - name: etcd
     - name: apiserver
-  outTree:
-    - name: test
-      url: "http://47.97.243.214/goad/health"

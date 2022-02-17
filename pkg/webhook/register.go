@@ -2,9 +2,9 @@ package webhook
 
 import (
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
-	"harmonycloud.cn/stellaris/pkg/webhook/cluster_resource"
-	"harmonycloud.cn/stellaris/pkg/webhook/cluster_resource_aggregate_rule"
-	"harmonycloud.cn/stellaris/pkg/webhook/multi_cluster_resource"
+	cluster_resource "harmonycloud.cn/stellaris/pkg/webhook/cluster-resource"
+	cluster_resource_aggregate_rule "harmonycloud.cn/stellaris/pkg/webhook/cluster-resource-aggregate-rule"
+	multi_cluster_resource "harmonycloud.cn/stellaris/pkg/webhook/multi-cluster-resource"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )

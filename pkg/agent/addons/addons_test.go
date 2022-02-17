@@ -81,8 +81,9 @@ var _ = Describe("Addons", func() {
 				Expect(reflect.DeepEqual(*res, addonConfig)).Should(BeTrue())
 
 				addonsList1 := addons.LoadAddon(res)
-
+				logJson(addonsList1)
 				addonsList2 := addons.LoadAddon(&addonConfig)
+				logJson(addonsList2)
 				Expect(len(addonsList1)).Should(Equal(len(addonsList2)))
 				for _, item1 := range addonsList1 {
 					for _, item2 := range addonsList2 {
@@ -123,4 +124,9 @@ func marshal(p interface{}) *model.PluginsData {
 		return nil
 	}
 	return b
+}
+
+func logJson(v interface{}) {
+	ma, err := json.Marshal(v)
+	fmt.Println(string(ma), err)
 }

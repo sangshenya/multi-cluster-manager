@@ -8,7 +8,7 @@ import (
 type apiServerAddons struct{}
 
 type ApiServerAddonsData struct {
-	PodIP []string
+	PodIP []string `json:"podIP"`
 }
 
 func (a *apiServerAddons) Load() (*model.PluginsData, error) {
