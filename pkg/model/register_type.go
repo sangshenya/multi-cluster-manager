@@ -1,13 +1,13 @@
 package model
 
 type RegisterRequest struct {
-	Addons []Addon
+	Addons []Addon `json:"addons"`
 }
 
 type RegisterResponse struct {
-	ClusterResources                      []string
-	MultiClusterResourceAggregatePolicies []string
-	MultiClusterResourceAggregateRules    []string
+	ClusterResources                      []string `json:"clusterResources"`
+	MultiClusterResourceAggregatePolicies []string `json:"multiClusterResourceAggregatePolicies"`
+	MultiClusterResourceAggregateRules    []string `json:"multiClusterResourceAggregateRules"`
 }
 
 func (r *RegisterResponse) IsEmpty() bool {
@@ -18,6 +18,6 @@ func (r *RegisterResponse) IsEmpty() bool {
 }
 
 type Addon struct {
-	Name       string
-	Properties interface{}
+	Name       string      `json:"name"`
+	Properties interface{} `json:"properties,omitempty"`
 }
