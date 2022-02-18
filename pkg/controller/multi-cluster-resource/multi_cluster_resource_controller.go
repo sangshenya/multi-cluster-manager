@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"harmonycloud.cn/stellaris/pkg/controller/resource_binding"
+	resource_binding "harmonycloud.cn/stellaris/pkg/controller/resource-binding"
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"

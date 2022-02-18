@@ -10,7 +10,7 @@ import (
 	"harmonycloud.cn/stellaris/pkg/agent/condition"
 	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
 	agentStream "harmonycloud.cn/stellaris/pkg/agent/stream"
-	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster_health"
+	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
 	"harmonycloud.cn/stellaris/pkg/model"
 	"harmonycloud.cn/stellaris/pkg/util/agent"
 	"harmonycloud.cn/stellaris/pkg/util/common"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster_health"
+	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
 
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"

@@ -10,7 +10,7 @@ import (
 type etcdAddons struct{}
 
 type EtcdAddonsInfo struct {
-	PodIP []string
+	PodIP []string `json:"podIP"`
 }
 
 func (e *etcdAddons) Load() (*model.PluginsData, error) {

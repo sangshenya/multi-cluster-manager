@@ -40,7 +40,7 @@ func NewCluster(clusterName string) *v1alpha1.Cluster {
 }
 
 func ConvertRegisterAddons2KubeAddons(addons []model.Addon) ([]v1alpha1.ClusterAddons, error) {
-	result := make([]v1alpha1.ClusterAddons, len(addons))
+	var result []v1alpha1.ClusterAddons
 	for _, addon := range addons {
 		if len(addon.Name) <= 0 {
 			continue
