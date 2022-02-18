@@ -114,7 +114,7 @@ var (
 	MultiClusterResourceGroupVersionKind = SchemeGroupVersion.WithKind(MultiClusterResourceKind)
 )
 
-// MultiClusterResource type metadata
+// MultiClusterResourceSchedulePolicy type metadata
 var (
 	MultiClusterResourceSchedulePolicyKind             = reflect.TypeOf(MultiClusterResourceSchedulePolicy{}).Name()
 	MultiClusterResourceSchedulePolicyGroupVersionKind = SchemeGroupVersion.WithKind(MultiClusterResourceSchedulePolicyKind)

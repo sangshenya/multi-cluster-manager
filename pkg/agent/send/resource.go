@@ -29,12 +29,12 @@ func SendSyncResourceRequest(request *config.Request) error {
 	return nil
 }
 
-func NewResourceRequest(resType model.ServiceRequestType, clusterName string, body string) (*config.Request, error) {
+func NewResourceRequest(clusterName string, body string) (*config.Request, error) {
 	if len(clusterName) == 0 || len(body) == 0 {
 		return nil, errors.New("clusterName or body is empty")
 	}
 	return &config.Request{
-		Type:        resType.String(),
+		Type:        model.Resource.String(),
 		ClusterName: clusterName,
 		Body:        body,
 	}, nil

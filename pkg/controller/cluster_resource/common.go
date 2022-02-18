@@ -182,7 +182,7 @@ func newUpdateClusterResourceStatusRequest(clusterResourceList []*v1alpha1.Clust
 	if err != nil {
 		return nil, err
 	}
-	return agentsend.NewResourceRequest(model.Resource, clusterName, string(requestData))
+	return agentsend.NewResourceRequest(clusterName, string(requestData))
 }
 
 // send clusterResource to agent

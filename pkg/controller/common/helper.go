@@ -67,7 +67,6 @@ func GetClusterNamespaces(ctx context.Context, clientSet client.Client, sourceTy
 		if len(clusterSetName) == 0 {
 			return clusterNamespaces, errors.New("clusterSetName is empty")
 		}
-		// TODO get clusters from clusterset
 		namespaces, err := getClustersNameSpaceFromClusterSet(ctx, clientSet, clusterSetName)
 		if err != nil {
 			return clusterNamespaces, err

@@ -1,10 +1,13 @@
-package resource_aggregate_policy
+package multi_resource_aggregate_policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
+
+	"harmonycloud.cn/stellaris/pkg/util/common"
 
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
@@ -57,7 +60,72 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 	}
 	clusterNamespaces, err := controllerCommon.GetClusterNamespaces(ctx, r.Client, instance.Spec.Clusters.ClusterType, instance.Spec.Clusters.Clusters, instance.Spec.Clusters.Clusterset)
 	if err != nil {
+		r.log.Error(err, fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()))
 		return controllerCommon.ReQueueResult(err)
+	}
+	if len(clusterNamespaces) <= 0 {
+		err = errors.New("can not find clusterNamespace")
+		r.log.Error(err, fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()))
+		return controllerCommon.ReQueueResult(err)
+	}
+
+	policyMap, err := getResourceAggregatePolicyMap(ctx, r.Client, common.NewNamespacedName(instance.GetNamespace(), instance.GetName()))
+	if err != nil {
+		r.log.Error(err, "get ResourceAggregatePolicy failed")
+		return controllerCommon.ReQueueResult(err)
+	}
+
+	for _, clusterNamespace := range clusterNamespaces {
+		for _, ruleName := range instance.Spec.AggregateRules {
+			// get rule
+			rule, err := getPolicyRule(ctx, r.Client, ruleName, instance.GetNamespace())
+			if err != nil {
+				r.log.Error(err, fmt.Sprintf("policyRule(%s:%s) can not find", instance.GetNamespace(), ruleName))
+				continue
+			}
+
+			policyMapKey := getResourceAggregatePolicyMapKey(common.NewNamespacedName(instance.GetNamespace(), instance.GetName()), common.NewNamespacedName(rule.GetNamespace(), rule.GetName()))
+			resourceAggregatePolicy, ok := policyMap[policyMapKey]
+			if !ok {
+				// create ResourceAggregatePolicy
+				resourceAggregatePolicy = newResourceAggregatePolicy(clusterNamespace, rule, instance)
+				err = r.Client.Create(ctx, resourceAggregatePolicy)
+				if err != nil {
+					r.log.Error(err, fmt.Sprintf("create resourceAggregatePolicy(%s:%s) failed", clusterNamespace, resourceAggregatePolicy.Name))
+					return controllerCommon.ReQueueResult(err)
+				}
+				continue
+			}
+			// update
+			delete(policyMap, policyMapKey)
+			policySpec := v1alpha1.ResourceAggregatePolicySpec{
+				ResourceRef: rule.Spec.ResourceRef,
+				Limit:       instance.Spec.Limit,
+			}
+			if reflect.DeepEqual(resourceAggregatePolicy.Spec, policySpec) {
+				r.log.Info(fmt.Sprintf("can not update resourceAggregatePolicy(%s:%s)", resourceAggregatePolicy.Namespace, resourceAggregatePolicy.Name))
+				continue
+			}
+			resourceAggregatePolicy.Spec = policySpec
+			err = r.Client.Update(ctx, resourceAggregatePolicy)
+			if err != nil {
+				r.log.Error(err, fmt.Sprintf("update resourceAggregatePolicy(%s:%s) failed", clusterNamespace, resourceAggregatePolicy.Name))
+				return controllerCommon.ReQueueResult(err)
+			}
+		}
+	}
+
+	if len(policyMap) <= 0 {
+		return ctrl.Result{}, nil
+	}
+
+	// delete
+	for _, p := range policyMap {
+		err = r.Client.Delete(ctx, p)
+		if err != nil {
+			r.log.Error(err, fmt.Sprintf("delete resourceAggregatePolicy(%s:%s) failed", p.Namespace, p.Name))
+			return controllerCommon.ReQueueResult(err)
+		}
 	}
 
 	return ctrl.Result{}, nil
@@ -118,7 +186,7 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 	reconciler := Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		log:    logf.Log.WithName("resource_aggregate_policy_controller"),
+		log:    logf.Log.WithName("multi_resource_aggregate_policy_controller"),
 	}
 	return reconciler.SetupWithManager(mgr)
 }
