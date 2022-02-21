@@ -33,7 +33,7 @@ func (r *NamespaceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	r.log.Info("Reconciling NamespaceMapping")
 	instance := &v1alpha1.NamespaceMapping{}
-	err := r.Client.Get(context.TODO(), req.NamespacedName, instance)
+	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -45,37 +45,40 @@ func (r *NamespaceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if !instance.DeletionTimestamp.IsZero() {
 		return r.removeNamespaceMapping(ctx, instance)
 	}
-	return r.syncNamespaceMapping(instance)
+	return r.syncNamespaceMapping(ctx, instance)
 }
 
-func (r *NamespaceMappingReconciler) syncNamespaceMapping(namespaceMapping *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
+func (r *NamespaceMappingReconciler) syncNamespaceMapping(ctx context.Context, namespaceMapping *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
 	// create mapping for cluster
-	if err := r.createMapping(namespaceMapping); err != nil {
-		return ctrl.Result{Requeue: true}, err
+	if err := r.createMapping(ctx, namespaceMapping); err != nil {
+		return controllerCommon.ReQueueResult(err)
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *NamespaceMappingReconciler) createMapping(namespaceMapping *v1alpha1.NamespaceMapping) error {
-	err := r.mappingOperator(namespaceMapping, createOrUpdateMapping)
+// create namespace mapping
+func (r *NamespaceMappingReconciler) createMapping(ctx context.Context, namespaceMapping *v1alpha1.NamespaceMapping) error {
+	err := r.mappingOperator(ctx, namespaceMapping, createOrUpdateMapping)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+// remove namespace mapping,then remove finalizer
 func (r *NamespaceMappingReconciler) removeNamespaceMapping(ctx context.Context, namespaceMapping *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
-	err := r.removeMapping(namespaceMapping)
+	err := r.removeMapping(ctx, namespaceMapping)
 	if err != nil {
 		klog.Errorf("failed to remove namespaceMapping %s, %v", namespaceMapping.Name, err)
-		return ctrl.Result{Requeue: true}, err
+		return controllerCommon.ReQueueResult(err)
 	}
 	return r.removeFinalizer(ctx, namespaceMapping)
 
 }
 
-func (r *NamespaceMappingReconciler) removeMapping(namespaceMapping *v1alpha1.NamespaceMapping) error {
-	err := r.mappingOperator(namespaceMapping, removeMapping)
+// remove namespace mapping
+func (r *NamespaceMappingReconciler) removeMapping(ctx context.Context, namespaceMapping *v1alpha1.NamespaceMapping) error {
+	err := r.mappingOperator(ctx, namespaceMapping, removeMapping)
 	if err != nil {
 		return err
 	}
@@ -101,11 +104,12 @@ func (r *NamespaceMappingReconciler) removeFinalizer(ctx context.Context, instan
 	return ctrl.Result{}, nil
 }
 
-func (r *NamespaceMappingReconciler) mappingOperator(namespaceMapping *v1alpha1.NamespaceMapping, option string) error {
+// create,update or remove namespace mapping with label
+func (r *NamespaceMappingReconciler) mappingOperator(ctx context.Context, namespaceMapping *v1alpha1.NamespaceMapping, option string) error {
 	mappingRule := namespaceMapping.Spec.Mapping
 	for ruleK, ruleV := range mappingRule {
 		workspace := &corev1.Namespace{}
-		r.Client.Get(context.TODO(), types.NamespacedName{Name: namespaceMapping.Namespace}, workspace)
+		r.Client.Get(ctx, types.NamespacedName{Name: namespaceMapping.Namespace}, workspace)
 		labels := workspace.GetLabels()
 		// add mapping label
 		if option == createOrUpdateMapping {
@@ -121,7 +125,7 @@ func (r *NamespaceMappingReconciler) mappingOperator(namespaceMapping *v1alpha1.
 			}
 			labels[labelK] = ruleV
 			workspace.SetLabels(labels)
-			r.Client.Update(context.TODO(), workspace)
+			r.Client.Update(ctx, workspace)
 		} else if option == removeMapping {
 			// delete mapping label
 			if labels == nil {
@@ -133,7 +137,7 @@ func (r *NamespaceMappingReconciler) mappingOperator(namespaceMapping *v1alpha1.
 			}
 			delete(labels, labelK)
 			workspace.SetLabels(labels)
-			r.Client.Update(context.TODO(), workspace)
+			r.Client.Update(ctx, workspace)
 		}
 	}
 	return nil

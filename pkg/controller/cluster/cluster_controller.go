@@ -31,7 +31,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	r.log.WithValues("Request.Name", req.Name)
 	r.log.Info("Reconciling Cluster")
 	instance := &v1alpha1.Cluster{}
-	err := r.Client.Get(context.TODO(), req.NamespacedName, instance)
+	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -43,25 +43,26 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if !instance.DeletionTimestamp.IsZero() {
 		return r.removeCluster(ctx, instance)
 	}
-	return r.syncCluster(instance)
+	return r.syncCluster(ctx, instance)
 }
 
-func (r *ClusterReconciler) syncCluster(cluster *v1alpha1.Cluster) (ctrl.Result, error) {
+func (r *ClusterReconciler) syncCluster(ctx context.Context, cluster *v1alpha1.Cluster) (ctrl.Result, error) {
 	// create workspace for cluster
-	if err := r.createWorkspace(cluster); err != nil {
-		return ctrl.Result{Requeue: true}, err
+	if err := r.createWorkspace(ctx, cluster); err != nil {
+		return controllerCommon.ReQueueResult(err)
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterReconciler) createWorkspace(cluster *v1alpha1.Cluster) error {
+// create workspace(namespace) in control plane
+func (r *ClusterReconciler) createWorkspace(ctx context.Context, cluster *v1alpha1.Cluster) error {
 	clusterWorkspaceName, err := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster.Name)
 	if err != nil {
 		r.log.Error(err, "failed to generate workspace for cluster: %s", cluster.Name)
 		return err
 	}
 	clusterWorkspaceExist := &corev1.Namespace{}
-	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist); err != nil {
+	if err := r.Client.Get(ctx, types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist); err != nil {
 		if !errors.IsNotFound(err) {
 			r.log.Error(err, "failed to get namespace %s", clusterWorkspaceName)
 		}
@@ -70,7 +71,7 @@ func (r *ClusterReconciler) createWorkspace(cluster *v1alpha1.Cluster) error {
 				Name: clusterWorkspaceName,
 			},
 		}
-		err := r.Client.Create(context.TODO(), clusterWorkspace)
+		err := r.Client.Create(ctx, clusterWorkspace)
 		if err != nil {
 			r.log.Error(err, "failed to create workspace for cluster %s", cluster.Name)
 			return err
@@ -81,19 +82,20 @@ func (r *ClusterReconciler) createWorkspace(cluster *v1alpha1.Cluster) error {
 
 }
 
+// remove cluster in control plane
 func (r *ClusterReconciler) removeCluster(ctx context.Context, cluster *v1alpha1.Cluster) (ctrl.Result, error) {
-	err := r.removeClusterInControlPlane(cluster)
+	err := r.removeClusterInControlPlane(ctx, cluster)
 	if errors.IsNotFound(err) {
 		return r.removeFinalizer(ctx, cluster)
 	}
 	if err != nil {
 		klog.Errorf("failed to remove workspace %s, %v", cluster.Name, err)
-		return ctrl.Result{Requeue: true}, err
+		return controllerCommon.ReQueueResult(err)
 	}
-	exist, err := r.workspaceExist(cluster.Name)
+	exist, err := r.workspaceExist(ctx, cluster.Name)
 	if err != nil {
 		klog.Errorf("failed to check if the workspace exist for cluster: %v", err)
-		return ctrl.Result{Requeue: true}, err
+		return controllerCommon.ReQueueResult(err)
 	} else if exist {
 		return ctrl.Result{Requeue: true}, fmt.Errorf("workspace %s still exists,prepare to delete", cluster.Name)
 	}
@@ -101,7 +103,8 @@ func (r *ClusterReconciler) removeCluster(ctx context.Context, cluster *v1alpha1
 
 }
 
-func (r *ClusterReconciler) removeClusterInControlPlane(cluster *v1alpha1.Cluster) error {
+// remove workspace(namespace) in control plane
+func (r *ClusterReconciler) removeClusterInControlPlane(ctx context.Context, cluster *v1alpha1.Cluster) error {
 	clusterWorkspaceName, err := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster.Name)
 	if err != nil {
 		klog.Errorf("failed to generate workspace for cluster %s, %v", cluster.Name, err)
@@ -112,7 +115,7 @@ func (r *ClusterReconciler) removeClusterInControlPlane(cluster *v1alpha1.Cluste
 			Name: clusterWorkspaceName,
 		},
 	}
-	if err := r.Client.Delete(context.TODO(), clusterWorkspace); err != nil && !errors.IsNotFound(err) {
+	if err := r.Client.Delete(ctx, clusterWorkspace); err != nil && !errors.IsNotFound(err) {
 		klog.Errorf("error while deleting namespace %s: %v", cluster.Name, err)
 		return err
 	}
@@ -128,7 +131,8 @@ func (r *ClusterReconciler) removeFinalizer(ctx context.Context, instance *v1alp
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterReconciler) addCreateStatus(cluster *v1alpha1.Cluster) (ctrl.Result, error) {
+// add status
+func (r *ClusterReconciler) addCreateStatus(ctx context.Context, cluster *v1alpha1.Cluster) (ctrl.Result, error) {
 	nowTime := metav1.Now()
 	createStatus := v1alpha1.ClusterStatus{
 		Conditions:                    clusterHealth.GenerateReadyCondition(true, true),
@@ -138,8 +142,8 @@ func (r *ClusterReconciler) addCreateStatus(cluster *v1alpha1.Cluster) (ctrl.Res
 		Status:                        v1alpha1.OnlineStatus,
 	}
 	cluster.Status = createStatus
-	if err := r.Status().Update(context.TODO(), cluster); err != nil {
-		return ctrl.Result{Requeue: true}, err
+	if err := r.Status().Update(ctx, cluster); err != nil {
+		return controllerCommon.ReQueueResult(err)
 	}
 	return ctrl.Result{}, nil
 }
@@ -152,19 +156,20 @@ func (r *ClusterReconciler) addFinalizer(ctx context.Context, instance *v1alpha1
 		return controllerCommon.ReQueueResult(err)
 	}
 	if instance.Status.LastReceiveHeartBeatTimestamp.IsZero() {
-		return r.addCreateStatus(instance)
+		return r.addCreateStatus(ctx, instance)
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterReconciler) workspaceExist(cluster string) (bool, error) {
+// check namespace before remove
+func (r *ClusterReconciler) workspaceExist(ctx context.Context, cluster string) (bool, error) {
 	clusterWorkspaceName, err := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster)
 	if err != nil {
 		klog.Errorf("failed to generate workspace for cluster %s, %v", cluster, err)
 		return false, err
 	}
 	clusterWorkspaceExist := &corev1.Namespace{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist)
 
 	if errors.IsNotFound(err) {
 		klog.V(2).Infof("workspace for cluster %s not exists: %v", cluster, err)
