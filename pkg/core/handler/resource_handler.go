@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -12,7 +11,6 @@ import (
 	"harmonycloud.cn/stellaris/pkg/util/core"
 
 	"harmonycloud.cn/stellaris/config"
-	table "harmonycloud.cn/stellaris/pkg/core/stream"
 	"harmonycloud.cn/stellaris/pkg/model"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -62,33 +60,4 @@ func (s *CoreServer) syncClusterResourceStatus(statusList []model.ClusterResourc
 		}
 	}
 	return nil
-}
-
-// send request to agent
-func SendResourceToAgent(clusterName string, resourceResponse *config.Response) error {
-	resourceHandlerLog.Info(fmt.Sprintf("start to send resource request to agent"))
-	stream := table.FindStream(clusterName)
-	if stream == nil {
-		err := errors.New(fmt.Sprintf("can not find agent(%s) stream", clusterName))
-		resourceHandlerLog.Error(err, "find agent stream failed")
-		return err
-	}
-	err := stream.Stream.Send(resourceResponse)
-	if err != nil {
-		resourceHandlerLog.Error(err, "send resource to agent failed")
-		return err
-	}
-	resourceHandlerLog.Info(fmt.Sprintf("send resource request to agent success"))
-	return nil
-}
-
-func NewResourceResponse(resType model.ServiceResponseType, clusterName string, body string) (*config.Response, error) {
-	if len(clusterName) == 0 || len(body) == 0 {
-		return nil, errors.New("clusterName or body is empty")
-	}
-	return &config.Response{
-		Type:        resType.String(),
-		ClusterName: clusterName,
-		Body:        body,
-	}, nil
 }

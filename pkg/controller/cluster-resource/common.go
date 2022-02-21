@@ -18,7 +18,7 @@ import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	coreHandler "harmonycloud.cn/stellaris/pkg/core/handler"
+	coreSender "harmonycloud.cn/stellaris/pkg/core/sender"
 	"harmonycloud.cn/stellaris/pkg/model"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -199,7 +199,7 @@ func sendClusterResourceToAgent(eventType SyncEventType, clusterResource *v1alph
 	if err != nil {
 		return err
 	}
-	return coreHandler.SendResourceToAgent(clusterName, syncResourceResponse)
+	return coreSender.SendResponseToAgent(syncResourceResponse)
 }
 
 func newSyncResourceResponse(resType model.ServiceResponseType, clusterName string, clusterResource *v1alpha1.ClusterResource) (*config.Response, error) {
@@ -208,7 +208,7 @@ func newSyncResourceResponse(resType model.ServiceResponseType, clusterName stri
 	if err != nil {
 		return nil, err
 	}
-	return coreHandler.NewResourceResponse(resType, clusterName, string(data))
+	return coreSender.NewResponse(resType, clusterName, string(data))
 }
 
 // sync Resource when create/update/delete

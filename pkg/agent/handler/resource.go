@@ -14,7 +14,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var resourceLog = logf.Log.WithName("agent_resource")
+var resourceLog = logf.Log.WithName("agent_resource_handler")
 
 func RecvSyncResourceResponse(response *config.Response) {
 	resourceLog.Info(fmt.Sprintf("recv resource response form core: %s", response.String()))

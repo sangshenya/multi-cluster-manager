@@ -107,3 +107,12 @@ func getClustersNameSpaceFromClusterSet(ctx context.Context, clientSet client.Cl
 	}
 	return clusterNamespaces, nil
 }
+
+func AllCluster(ctx context.Context, clientSet client.Client) (*v1alpha1.ClusterList, error) {
+	clusterList := &v1alpha1.ClusterList{}
+	err := clientSet.List(ctx, clusterList)
+	if err != nil {
+		return clusterList, err
+	}
+	return clusterList, nil
+}

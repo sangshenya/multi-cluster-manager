@@ -26,6 +26,8 @@ const (
 	ResourceDelete              ServiceResponseType = "ResourceDelete"
 	ResourceStatusUpdateSuccess ServiceResponseType = "ResourceStatusUpdateSuccess"
 	ResourceStatusUpdateFailed  ServiceResponseType = "ResourceStatusUpdateFailed"
+	AggregateUpdateOrCreate     ServiceResponseType = "AggregateUpdateOrCreate"
+	AggregateDelete             ServiceResponseType = "AggregateDelete"
 )
 
 func (s ServiceResponseType) String() string {

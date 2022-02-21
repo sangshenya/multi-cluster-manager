@@ -2,7 +2,12 @@ package resource_aggregate_rule
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+
+	"harmonycloud.cn/stellaris/pkg/model"
+
+	coreSender "harmonycloud.cn/stellaris/pkg/core/sender"
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 
@@ -45,12 +50,50 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 }
 
 func (r *Reconciler) syncResourceAggregateRule(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregateRule) (ctrl.Result, error) {
-	ruleLabels := instance.GetLabels()
-	gvkString, ok := ruleLabels[managerCommon.AggregateResourceGvkLabelName]
-	targetGvkString := managerCommon.GvkLabelString(instance.Spec.ResourceRef)
-	if ok && gvkString == targetGvkString {
-		return ctrl.Result{}, nil
+	if shouldAddRuleLabels(instance) {
+		return r.addRuleLabels(ctx, instance)
 	}
+	// send rule to agent
+	return r.sendAggregateRuleToAgent(ctx, instance)
+}
+
+func (r *Reconciler) sendAggregateRuleToAgent(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregateRule) (ctrl.Result, error) {
+	aggregateModel := &model.SyncAggregateResourceModel{
+		RuleList: []*v1alpha1.MultiClusterResourceAggregateRule{instance},
+	}
+	jsonString, err := json.Marshal(aggregateModel)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("marshal aggregate model failed"))
+		return controllerCommon.ReQueueResult(err)
+	}
+	// get all cluster
+	clusterList, err := controllerCommon.AllCluster(ctx, r.Client)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("get all cluster failed"))
+		return controllerCommon.ReQueueResult(err)
+	}
+	for _, cluster := range clusterList.Items {
+		if len(cluster.GetName()) <= 0 || cluster.Status.Status == v1alpha1.OfflineStatus {
+			r.log.Error(err, fmt.Sprintf("cluster name is empty"))
+			continue
+		}
+		ruleResponse, err := coreSender.NewResponse(model.AggregateUpdateOrCreate, cluster.GetName(), string(jsonString))
+		if err != nil {
+			r.log.Error(err, fmt.Sprintf("new rule response failed"))
+			continue
+		}
+		err = coreSender.SendResponseToAgent(ruleResponse)
+		if err != nil {
+			r.log.Error(err, fmt.Sprintf("send rule response failed"))
+			continue
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) addRuleLabels(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregateRule) (ctrl.Result, error) {
+	ruleLabels := instance.GetLabels()
+	targetGvkString := managerCommon.GvkLabelString(instance.Spec.ResourceRef)
 	ruleLabels[managerCommon.AggregateResourceGvkLabelName] = targetGvkString
 	instance.SetLabels(ruleLabels)
 	err := r.Client.Update(ctx, instance)
@@ -58,6 +101,15 @@ func (r *Reconciler) syncResourceAggregateRule(ctx context.Context, instance *v1
 		return controllerCommon.ReQueueResult(err)
 	}
 	return ctrl.Result{}, nil
+}
+
+func shouldAddRuleLabels(instance *v1alpha1.MultiClusterResourceAggregateRule) bool {
+	gvkString, ok := instance.GetLabels()[managerCommon.AggregateResourceGvkLabelName]
+	targetGvkString := managerCommon.GvkLabelString(instance.Spec.ResourceRef)
+	if ok && gvkString == targetGvkString {
+		return false
+	}
+	return true
 }
 
 func (r *Reconciler) addFinalizer(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregateRule) (ctrl.Result, error) {
