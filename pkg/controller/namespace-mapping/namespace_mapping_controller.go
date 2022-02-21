@@ -2,19 +2,18 @@ package namespace_mapping
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
 	"harmonycloud.cn/stellaris/pkg/util/common"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 )
@@ -33,18 +32,20 @@ type NamespaceMappingReconciler struct {
 func (r *NamespaceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	r.log.Info("Reconciling NamespaceMapping")
-	namespaceMapping := &v1alpha1.NamespaceMapping{}
-	if err := r.Client.Get(context.TODO(), req.NamespacedName, namespaceMapping); err != nil {
-		if errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{Requeue: true}, err
+	instance := &v1alpha1.NamespaceMapping{}
+	err := r.Client.Get(context.TODO(), req.NamespacedName, instance)
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	// add Finalizers
+	if controllerCommon.ShouldAddFinalizer(instance) {
+		return r.addFinalizer(ctx, instance)
 	}
 	// remove
-	if !namespaceMapping.DeletionTimestamp.IsZero() {
-		return r.removeNamespaceMapping(namespaceMapping)
+	if !instance.DeletionTimestamp.IsZero() {
+		return r.removeNamespaceMapping(ctx, instance)
 	}
-	return r.syncNamespaceMapping(namespaceMapping)
+	return r.syncNamespaceMapping(instance)
 }
 
 func (r *NamespaceMappingReconciler) syncNamespaceMapping(namespaceMapping *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
@@ -52,7 +53,7 @@ func (r *NamespaceMappingReconciler) syncNamespaceMapping(namespaceMapping *v1al
 	if err := r.createMapping(namespaceMapping); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-	return r.ensureFinalizer(namespaceMapping)
+	return ctrl.Result{}, nil
 }
 
 func (r *NamespaceMappingReconciler) createMapping(namespaceMapping *v1alpha1.NamespaceMapping) error {
@@ -63,13 +64,13 @@ func (r *NamespaceMappingReconciler) createMapping(namespaceMapping *v1alpha1.Na
 	return nil
 }
 
-func (r *NamespaceMappingReconciler) removeNamespaceMapping(namespaceMapping *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
+func (r *NamespaceMappingReconciler) removeNamespaceMapping(ctx context.Context, namespaceMapping *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
 	err := r.removeMapping(namespaceMapping)
 	if err != nil {
 		klog.Errorf("failed to remove namespaceMapping %s, %v", namespaceMapping.Name, err)
 		return ctrl.Result{Requeue: true}, err
 	}
-	return r.removeFinalizer(namespaceMapping)
+	return r.removeFinalizer(ctx, namespaceMapping)
 
 }
 
@@ -81,25 +82,21 @@ func (r *NamespaceMappingReconciler) removeMapping(namespaceMapping *v1alpha1.Na
 	return nil
 }
 
-func (r *NamespaceMappingReconciler) ensureFinalizer(namespaceMapping *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
-	if controllerutil.ContainsFinalizer(namespaceMapping, managerCommon.NamespaceMappingControllerFinalizer) {
-		return ctrl.Result{}, nil
-	}
-	controllerutil.AddFinalizer(namespaceMapping, managerCommon.NamespaceMappingControllerFinalizer)
-	if err := r.Client.Update(context.TODO(), namespaceMapping); err != nil {
-		return ctrl.Result{Requeue: true}, err
+// sync clusterResource Finalizer
+func (r *NamespaceMappingReconciler) addFinalizer(ctx context.Context, instance *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
+	err := controllerCommon.AddFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("append finalizer failed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *NamespaceMappingReconciler) removeFinalizer(namespaceMapping *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(namespaceMapping, managerCommon.NamespaceMappingControllerFinalizer) {
-		return ctrl.Result{}, nil
-	}
-	controllerutil.RemoveFinalizer(namespaceMapping, managerCommon.NamespaceMappingControllerFinalizer)
-
-	if err := r.Client.Update(context.TODO(), namespaceMapping); err != nil {
-		return ctrl.Result{Requeue: true}, err
+func (r *NamespaceMappingReconciler) removeFinalizer(ctx context.Context, instance *v1alpha1.NamespaceMapping) (ctrl.Result, error) {
+	err := controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("delete finalizer filed from resource(%s) failed", instance.Name))
+		return controllerCommon.ReQueueResult(err)
 	}
 	return ctrl.Result{}, nil
 }

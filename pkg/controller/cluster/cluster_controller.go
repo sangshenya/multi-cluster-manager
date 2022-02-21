@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-
 	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
 
 	"github.com/go-logr/logr"
@@ -19,7 +18,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -32,19 +30,20 @@ type ClusterReconciler struct {
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.WithValues("Request.Name", req.Name)
 	r.log.Info("Reconciling Cluster")
-	cluster := &v1alpha1.Cluster{}
-	err := r.Client.Get(context.TODO(), req.NamespacedName, cluster)
-	if errors.IsNotFound(err) {
-		return ctrl.Result{}, nil
-	}
+	instance := &v1alpha1.Cluster{}
+	err := r.Client.Get(context.TODO(), req.NamespacedName, instance)
 	if err != nil {
-		return ctrl.Result{Requeue: true}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	// add Finalizers
+	if controllerCommon.ShouldAddFinalizer(instance) {
+		return r.addFinalizer(ctx, instance)
 	}
 	// remove cluster
-	if !cluster.DeletionTimestamp.IsZero() {
-		return r.removeCluster(cluster)
+	if !instance.DeletionTimestamp.IsZero() {
+		return r.removeCluster(ctx, instance)
 	}
-	return r.syncCluster(cluster)
+	return r.syncCluster(instance)
 }
 
 func (r *ClusterReconciler) syncCluster(cluster *v1alpha1.Cluster) (ctrl.Result, error) {
@@ -52,7 +51,7 @@ func (r *ClusterReconciler) syncCluster(cluster *v1alpha1.Cluster) (ctrl.Result,
 	if err := r.createWorkspace(cluster); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-	return r.ensureFinalizer(cluster)
+	return ctrl.Result{}, nil
 }
 
 func (r *ClusterReconciler) createWorkspace(cluster *v1alpha1.Cluster) error {
@@ -82,10 +81,10 @@ func (r *ClusterReconciler) createWorkspace(cluster *v1alpha1.Cluster) error {
 
 }
 
-func (r *ClusterReconciler) removeCluster(cluster *v1alpha1.Cluster) (ctrl.Result, error) {
+func (r *ClusterReconciler) removeCluster(ctx context.Context, cluster *v1alpha1.Cluster) (ctrl.Result, error) {
 	err := r.removeClusterInControlPlane(cluster)
 	if errors.IsNotFound(err) {
-		return r.removeFinalizer(cluster)
+		return r.removeFinalizer(ctx, cluster)
 	}
 	if err != nil {
 		klog.Errorf("failed to remove workspace %s, %v", cluster.Name, err)
@@ -98,7 +97,7 @@ func (r *ClusterReconciler) removeCluster(cluster *v1alpha1.Cluster) (ctrl.Resul
 	} else if exist {
 		return ctrl.Result{Requeue: true}, fmt.Errorf("workspace %s still exists,prepare to delete", cluster.Name)
 	}
-	return r.removeFinalizer(cluster)
+	return r.removeFinalizer(ctx, cluster)
 
 }
 
@@ -120,14 +119,11 @@ func (r *ClusterReconciler) removeClusterInControlPlane(cluster *v1alpha1.Cluste
 	return nil
 }
 
-func (r *ClusterReconciler) removeFinalizer(cluster *v1alpha1.Cluster) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(cluster, managerCommon.ClusterControllerFinalizer) {
-		return ctrl.Result{}, nil
-	}
-	controllerutil.RemoveFinalizer(cluster, managerCommon.ClusterControllerFinalizer)
-
-	if err := r.Client.Update(context.TODO(), cluster); err != nil {
-		return ctrl.Result{Requeue: true}, err
+func (r *ClusterReconciler) removeFinalizer(ctx context.Context, instance *v1alpha1.Cluster) (ctrl.Result, error) {
+	err := controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("delete finalizer filed from resource(%s) failed", instance.Name))
+		return controllerCommon.ReQueueResult(err)
 	}
 	return ctrl.Result{}, nil
 }
@@ -148,20 +144,15 @@ func (r *ClusterReconciler) addCreateStatus(cluster *v1alpha1.Cluster) (ctrl.Res
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterReconciler) ensureFinalizer(cluster *v1alpha1.Cluster) (ctrl.Result, error) {
-	// make sure finalizer is added
-	if controllerutil.ContainsFinalizer(cluster, managerCommon.ClusterControllerFinalizer) {
-		return ctrl.Result{}, nil
+// sync clusterResource Finalizer
+func (r *ClusterReconciler) addFinalizer(ctx context.Context, instance *v1alpha1.Cluster) (ctrl.Result, error) {
+	err := controllerCommon.AddFinalizer(ctx, r.Client, instance)
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("append finalizer failed, resource(%s)", instance.Name))
+		return controllerCommon.ReQueueResult(err)
 	}
-
-	// no Finalizer mean create just now
-	if cluster.Status.LastReceiveHeartBeatTimestamp.IsZero() {
-		return r.addCreateStatus(cluster)
-	}
-
-	controllerutil.AddFinalizer(cluster, managerCommon.ClusterControllerFinalizer)
-	if err := r.Client.Update(context.TODO(), cluster); err != nil {
-		return ctrl.Result{Requeue: true}, err
+	if instance.Status.LastReceiveHeartBeatTimestamp.IsZero() {
+		return r.addCreateStatus(instance)
 	}
 	return ctrl.Result{}, nil
 }
