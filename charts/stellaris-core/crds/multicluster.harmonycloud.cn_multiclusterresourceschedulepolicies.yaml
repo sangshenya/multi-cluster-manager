@@ -6,15 +6,15 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: clusters.multicluster.harmonycloud.cn
+  name: multiclusterresourceschedulepolicies.multicluster.harmonycloud.cn
 spec:
   group: multicluster.harmonycloud.cn
   names:
-    kind: Cluster
-    listKind: ClusterList
-    plural: clusters
-    singular: cluster
-  scope: Cluster
+    kind: MultiClusterResourceSchedulePolicy
+    listKind: MultiClusterResourceSchedulePolicyList
+    plural: multiclusterresourceschedulepolicies
+    singular: multiclusterresourceschedulepolicy
+  scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
@@ -34,89 +34,72 @@ spec:
             type: object
           spec:
             properties:
-              addons:
+              clusterSource:
+                type: string
+              clusterset:
+                type: string
+              failoverPolicy:
                 items:
                   properties:
-                    configuration:
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
                     name:
                       type: string
                     type:
                       type: string
-                    url:
-                      type: string
-                  required:
-                  - name
-                  - type
-                  - url
                   type: object
                 type: array
-              apiserver:
-                type: string
-              configuration:
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
-              secretRef:
+              outTreePolicy:
                 properties:
-                  field:
+                  properties:
+                    type: object
+                  url:
                     type: string
-                  name:
-                    type: string
-                  namespace:
-                    type: string
-                  type:
-                    type: string
-                required:
-                - field
-                - name
-                - namespace
-                - type
                 type: object
+              policy:
+                items:
+                  properties:
+                    max:
+                      type: integer
+                    min:
+                      type: integer
+                    name:
+                      type: string
+                    role:
+                      type: string
+                    weight:
+                      type: integer
+                  type: object
+                type: array
+              replicas:
+                type: integer
+              reschedule:
+                type: boolean
+              resources:
+                items:
+                  properties:
+                    name:
+                      type: string
+                  type: object
+                type: array
+              scheduleMode:
+                type: string
             required:
-            - apiserver
-            - secretRef
+            - replicas
             type: object
           status:
             properties:
-              addons:
-                items:
-                  properties:
-                    info:
-                      type: object
-                    name:
-                      type: string
-                  type: object
-                type: array
-              conditions:
-                items:
-                  properties:
-                    message:
-                      type: string
-                    reason:
-                      type: string
-                    timestamp:
-                      format: date-time
-                      type: string
-                    type:
-                      type: string
-                  required:
-                  - message
-                  - reason
-                  - timestamp
-                  - type
-                  type: object
-                type: array
-              healthy:
-                type: boolean
-              lastReceiveHeartBeatTimestamp:
-                format: date-time
-                type: string
-              lastUpdateTimestamp:
-                format: date-time
-                type: string
-              status:
-                type: string
+              schedule:
+                properties:
+                  lastModifyTime:
+                    format: date-time
+                    type: string
+                  lastScheduleTime:
+                    format: date-time
+                    type: string
+                  message:
+                    type: string
+                  status:
+                    type: boolean
+                type: object
             type: object
         type: object
     served: true

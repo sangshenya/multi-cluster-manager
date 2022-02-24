@@ -9,9 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"harmonycloud.cn/stellaris/pkg/core/monitor"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/klog/v2/klogr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -50,6 +52,7 @@ var (
 	metricsAddr              string
 	probeAddr                string
 	certDir                  string
+	tmplStr                  string
 	webhookPort              int
 )
 
@@ -62,7 +65,8 @@ func init() {
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9000", "The address the metrics endpoint binds to")
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
 	flag.StringVar(&certDir, "webhook-cert-dir", "/k8s-webhook-server/serving-certs", "Admission webhook cert/key dir.")
-	flag.IntVar(&webhookPort, "webhook-port", 9443, "admission webhook listen address")
+	flag.IntVar(&webhookPort, "webhook-port", 9443, "Admission webhook listen address")
+	flag.StringVar(&tmplStr, "cue-template-config-map", "", "The CUE template which use to deploy proxy, value should be namespace/name")
 
 	utilruntime.Must(v1alpha1.AddToScheme(coreScheme))
 	utilruntime.Must(scheme.AddToScheme(coreScheme))
@@ -120,8 +124,14 @@ func main() {
 		logrus.Fatalf("failed create manager: %s", err)
 	}
 
+	ss := strings.SplitN(tmplStr, "/", 2)
+	if len(ss) < 2 {
+		logrus.Fatalf("--cue-template-config-map args must format be namespace/name, but got %s", tmplStr)
+	}
+
 	controllerArgs := controllerCommon.Args{
-		IsControlPlane: true,
+		IsControlPlane:     true,
+		TmplNamespacedName: types.NamespacedName{Namespace: ss[0], Name: ss[1]},
 	}
 	// register webhook
 	managerWebhook.Register(mgr, controllerArgs)

@@ -76,7 +76,7 @@ func (s *CoreServer) updateClusterStatusWithHeartbeat(ctx context.Context, clust
 		clusterConditions := core.ConvertCondition2KubeCondition(conditions)
 		cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
 	}
-	if cluster.Status.Status == v1alpha1.OfflineStatus {
+	if cluster.Status.Status != v1alpha1.OnlineStatus {
 		clusterConditions := clusterHealth.GenerateReadyCondition(true, healthy)
 		cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
 	}
@@ -98,8 +98,8 @@ func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addon
 	if err != nil {
 		return cluster, err
 	}
-	if !addonsEqual(cluster.Spec.Addons, clusterAddons) {
-		cluster.Spec.Addons = clusterAddons
+	if !addonsEqual(cluster.Status.Addons, clusterAddons) {
+		cluster.Status.Addons = clusterAddons
 		cluster, err = clusterController.UpdateCluster(ctx, s.mClient, cluster)
 		if err != nil {
 			return cluster, err
@@ -108,7 +108,7 @@ func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addon
 	return cluster, nil
 }
 
-func addonsEqual(old, new []v1alpha1.ClusterAddons) bool {
+func addonsEqual(old, new []v1alpha1.ClusterAddonStatus) bool {
 	if len(old) != len(new) {
 		return false
 	}

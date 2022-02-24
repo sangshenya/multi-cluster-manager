@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"harmonycloud.cn/stellaris/pkg/controller/resource_binding"
+	"harmonycloud.cn/stellaris/pkg/controller/resource-binding"
 
 	"sigs.k8s.io/yaml"
 

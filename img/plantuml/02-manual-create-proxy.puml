@@ -1,0 +1,13 @@
+@startuml
+
+actor user
+control "business-cluster-apiserver"
+participant proxy
+participant core
+control "manager-cluster-apiserver"
+
+user -> "business-cluster-apiserver" : 1. deploy proxy
+proxy -> core : 2. establish connection
+core -> "manager-cluster-apiserver" : 3. create Cluster resource without auto annotations
+
+@enduml

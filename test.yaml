@@ -1,4 +1,12 @@
 plugins:
   inTree:
-    - name: etcd
-    - name: apiserver
+  - name: etcd
+    configuration:
+      <plugin configuration object>
+  - name: apiserver
+    configuration:
+      <plugin configuration object>
+  outTree:
+  - name: external-plugin
+    http:
+      url: <http url>

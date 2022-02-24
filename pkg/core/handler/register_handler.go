@@ -38,7 +38,7 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 	}
 	// new cluster
 	cluster := core.NewCluster(req.ClusterName)
-	cluster.Spec.Addons = clusterAddons
+	cluster.Status.Addons = clusterAddons
 
 	// create or update cluster resource in k8s
 	if err = s.registerClusterInKube(cluster); err != nil {
