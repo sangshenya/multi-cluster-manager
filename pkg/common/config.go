@@ -25,12 +25,12 @@ const (
 
 const (
 	BindingPathNamespace = "/metadata/namespace"
-	BindingOpAdd     = "add"
-	BindingOpRemove  = "remove"
-	BindingOpReplace = "replace"
-	BindingOpMove    = "move"
-	BindingOpCopy    = "copy"
-	BindingOpTest    = "test"
+	BindingOpAdd         = "add"
+	BindingOpRemove      = "remove"
+	BindingOpReplace     = "replace"
+	BindingOpMove        = "move"
+	BindingOpCopy        = "copy"
+	BindingOpTest        = "test"
 )
 const (
 	ClusterWorkspacePrefix = "stellaris-harmonycloud-cn-"
@@ -38,14 +38,6 @@ const (
 
 const (
 	NamespaceMappingLabel = "stellaris.harmonycloud.cn.namespacemapping/"
-)
-
-const (
-	ClusterControllerFinalizer = "stellaris/cluster-controller"
-)
-
-const (
-	NamespaceMappingControllerFinalizer = "stellaris/namespace-mapping-controller"
 )
 
 const (
