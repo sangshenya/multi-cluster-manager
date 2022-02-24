@@ -37,13 +37,13 @@ type AggregatePolicyClusters struct {
 }
 
 type AggregatePolicyLimit struct {
-	Requests AggregatePolicyLimitRule `json:"requests,omitempty"`
-	Ignores  AggregatePolicyLimitRule `json:"ignores,omitempty"`
+	Requests *AggregatePolicyLimitRule `json:"requests,omitempty"`
+	Ignores  *AggregatePolicyLimitRule `json:"ignores,omitempty"`
 }
 
 type AggregatePolicyLimitRule struct {
-	LabelsMatch LabelsMatch `json:"labelsMatch,omitempty"`
-	Match       []Match     `json:"match,omitempty"`
+	LabelsMatch *LabelsMatch `json:"labelsMatch,omitempty"`
+	Match       []Match      `json:"match,omitempty"`
 }
 
 type LabelsMatch struct {
@@ -52,8 +52,8 @@ type LabelsMatch struct {
 }
 
 type Match struct {
-	Namespaces string     `json:"namespaces,omitempty"`
-	NameMatch  MatchScope `json:"nameMatch,omitempty"`
+	Namespaces string      `json:"namespaces,omitempty"`
+	NameMatch  *MatchScope `json:"nameMatch,omitempty"`
 }
 
 type MatchScope struct {

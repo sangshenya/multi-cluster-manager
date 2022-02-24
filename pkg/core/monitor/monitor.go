@@ -8,6 +8,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
+	maputil "harmonycloud.cn/stellaris/pkg/util/map"
 	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -117,19 +118,9 @@ func clusterSetContainsCluster(clusterSet *v1alpha1.ClusterSet, cluster *v1alpha
 			}
 		}
 	} else if len(clusterSet.Spec.Selector.Labels) > 0 {
-		if containsMap(cluster.GetLabels(), clusterSet.Spec.Selector.Labels) {
+		if maputil.ContainsMap(cluster.GetLabels(), clusterSet.Spec.Selector.Labels) {
 			return true
 		}
 	}
 	return false
-}
-
-func containsMap(big, sub map[string]string) bool {
-	for k, v := range sub {
-		value, ok := big[k]
-		if !ok || value != v {
-			return false
-		}
-	}
-	return true
 }
