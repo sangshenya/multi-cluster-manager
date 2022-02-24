@@ -44,14 +44,6 @@ const (
 )
 
 const (
-	ClusterControllerFinalizer = "stellaris/cluster-controller"
-)
-
-const (
-	NamespaceMappingControllerFinalizer = "stellaris/namespace-mapping-controller"
-)
-
-const (
 	ResourceAnnotationKey = "stellaris-annotation"
 )
 
