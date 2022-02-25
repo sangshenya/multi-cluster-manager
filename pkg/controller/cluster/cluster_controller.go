@@ -3,13 +3,12 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
-	utils "harmonycloud.cn/stellaris/pkg/utils"
-	"harmonycloud.cn/stellaris/pkg/utils/common"
+	"harmonycloud.cn/stellaris/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,7 +18,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -40,8 +38,8 @@ type ClusterReconciler struct {
 }
 
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.WithValues("Request.Name", req.Name)
-	r.log.Info("Reconciling Cluster")
+	r.log.V(4).Info("start reconcile cluster")
+	defer r.log.V(4).Info("end reconcile cluster")
 
 	cluster := &v1alpha1.Cluster{}
 	err := r.Client.Get(ctx, req.NamespacedName, cluster)
@@ -49,14 +47,22 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// add Finalizers
+	// create event need add finalizers
 	if controllerCommon.ShouldAddFinalizer(cluster) {
-		return r.addFinalizer(ctx, cluster)
+		if err := controllerCommon.AddFinalizer(ctx, r.Client, cluster); err != nil {
+			r.log.Error(err, "failed add finalizers to cluster", "clusterName", cluster.Name)
+			r.Recorder.Event(cluster, "Warning", "FailedAddFinalizers", fmt.Sprintf("failed add finalizers to cluster: %s", err))
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
 	}
 
-	// remove cluster
+	// delete event need delete cluster
 	if !cluster.DeletionTimestamp.IsZero() {
-		return r.removeCluster(ctx, cluster)
+		if err := r.deleteCluster(ctx, cluster); err != nil {
+			r.log.Error(err, "failed delete cluster", "clusterName", cluster.Name)
+			r.Recorder.Event(cluster, "Warning", "FailedDeleteCluster", fmt.Sprintf("failed delete cluster: %s", err))
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
 	}
 
 	// auto deploy proxy
@@ -64,134 +70,38 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		(cluster.Status.Status == "" || cluster.Status.Status == v1alpha1.InitializingStatus) {
 		cluster.Status.Status = v1alpha1.InitializingStatus
 		if err := r.Status().Update(ctx, cluster); err != nil {
-			return controllerCommon.ReQueueResult(err)
+			r.log.Error(err, "failed update cluster status", "clusterName", cluster.Name)
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 		}
 		if err := r.deployProxy(ctx, cluster); err != nil {
+			r.log.Error(err, "failed deploy proxy to target cluster", "clusterName", cluster.Name)
 			r.Recorder.Event(cluster, "Warning", "FailedDeployProxy", fmt.Sprintf("failed deploy proxy to target cluster: %s: %s", cluster.Spec.ApiServer, err))
-			return controllerCommon.ReQueueResult(err)
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 		}
 	}
 
-	// create workspace for cluster
-	if err := r.createWorkspace(ctx, cluster); err != nil {
-		return controllerCommon.ReQueueResult(err)
+	// create namespace in control plane
+	if err := r.Client.Create(ctx, utils.GenerateNamespaceInControlPlane(cluster)); err != nil && !errors.IsAlreadyExists(err) {
+		r.log.Error(err, "failed create namespace for cluster in control plane", "clusterName", cluster.Name)
+		r.Recorder.Event(cluster, "Warning", "FailedCreateNamespace", fmt.Sprintf("failed create namespace for cluster in control plane: %s", err))
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// create workspace(namespace) in control plane
-func (r *ClusterReconciler) createWorkspace(ctx context.Context, cluster *v1alpha1.Cluster) error {
-	clusterWorkspaceName, err := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster.Name)
-	if err != nil {
-		r.log.Error(err, "failed to generate workspace for cluster: %s", cluster.Name)
+// deleteCluster will delete cluster in control plane
+func (r *ClusterReconciler) deleteCluster(ctx context.Context, cluster *v1alpha1.Cluster) error {
+	// delete namespace in control plane
+	if err := r.Client.Delete(ctx, utils.GenerateNamespaceInControlPlane(cluster)); err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	clusterWorkspace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterWorkspaceName,
-		},
-	}
-	err = r.Client.Create(ctx, clusterWorkspace)
+	// remove finalizer
+	err := controllerCommon.RemoveFinalizer(ctx, r.Client, cluster)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			r.log.Error(err, "failed to create workspace for cluster %s", cluster.Name)
-			return err
-		}
-	}
-	r.log.Info("Created workspace %s for cluster %s", clusterWorkspaceName, cluster.Name)
-	return nil
-}
-
-// remove cluster in control plane
-func (r *ClusterReconciler) removeCluster(ctx context.Context, cluster *v1alpha1.Cluster) (ctrl.Result, error) {
-	err := r.removeClusterInControlPlane(ctx, cluster)
-	if errors.IsNotFound(err) {
-		return r.removeFinalizer(ctx, cluster)
-	}
-	if err != nil {
-		klog.Errorf("failed to remove workspace %s, %v", cluster.Name, err)
-		return controllerCommon.ReQueueResult(err)
-	}
-	exist, err := r.workspaceExist(ctx, cluster.Name)
-	if err != nil {
-		klog.Errorf("failed to check if the workspace exist for cluster: %v", err)
-		return controllerCommon.ReQueueResult(err)
-	} else if exist {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("workspace %s still exists,prepare to delete", cluster.Name)
-	}
-	return r.removeFinalizer(ctx, cluster)
-
-}
-
-// remove workspace(namespace) in control plane
-func (r *ClusterReconciler) removeClusterInControlPlane(ctx context.Context, cluster *v1alpha1.Cluster) error {
-	clusterWorkspaceName, err := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster.Name)
-	if err != nil {
-		klog.Errorf("failed to generate workspace for cluster %s, %v", cluster.Name, err)
-		return err
-	}
-	clusterWorkspace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterWorkspaceName,
-		},
-	}
-	if err := r.Client.Delete(ctx, clusterWorkspace); err != nil && !errors.IsNotFound(err) {
-		klog.Errorf("error while deleting namespace %s: %v", cluster.Name, err)
 		return err
 	}
 	return nil
-}
-
-func (r *ClusterReconciler) removeFinalizer(ctx context.Context, instance *v1alpha1.Cluster) (ctrl.Result, error) {
-	err := controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("delete finalizer filed from resource(%s) failed", instance.Name))
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
-}
-
-// sync clusterResource Finalizer
-func (r *ClusterReconciler) addFinalizer(ctx context.Context, instance *v1alpha1.Cluster) (ctrl.Result, error) {
-	err := controllerCommon.AddFinalizer(ctx, r.Client, instance)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("append finalizer failed, resource(%s)", instance.Name))
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
-}
-
-// check namespace before remove
-func (r *ClusterReconciler) workspaceExist(ctx context.Context, cluster string) (bool, error) {
-	clusterWorkspaceName, err := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster)
-	if err != nil {
-		klog.Errorf("failed to generate workspace for cluster %s, %v", cluster, err)
-		return false, err
-	}
-	clusterWorkspaceExist := &corev1.Namespace{}
-	err = r.Client.Get(ctx, types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist)
-
-	if errors.IsNotFound(err) {
-		klog.V(2).Infof("workspace for cluster %s not exists: %v", cluster, err)
-		return false, nil
-	}
-	if err != nil {
-		klog.Errorf("failed to get workspace for cluster %s: %v", cluster, err)
-		return false, nil
-	}
-	if clusterWorkspaceExist.Status.Phase == corev1.NamespaceTerminating {
-		klog.V(2).Infof("workspace for cluster %s is Terminating", cluster)
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Cluster{}).
-		Complete(r)
 }
 
 // kubeconfigGetterForSecret will get kubeconfig from secret in manager cluster
@@ -294,6 +204,12 @@ func (r *ClusterReconciler) deployProxy(ctx context.Context, cluster *v1alpha1.C
 	}
 
 	return nil
+}
+
+func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha1.Cluster{}).
+		Complete(r)
 }
 
 func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {

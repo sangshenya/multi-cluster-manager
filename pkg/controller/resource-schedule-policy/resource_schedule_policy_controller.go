@@ -3,25 +3,25 @@ package resource_schedule_policy
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"sort"
+	"strconv"
+	"time"
+
 	"github.com/go-logr/logr"
 	apicommon "harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	pkgcommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
-	"harmonycloud.cn/stellaris/pkg/utils/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sort"
-	"strconv"
-	"time"
 )
 
 type Reconciler struct {
@@ -773,7 +773,7 @@ func (r *Reconciler) failoverPolicyCheck(ctx context.Context, policy *v1alpha1.M
 
 func (r *Reconciler) addBindingMeta(policy *v1alpha1.MultiClusterResourceSchedulePolicy) *v1alpha1.MultiClusterResourceBinding {
 	binding := &v1alpha1.MultiClusterResourceBinding{}
-	bindingName, _ := common.GenerateNameByOption(pkgcommon.Scheduler, policy.Name, "-")
+	bindingName := pkgcommon.Scheduler + "-" + policy.Name
 	binding.Name = bindingName
 	binding.Namespace = policy.Namespace
 	owner := metav1.NewControllerRef(policy, v1alpha1.MultiClusterResourceSchedulePolicyGroupVersionKind)

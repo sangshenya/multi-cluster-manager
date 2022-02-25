@@ -27,11 +27,11 @@ type Reconciler struct {
 
 func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	// core focus on clusterNamespaces ClusterResource
-	if r.isControlPlane && !strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
+	if r.isControlPlane && !strings.HasPrefix(request.Namespace, managerCommon.ClusterNamespaceInControlPlanePrefix) {
 		return ctrl.Result{}, nil
 	}
 	// proxy ignore clusterNamespaces ClusterResource
-	if !r.isControlPlane && strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
+	if !r.isControlPlane && strings.HasPrefix(request.Namespace, managerCommon.ClusterNamespaceInControlPlanePrefix) {
 		return ctrl.Result{}, nil
 	}
 

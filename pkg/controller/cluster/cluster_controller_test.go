@@ -38,7 +38,7 @@ var _ = Describe("ClusterController", func() {
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterNamespacedName})
 		Expect(err).Should(BeNil())
 		// create workspace
-		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster.Name)
+		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterNamespaceInControlPlanePrefix, cluster.Name)
 		clusterWorkspaceExist := &corev1.Namespace{}
 		err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist)
 		Expect(err).Should(BeNil())
@@ -60,7 +60,7 @@ var _ = Describe("ClusterController", func() {
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterNamespacedName})
 		Expect(err).Should(BeNil())
 		// workspace should exist
-		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster.Name)
+		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterNamespaceInControlPlanePrefix, cluster.Name)
 		clusterWorkspaceExist := &corev1.Namespace{}
 		err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist)
 		Expect(err).Should(BeNil())
@@ -79,7 +79,7 @@ var _ = Describe("ClusterController", func() {
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterNamespacedName})
 		Expect(err).Should(BeNil())
 
-		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster.Name)
+		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterNamespaceInControlPlanePrefix, cluster.Name)
 		clusterWorkspaceExist := &corev1.Namespace{}
 		err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist)
 		Expect(clusterWorkspaceExist.Status.Phase).Should(Equal(corev1.NamespaceTerminating))

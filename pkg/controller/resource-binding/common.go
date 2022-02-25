@@ -152,7 +152,7 @@ func mapKey(resourceNamespace, resourceName string) string {
 func changeClusterResourceListToMap(resourceList *v1alpha1.ClusterResourceList) map[string]*v1alpha1.ClusterResource {
 	resourceMap := map[string]*v1alpha1.ClusterResource{}
 	for _, resource := range resourceList.Items {
-		if !strings.HasPrefix(resource.GetNamespace(), managerCommon.ClusterWorkspacePrefix) {
+		if !strings.HasPrefix(resource.GetNamespace(), managerCommon.ClusterNamespaceInControlPlanePrefix) {
 			continue
 		}
 		key := mapKey(resource.GetNamespace(), resource.GetName())

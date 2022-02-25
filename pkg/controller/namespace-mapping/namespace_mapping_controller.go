@@ -3,11 +3,12 @@ package namespace_mapping
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
-	"harmonycloud.cn/stellaris/pkg/utils/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,7 +16,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"strings"
 )
 
 const (
@@ -161,7 +161,7 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 func updateLabel(labels map[string]string, cluster string, ruleV string) map[string]string {
 	for k, v := range labels {
 		if v == ruleV {
-			part, _ := common.GenerateName(managerCommon.NamespaceMappingLabel, cluster)
+			part := managerCommon.NamespaceMappingLabel + cluster
 			update := strings.Contains(k, part+"_")
 			if update {
 				delete(labels, k)
