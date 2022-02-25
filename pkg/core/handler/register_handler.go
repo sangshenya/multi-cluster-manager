@@ -15,8 +15,8 @@ import (
 	clusterController "harmonycloud.cn/stellaris/pkg/controller/cluster"
 	table "harmonycloud.cn/stellaris/pkg/core/stream"
 	"harmonycloud.cn/stellaris/pkg/model"
-	"harmonycloud.cn/stellaris/pkg/util/core"
-	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
+	"harmonycloud.cn/stellaris/pkg/utils/core"
+	timeutils "harmonycloud.cn/stellaris/pkg/utils/time"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -52,7 +52,7 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 		ClusterName: req.ClusterName,
 		Stream:      stream,
 		Status:      table.OK,
-		Expire:      timeutil.NowTimeWithLoc().Add(s.Config.HeartbeatExpirePeriod * time.Second),
+		Expire:      timeutils.NowTimeWithLoc().Add(s.Config.HeartbeatExpirePeriod * time.Second),
 	})
 
 	res := s.newResponse(req.ClusterName)
@@ -99,7 +99,7 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 			return err
 		}
 		// update cluster status
-		nowTime := v1.Time{Time: timeutil.NowTimeWithLoc()}
+		nowTime := v1.Time{Time: timeutils.NowTimeWithLoc()}
 		existCluster.Status.LastUpdateTimestamp = nowTime
 		existCluster.Status.LastReceiveHeartBeatTimestamp = nowTime
 		existCluster.Status.Status = v1alpha1.OnlineStatus

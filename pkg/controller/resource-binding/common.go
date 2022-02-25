@@ -10,7 +10,7 @@ import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
-	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
+	sliceutil "harmonycloud.cn/stellaris/pkg/utils/slice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

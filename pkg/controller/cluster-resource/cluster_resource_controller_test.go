@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
-	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
+	sliceutil "harmonycloud.cn/stellaris/pkg/utils/slice"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -96,15 +96,15 @@ var _ = Describe("Test ControlPlane ClusterResource Controller", func() {
 		Expect(sliceutil.ContainsString(clusterResource.GetFinalizers(), managerCommon.FinalizerName)).Should(BeTrue())
 	})
 
-	It(fmt.Sprintf("check the resource associated with ClusterResource(%s) in agent, check the ClusterResource associated with ClusterResource(%s) in controlPlane", clusterResource.Name, clusterResource.Name), func() {
+	It(fmt.Sprintf("check the resource associated with ClusterResource(%s) in proxy, check the ClusterResource associated with ClusterResource(%s) in controlPlane", clusterResource.Name, clusterResource.Name), func() {
 		// send event and check error
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterResourceNamespacedName})
 		Expect(err).Should(BeNil())
 
 		if reconciler.isControlPlane {
-			// controlPlane will send ClusterResource to agent
-			// agent get clusterResource will update status and send update status request to core
-			agentSendUpdateStatusRequestToCore(ctx, v1alpha1.ClusterResourceStatus{
+			// controlPlane will send ClusterResource to proxy
+			// proxy get clusterResource will update status and send update status request to core
+			proxySendUpdateStatusRequestToCore(ctx, v1alpha1.ClusterResourceStatus{
 				ObservedReceiveGeneration: 1,
 				Phase:                     common.Complete,
 				Message:                   "resource apply complete",
@@ -115,13 +115,13 @@ var _ = Describe("Test ControlPlane ClusterResource Controller", func() {
 			Expect(len(clusterResource.Status.Phase)).ShouldNot(Equal(0))
 			return
 		}
-		// agent will update ClusterResource status
+		// proxy will update ClusterResource status
 		// get clusterResource
 		clusterResource = getTestClusterResource(ctx)
 		Expect(clusterResource.Status.Phase).Should(Equal(common.Creating))
 		Expect(clusterResource.Status.ObservedReceiveGeneration).Should(Equal(clusterResource.Generation))
 
-		// send event,agent will create resource in agent
+		// send event, proxy will create resource in agent
 		_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterResourceNamespacedName})
 		Expect(err).Should(BeNil())
 		// get clusterResource
@@ -175,7 +175,7 @@ func getTestClusterResource(ctx context.Context) *v1alpha1.ClusterResource {
 	return clusterResource
 }
 
-func agentSendUpdateStatusRequestToCore(ctx context.Context, status v1alpha1.ClusterResourceStatus) {
+func proxySendUpdateStatusRequestToCore(ctx context.Context, status v1alpha1.ClusterResourceStatus) {
 	clusterResource = getTestClusterResource(ctx)
 	clusterResource.Status = status
 	Expect(k8sClient.Status().Update(ctx, clusterResource)).Should(BeNil())

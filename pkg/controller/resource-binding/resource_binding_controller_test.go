@@ -11,7 +11,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
+	sliceutils "harmonycloud.cn/stellaris/pkg/utils/slice"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -101,7 +101,7 @@ var _ = Describe("Test ResourceBinding Controller", func() {
 		Expect(k8sClient.Get(ctx, bindingNamespacedName, resourceBinding)).Should(BeNil())
 
 		Expect(resourceBinding.GetFinalizers()).ShouldNot(Equal(0))
-		Expect(sliceutil.ContainsString(resourceBinding.GetFinalizers(), managerCommon.FinalizerName)).Should(BeTrue())
+		Expect(sliceutils.ContainsString(resourceBinding.GetFinalizers(), managerCommon.FinalizerName)).Should(BeTrue())
 	})
 	// update
 	It(fmt.Sprintf("update binding(%s) spec and check the ClusterResource associated with binding", resourceBinding.Name), func() {

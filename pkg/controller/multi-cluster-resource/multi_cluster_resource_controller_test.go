@@ -22,7 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
+	sliceutils "harmonycloud.cn/stellaris/pkg/utils/slice"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -166,7 +166,7 @@ var _ = Describe("Test multiClusterResourceController", func() {
 		// check Finalizers
 		Expect(k8sClient.Get(ctx, resourceNamespacedName, multiClusterResource)).Should(BeNil())
 		Expect(multiClusterResource.GetFinalizers()).ShouldNot(Equal(0))
-		Expect(sliceutil.ContainsString(multiClusterResource.GetFinalizers(), managerCommon.FinalizerName)).Should(BeTrue())
+		Expect(sliceutils.ContainsString(multiClusterResource.GetFinalizers(), managerCommon.FinalizerName)).Should(BeTrue())
 		Expect(multiClusterResource.Spec.Resource).Should(Equal(getResourceForYaml(resourceYaml)))
 	})
 
@@ -274,8 +274,8 @@ func createBindingAndSyncClusterResource(ctx context.Context) {
 
 func deleteBindingFinalizers(ctx context.Context) {
 	Expect(k8sClient.Get(ctx, bindingNamespacedName, binding)).Should(BeNil())
-	if sliceutil.ContainsString(binding.Finalizers, managerCommon.FinalizerName) && !binding.GetDeletionTimestamp().IsZero() {
-		binding.Finalizers = sliceutil.RemoveString(binding.Finalizers, managerCommon.FinalizerName)
+	if sliceutils.ContainsString(binding.Finalizers, managerCommon.FinalizerName) && !binding.GetDeletionTimestamp().IsZero() {
+		binding.Finalizers = sliceutils.RemoveString(binding.Finalizers, managerCommon.FinalizerName)
 		Expect(k8sClient.Update(ctx, binding)).Should(BeNil())
 	}
 }

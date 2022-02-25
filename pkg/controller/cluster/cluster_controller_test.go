@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -78,7 +78,6 @@ var _ = Describe("ClusterController", func() {
 		Expect(k8sClient.Delete(ctx, cluster)).Should(BeNil())
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterNamespacedName})
 		Expect(err).Should(BeNil())
-
 
 		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterWorkspacePrefix, cluster.Name)
 		clusterWorkspaceExist := &corev1.Namespace{}

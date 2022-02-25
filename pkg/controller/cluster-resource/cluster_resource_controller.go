@@ -30,7 +30,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	if r.isControlPlane && !strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
 		return ctrl.Result{}, nil
 	}
-	// agent ignore clusterNamespaces ClusterResource
+	// proxy ignore clusterNamespaces ClusterResource
 	if !r.isControlPlane && strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
 		return ctrl.Result{}, nil
 	}
@@ -73,17 +73,17 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 	return reconciler.SetupWithManager(mgr)
 }
 
-// sync core/agent clusterResource
+// sync core/proxy clusterResource
 func (r *Reconciler) syncClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
 	if r.isControlPlane {
 		return r.syncCoreClusterResource(ctx, instance)
 	}
-	// TODO agent should listen for the deletion of corresponding resources
-	return r.syncAgentClusterResource(ctx, instance)
+	// TODO proxy should listen for the deletion of corresponding resources
+	return r.syncProxyClusterResource(ctx, instance)
 }
 
 func (r *Reconciler) syncCoreClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
-	err := sendClusterResourceToAgent(SyncEventTypeUpdate, instance)
+	err := sendClusterResourceToProxy(SyncEventTypeUpdate, instance)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("send ClusterResouce failed, resource(%s)", instance.Name))
 		return controllerCommon.ReQueueResult(err)
@@ -91,7 +91,7 @@ func (r *Reconciler) syncCoreClusterResource(ctx context.Context, instance *v1al
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) syncAgentClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
+func (r *Reconciler) syncProxyClusterResource(ctx context.Context, instance *v1alpha1.ClusterResource) (ctrl.Result, error) {
 	var err error
 	// create or complete status should sync resource(eg: resource deleted when clusterResource status is complete)
 	err = r.syncResourceAndUpdateStatus(ctx, instance)
@@ -122,8 +122,8 @@ func (r *Reconciler) deleteClusterResource(ctx context.Context, instance *v1alph
 			}
 		}
 	} else {
-		// send agent the clusterResource delete event
-		err := sendClusterResourceToAgent(SyncEventTypeDelete, instance)
+		// send proxy the clusterResource delete event
+		err := sendClusterResourceToProxy(SyncEventTypeDelete, instance)
 		if err != nil {
 			r.log.Error(err, fmt.Sprintf("send ClusterResouce failed, resource(%s)", instance.Name))
 			return err

@@ -8,7 +8,7 @@ import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	pkgcommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

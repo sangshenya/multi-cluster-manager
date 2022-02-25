@@ -2,7 +2,7 @@ package common
 
 import (
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 )
 
 func GenerateLabelKey(k string, v string) (string, error) {

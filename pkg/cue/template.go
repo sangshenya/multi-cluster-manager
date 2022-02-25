@@ -7,7 +7,7 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/build"
 	"cuelang.org/go/cue/cuecontext"
-	utils "harmonycloud.cn/stellaris/pkg/util"
+	"harmonycloud.cn/stellaris/pkg/utils"
 )
 
 const (

@@ -8,8 +8,8 @@ import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
-	utils "harmonycloud.cn/stellaris/pkg/util"
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	utils "harmonycloud.cn/stellaris/pkg/utils"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,10 +26,9 @@ import (
 )
 
 const (
-	AutoDeployProxyAnnotationKey      = "auto.deploy/stellaris.harmonycloud.cn"
-	AutoDeployProxyAnnotationValue    = "true"
-	AutoDeployCueTemplateField        = "deploy-proxy.cue"
-	AutoDeployCueNamespaceResourceKey = "namespace"
+	AutoDeployProxyAnnotationKey   = "auto.deploy/stellaris.harmonycloud.cn"
+	AutoDeployProxyAnnotationValue = "true"
+	AutoDeployCueTemplateField     = "deploy-proxy.cue"
 )
 
 type ClusterReconciler struct {

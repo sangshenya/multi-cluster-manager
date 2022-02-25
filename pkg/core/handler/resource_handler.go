@@ -9,7 +9,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"harmonycloud.cn/stellaris/pkg/util/core"
+	"harmonycloud.cn/stellaris/pkg/utils/core"
 
 	"harmonycloud.cn/stellaris/config"
 	table "harmonycloud.cn/stellaris/pkg/core/stream"
@@ -19,7 +19,7 @@ import (
 
 var resourceHandlerLog = logf.Log.WithName("resource_handler")
 
-// receive request form agent
+// receive request form proxy
 func (s *CoreServer) Resource(req *config.Request, stream config.Channel_EstablishServer) {
 	resourceHandlerLog.Info(fmt.Sprintf("receive grpc request for resource, cluster:%s", req.ClusterName))
 	// convert data to cluster cr
@@ -64,21 +64,21 @@ func (s *CoreServer) syncClusterResourceStatus(statusList []model.ClusterResourc
 	return nil
 }
 
-// send request to agent
-func SendResourceToAgent(clusterName string, resourceResponse *config.Response) error {
-	resourceHandlerLog.Info(fmt.Sprintf("start to send resource request to agent"))
+// send request to proxy
+func SendResourceToProxy(clusterName string, resourceResponse *config.Response) error {
+	resourceHandlerLog.Info(fmt.Sprintf("start to send resource request to proxy"))
 	stream := table.FindStream(clusterName)
 	if stream == nil {
-		err := errors.New(fmt.Sprintf("can not find agent(%s) stream", clusterName))
-		resourceHandlerLog.Error(err, "find agent stream failed")
+		err := errors.New(fmt.Sprintf("cannot find proxy(%s) stream", clusterName))
+		resourceHandlerLog.Error(err, "find proxy stream failed")
 		return err
 	}
 	err := stream.Stream.Send(resourceResponse)
 	if err != nil {
-		resourceHandlerLog.Error(err, "send resource to agent failed")
+		resourceHandlerLog.Error(err, "send resource to proxy failed")
 		return err
 	}
-	resourceHandlerLog.Info(fmt.Sprintf("send resource request to agent success"))
+	resourceHandlerLog.Info(fmt.Sprintf("send resource request to proxy success"))
 	return nil
 }
 

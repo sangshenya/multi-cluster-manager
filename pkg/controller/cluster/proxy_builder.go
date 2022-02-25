@@ -8,7 +8,7 @@ import (
 	rawcue "cuelang.org/go/cue"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	"harmonycloud.cn/stellaris/pkg/cue"
-	utils "harmonycloud.cn/stellaris/pkg/util"
+	"harmonycloud.cn/stellaris/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
