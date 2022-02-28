@@ -1,0 +1,24 @@
+@startuml
+
+title cluster module design
+
+cloud ManagerCluster {
+	component "stellaris-core" as core
+	file ClusterResource as cluster
+
+	core <-> cluster : create/listen/update
+}
+
+cloud BusinessCluster {
+	component "stellaris-proxy" as proxy
+	component "out-tree-plugins" as plugins
+	file "proxy-ConfigMap" as cm
+
+	proxy --> cm : read configuration
+	proxy -> plugins : http request
+}
+
+core --> proxy : deploy
+proxy --> core : establish connection
+
+@enduml∂∂

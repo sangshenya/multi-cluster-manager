@@ -36,7 +36,7 @@ const (
 	BindingOpTest        = "test"
 )
 const (
-	ClusterWorkspacePrefix = "stellaris-harmonycloud-cn-"
+	ClusterNamespaceInControlPlanePrefix = "stellaris-harmonycloud-cn-"
 )
 
 const (
@@ -48,12 +48,12 @@ const (
 )
 
 func ClusterNamespace(clusterName string) string {
-	return ClusterWorkspacePrefix + clusterName
+	return ClusterNamespaceInControlPlanePrefix + clusterName
 }
 
 func ClusterName(clusterNamespace string) string {
-	if strings.Contains(clusterNamespace, ClusterWorkspacePrefix) {
-		return strings.Replace(clusterNamespace, ClusterWorkspacePrefix, "", -1)
+	if strings.Contains(clusterNamespace, ClusterNamespaceInControlPlanePrefix) {
+		return strings.Replace(clusterNamespace, ClusterNamespaceInControlPlanePrefix, "", -1)
 	}
 	return ""
 }

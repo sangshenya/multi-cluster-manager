@@ -5,12 +5,12 @@ import (
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	"harmonycloud.cn/stellaris/pkg/util/common"
-	cueRender "harmonycloud.cn/stellaris/pkg/util/cur-render"
+	cueRender "harmonycloud.cn/stellaris/pkg/utils/cue-render"
 
 	"harmonycloud.cn/stellaris/pkg/agent/aggregate/match"
 
-	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,7 +18,7 @@ import (
 
 func aggregateResource(ctx context.Context, ruleList []v1alpha1.MultiClusterResourceAggregateRule, policyList []v1alpha1.ResourceAggregatePolicy) {
 	resourceObjectList := &unstructured.UnstructuredList{}
-	err := agentconfig.AgentConfig.ControllerClient.List(ctx, resourceObjectList)
+	err := proxy_cfg.ProxyConfig.ControllerClient.List(ctx, resourceObjectList)
 	if err != nil {
 		return
 	}

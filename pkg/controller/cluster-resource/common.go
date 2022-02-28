@@ -12,14 +12,14 @@ import (
 	"harmonycloud.cn/stellaris/pkg/common/helper"
 
 	"harmonycloud.cn/stellaris/config"
-	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
-	agentsend "harmonycloud.cn/stellaris/pkg/agent/send"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	coreSender "harmonycloud.cn/stellaris/pkg/core/sender"
+	core_sender "harmonycloud.cn/stellaris/pkg/core/sender"
 	"harmonycloud.cn/stellaris/pkg/model"
+	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
+	proxy_send "harmonycloud.cn/stellaris/pkg/proxy/send"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,15 +27,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var clusterResourceCommonLog = logf.Log.WithName("clusterResource_common")
+var clusterResourceCommonLog = logf.Log.WithName("proxy_clusterResource_common")
 
 // sync clusterResource when update/create/none
-func SyncAgentClusterResource(ctx context.Context, agentClient *multclusterclient.Clientset, clusterResource *v1alpha1.ClusterResource) error {
-	existClusterResource, err := agentClient.MulticlusterV1alpha1().ClusterResources(clusterResource.GetNamespace()).Get(ctx, clusterResource.Name, metav1.GetOptions{})
+func SyncProxyClusterResource(ctx context.Context, proxyClient *multclusterclient.Clientset, clusterResource *v1alpha1.ClusterResource) error {
+	existClusterResource, err := proxyClient.MulticlusterV1alpha1().ClusterResources(clusterResource.GetNamespace()).Get(ctx, clusterResource.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			newClusterResourceObject := newClusterResource(clusterResource)
-			_, err = agentClient.MulticlusterV1alpha1().ClusterResources(newClusterResourceObject.GetNamespace()).Create(ctx, newClusterResourceObject, metav1.CreateOptions{})
+			_, err = proxyClient.MulticlusterV1alpha1().ClusterResources(newClusterResourceObject.GetNamespace()).Create(ctx, newClusterResourceObject, metav1.CreateOptions{})
 			return err
 		}
 		return err
@@ -44,19 +44,19 @@ func SyncAgentClusterResource(ctx context.Context, agentClient *multclusterclien
 		return nil
 	}
 	existClusterResource.Spec = clusterResource.Spec
-	_, err = agentClient.MulticlusterV1alpha1().ClusterResources(existClusterResource.GetNamespace()).Update(ctx, existClusterResource, metav1.UpdateOptions{})
+	_, err = proxyClient.MulticlusterV1alpha1().ClusterResources(existClusterResource.GetNamespace()).Update(ctx, existClusterResource, metav1.UpdateOptions{})
 	return err
 }
 
-func DeleteAgentClusterResource(ctx context.Context, agentClient *multclusterclient.Clientset, clusterResource *v1alpha1.ClusterResource) error {
-	_, err := agentClient.MulticlusterV1alpha1().ClusterResources(clusterResource.Namespace).Get(ctx, clusterResource.Name, metav1.GetOptions{})
+func DeleteProxyClusterResource(ctx context.Context, proxyClient *multclusterclient.Clientset, clusterResource *v1alpha1.ClusterResource) error {
+	_, err := proxyClient.MulticlusterV1alpha1().ClusterResources(clusterResource.Namespace).Get(ctx, clusterResource.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
 		return err
 	}
-	return agentClient.MulticlusterV1alpha1().ClusterResources(clusterResource.Namespace).Delete(ctx, clusterResource.Name, metav1.DeleteOptions{})
+	return proxyClient.MulticlusterV1alpha1().ClusterResources(clusterResource.Namespace).Delete(ctx, clusterResource.Name, metav1.DeleteOptions{})
 }
 
 // resource compare
@@ -162,11 +162,11 @@ func updateClusterResourceStatus(ctx context.Context, clientSet client.Client, c
 
 // send status to controlPlane
 func sendStatusToControlPlane(resource *v1alpha1.ClusterResource) error {
-	request, err := newUpdateClusterResourceStatusRequest([]*v1alpha1.ClusterResource{resource}, agentconfig.AgentConfig.Cfg.ClusterName)
+	request, err := newUpdateClusterResourceStatusRequest([]*v1alpha1.ClusterResource{resource}, proxy_cfg.ProxyConfig.Cfg.ClusterName)
 	if err != nil {
 		return err
 	}
-	return agentsend.SendSyncResourceRequest(request)
+	return proxy_send.SendSyncResourceRequest(request)
 }
 
 func newUpdateClusterResourceStatusRequest(clusterResourceList []*v1alpha1.ClusterResource, clusterName string) (*config.Request, error) {
@@ -182,11 +182,11 @@ func newUpdateClusterResourceStatusRequest(clusterResourceList []*v1alpha1.Clust
 	if err != nil {
 		return nil, err
 	}
-	return agentsend.NewResourceRequest(clusterName, string(requestData))
+	return proxy_send.NewResourceRequest(clusterName, string(requestData))
 }
 
-// send clusterResource to agent
-func sendClusterResourceToAgent(eventType SyncEventType, clusterResource *v1alpha1.ClusterResource) error {
+// send clusterResource to proxy
+func sendClusterResourceToProxy(eventType SyncEventType, clusterResource *v1alpha1.ClusterResource) error {
 	clusterName := managerCommon.ClusterName(clusterResource.Namespace)
 	if len(clusterName) == 0 {
 		return errors.New("can not find cluster name")
@@ -199,7 +199,7 @@ func sendClusterResourceToAgent(eventType SyncEventType, clusterResource *v1alph
 	if err != nil {
 		return err
 	}
-	return coreSender.SendResponseToAgent(syncResourceResponse)
+	return core_sender.SendResponseToAgent(syncResourceResponse)
 }
 
 func newSyncResourceResponse(resType model.ServiceResponseType, clusterName string, clusterResource *v1alpha1.ClusterResource) (*config.Response, error) {
@@ -208,7 +208,7 @@ func newSyncResourceResponse(resType model.ServiceResponseType, clusterName stri
 	if err != nil {
 		return nil, err
 	}
-	return coreSender.NewResponse(resType, clusterName, string(data))
+	return core_sender.NewResponse(resType, clusterName, string(data))
 }
 
 // sync Resource when create/update/delete

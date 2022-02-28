@@ -5,6 +5,12 @@ image:
   repository: stellaris-core
   tag: 0.0.1
 
+webhook:
+  image:
+    registry: docker.io/wonderflow
+    repository: kube-webhook-certgen
+    tag: v2.1
+
 listenPort: 8080
 
 resources: {}

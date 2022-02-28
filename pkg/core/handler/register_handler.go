@@ -19,8 +19,8 @@ import (
 	clusterController "harmonycloud.cn/stellaris/pkg/controller/cluster"
 	table "harmonycloud.cn/stellaris/pkg/core/stream"
 	"harmonycloud.cn/stellaris/pkg/model"
-	"harmonycloud.cn/stellaris/pkg/util/core"
-	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
+	"harmonycloud.cn/stellaris/pkg/utils/core"
+	timeutils "harmonycloud.cn/stellaris/pkg/utils/time"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -42,7 +42,7 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 	}
 	// new cluster
 	cluster := core.NewCluster(req.ClusterName)
-	cluster.Spec.Addons = clusterAddons
+	cluster.Status.Addons = clusterAddons
 
 	// create or update cluster resource in k8s
 	if err = s.registerClusterInKube(cluster); err != nil {
@@ -56,7 +56,7 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 		ClusterName: req.ClusterName,
 		Stream:      stream,
 		Status:      table.OK,
-		Expire:      timeutil.NowTimeWithLoc().Add(s.Config.HeartbeatExpirePeriod * time.Second),
+		Expire:      timeutils.NowTimeWithLoc().Add(s.Config.HeartbeatExpirePeriod * time.Second),
 	})
 
 	res := s.newResponse(req.ClusterName)
@@ -103,7 +103,7 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 			return err
 		}
 		// update cluster status
-		nowTime := metav1.Time{Time: timeutil.NowTimeWithLoc()}
+		nowTime := metav1.Time{Time: timeutils.NowTimeWithLoc()}
 		existCluster.Status.LastUpdateTimestamp = nowTime
 		existCluster.Status.LastReceiveHeartBeatTimestamp = nowTime
 		existCluster.Status.Status = v1alpha1.OnlineStatus

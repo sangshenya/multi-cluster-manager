@@ -9,7 +9,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	maputil "harmonycloud.cn/stellaris/pkg/util/map"
-	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
+	timeutils "harmonycloud.cn/stellaris/pkg/utils/time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -47,7 +47,7 @@ func checkClusterStatus() {
 		}
 
 		for _, cluster := range clusterList.Items {
-			if timeutil.NowTimeWithLoc().Sub(cluster.Status.LastReceiveHeartBeatTimestamp.Time) >= config.OnlineExpirationTime && cluster.Status.Status == v1alpha1.OnlineStatus {
+			if timeutils.NowTimeWithLoc().Sub(cluster.Status.LastReceiveHeartBeatTimestamp.Time) >= config.OnlineExpirationTime && cluster.Status.Status == v1alpha1.OnlineStatus {
 				err = policyReSchedule(ctx, &cluster)
 				if err != nil {
 					clusterMonitorLog.Error(err, "change policy reSchedule failed")

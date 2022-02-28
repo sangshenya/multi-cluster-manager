@@ -37,18 +37,57 @@ spec:
               addons:
                 items:
                   properties:
-                    info:
+                    configuration:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                     name:
                       type: string
+                    type:
+                      type: string
+                    url:
+                      type: string
                   required:
                   - name
+                  - type
+                  - url
                   type: object
                 type: array
+              apiserver:
+                type: string
+              configuration:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              secretRef:
+                properties:
+                  field:
+                    type: string
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                  type:
+                    type: string
+                required:
+                - field
+                - name
+                - namespace
+                - type
+                type: object
+            required:
+            - apiserver
+            - secretRef
             type: object
           status:
             properties:
+              addons:
+                items:
+                  properties:
+                    info:
+                      type: object
+                    name:
+                      type: string
+                  type: object
+                type: array
               conditions:
                 items:
                   properties:

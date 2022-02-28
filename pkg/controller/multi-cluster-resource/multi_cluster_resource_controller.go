@@ -7,7 +7,7 @@ import (
 	resource_binding "harmonycloud.cn/stellaris/pkg/controller/resource-binding"
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
+	sliceutils "harmonycloud.cn/stellaris/pkg/utils/slice"
 
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -165,8 +165,8 @@ func removeResource(resources []v1alpha1.MultiClusterResourceBindingResource, re
 	for _, items := range resources {
 		objectList = append(objectList, items)
 	}
-	index := sliceutil.GetIndexWithObject(objectList, resource)
-	list := sliceutil.RemoveObjectWithIndex(objectList, index)
+	index := sliceutils.GetIndexWithObject(objectList, resource)
+	list := sliceutils.RemoveObjectWithIndex(objectList, index)
 	if len(list) == 0 {
 		return []v1alpha1.MultiClusterResourceBindingResource{}
 	}
