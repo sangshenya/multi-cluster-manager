@@ -26,6 +26,7 @@ spec:
         - --listen-port=8080
         - --webhook-cert-dir=/etc/k8s-webhook-certs
         - --webhook-port=9443
+        - --cue-template-config-map={{ .Release.Namespace }}/{{ .Release.Name }}-cue-template
         volumeMounts:
         - mountPath: /etc/k8s-webhook-certs
           name: webhook-certs

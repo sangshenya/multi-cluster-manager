@@ -7,12 +7,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
+	sliceutils "harmonycloud.cn/stellaris/pkg/utils/slice"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func ShouldAddFinalizer(object client.Object) bool {
-	if !sliceutil.ContainsString(object.GetFinalizers(), managerCommon.FinalizerName) && object.GetDeletionTimestamp().IsZero() {
+	if !sliceutils.ContainsString(object.GetFinalizers(), managerCommon.FinalizerName) && object.GetDeletionTimestamp().IsZero() {
 		return true
 	}
 	return false
@@ -20,7 +20,7 @@ func ShouldAddFinalizer(object client.Object) bool {
 
 // AddFinalizers add multi finalizer, do nothing when the multi finalizer is already exists
 func AddFinalizer(ctx context.Context, clientSet client.Client, object client.Object) error {
-	if sliceutil.ContainsString(object.GetFinalizers(), managerCommon.FinalizerName) {
+	if sliceutils.ContainsString(object.GetFinalizers(), managerCommon.FinalizerName) {
 		return nil
 	}
 	object.SetFinalizers(append(object.GetFinalizers(), managerCommon.FinalizerName))
@@ -29,10 +29,10 @@ func AddFinalizer(ctx context.Context, clientSet client.Client, object client.Ob
 
 // RemoveFinalizer remove multi finalizer, do nothing when the multi finalizer isn`t already exists
 func RemoveFinalizer(ctx context.Context, clientSet client.Client, object client.Object) error {
-	if !sliceutil.ContainsString(object.GetFinalizers(), managerCommon.FinalizerName) {
+	if !sliceutils.ContainsString(object.GetFinalizers(), managerCommon.FinalizerName) {
 		return nil
 	}
-	object.SetFinalizers(sliceutil.RemoveString(object.GetFinalizers(), managerCommon.FinalizerName))
+	object.SetFinalizers(sliceutils.RemoveString(object.GetFinalizers(), managerCommon.FinalizerName))
 	return clientSet.Update(ctx, object)
 }
 

@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	pkgcommon "harmonycloud.cn/stellaris/pkg/common"
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"

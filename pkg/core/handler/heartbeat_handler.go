@@ -9,7 +9,7 @@ import (
 
 	table "harmonycloud.cn/stellaris/pkg/core/stream"
 
-	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
+	timeutils "harmonycloud.cn/stellaris/pkg/utils/time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -18,7 +18,7 @@ import (
 	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
 	clusterController "harmonycloud.cn/stellaris/pkg/controller/cluster"
 	"harmonycloud.cn/stellaris/pkg/model"
-	"harmonycloud.cn/stellaris/pkg/util/core"
+	"harmonycloud.cn/stellaris/pkg/utils/core"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,7 +45,7 @@ func (s *CoreServer) Heartbeat(req *config.Request, stream config.Channel_Establ
 		ClusterName: req.ClusterName,
 		Stream:      stream,
 		Status:      table.OK,
-		Expire:      timeutil.NowTimeWithLoc().Add(s.Config.HeartbeatExpirePeriod * time.Second),
+		Expire:      timeutils.NowTimeWithLoc().Add(s.Config.HeartbeatExpirePeriod * time.Second),
 	})
 
 	res := &config.Response{
@@ -76,11 +76,11 @@ func (s *CoreServer) updateClusterStatusWithHeartbeat(ctx context.Context, clust
 		clusterConditions := core.ConvertCondition2KubeCondition(conditions)
 		cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
 	}
-	if cluster.Status.Status == v1alpha1.OfflineStatus {
+	if cluster.Status.Status != v1alpha1.OnlineStatus {
 		clusterConditions := clusterHealth.GenerateReadyCondition(true, healthy)
 		cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
 	}
-	nowTime := v1.Time{Time: timeutil.NowTimeWithLoc()}
+	nowTime := v1.Time{Time: timeutils.NowTimeWithLoc()}
 	cluster.Status.Status = v1alpha1.OnlineStatus
 	cluster.Status.Healthy = healthy
 	cluster.Status.LastReceiveHeartBeatTimestamp = nowTime
@@ -98,8 +98,8 @@ func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addon
 	if err != nil {
 		return cluster, err
 	}
-	if !addonsEqual(cluster.Spec.Addons, clusterAddons) {
-		cluster.Spec.Addons = clusterAddons
+	if !addonsEqual(cluster.Status.Addons, clusterAddons) {
+		cluster.Status.Addons = clusterAddons
 		cluster, err = clusterController.UpdateCluster(ctx, s.mClient, cluster)
 		if err != nil {
 			return cluster, err
@@ -108,7 +108,7 @@ func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addon
 	return cluster, nil
 }
 
-func addonsEqual(old, new []v1alpha1.ClusterAddons) bool {
+func addonsEqual(old, new []v1alpha1.ClusterAddonStatus) bool {
 	if len(old) != len(new) {
 		return false
 	}

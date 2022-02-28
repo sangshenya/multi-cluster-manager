@@ -7,7 +7,7 @@ import (
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
+	timeutil "harmonycloud.cn/stellaris/pkg/utils/time"
 
 	"harmonycloud.cn/stellaris/config"
 )
@@ -45,7 +45,7 @@ func Insert(clusterName string, stream *Stream) {
 		return
 	}
 	table[clusterName] = stream
-	tableLog.Info(fmt.Sprintf("insert agent(%s) stream success", clusterName))
+	tableLog.Info(fmt.Sprintf("insert proxy(%s) stream success", clusterName))
 }
 
 func FindStream(clusterName string) *Stream {

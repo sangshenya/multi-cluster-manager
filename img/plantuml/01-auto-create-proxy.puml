@@ -1,0 +1,15 @@
+@startuml
+
+actor user
+control "manager-cluster-apiserver"
+participant core
+control "business-cluster-apiserver"
+participant proxy
+
+user -> "manager-cluster-apiserver" : 1. create Cluster with auto annotations
+core -> "manager-cluster-apiserver" : 2. listen Cluster create event
+core -> "business-cluster-apiserver" : 3. deploy proxy
+proxy -> core : 4. establish connection
+core -> "manager-cluster-apiserver" : 5. update Cluster status
+
+@enduml

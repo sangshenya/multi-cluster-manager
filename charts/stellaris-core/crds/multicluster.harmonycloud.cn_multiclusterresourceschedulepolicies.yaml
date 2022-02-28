@@ -1,0 +1,114 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: multiclusterresourceschedulepolicies.multicluster.harmonycloud.cn
+spec:
+  group: multicluster.harmonycloud.cn
+  names:
+    kind: MultiClusterResourceSchedulePolicy
+    listKind: MultiClusterResourceSchedulePolicyList
+    plural: multiclusterresourceschedulepolicies
+    singular: multiclusterresourceschedulepolicy
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              clusterSource:
+                type: string
+              clusterset:
+                type: string
+              failoverPolicy:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      type: string
+                  type: object
+                type: array
+              outTreePolicy:
+                properties:
+                  properties:
+                    type: object
+                  url:
+                    type: string
+                type: object
+              policy:
+                items:
+                  properties:
+                    max:
+                      type: integer
+                    min:
+                      type: integer
+                    name:
+                      type: string
+                    role:
+                      type: string
+                    weight:
+                      type: integer
+                  type: object
+                type: array
+              replicas:
+                type: integer
+              reschedule:
+                type: boolean
+              resources:
+                items:
+                  properties:
+                    name:
+                      type: string
+                  type: object
+                type: array
+              scheduleMode:
+                type: string
+            required:
+            - replicas
+            type: object
+          status:
+            properties:
+              schedule:
+                properties:
+                  lastModifyTime:
+                    format: date-time
+                    type: string
+                  lastScheduleTime:
+                    format: date-time
+                    type: string
+                  message:
+                    type: string
+                  status:
+                    type: boolean
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

@@ -10,7 +10,7 @@ import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
-	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
+	sliceutil "harmonycloud.cn/stellaris/pkg/utils/slice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -152,7 +152,7 @@ func mapKey(resourceNamespace, resourceName string) string {
 func changeClusterResourceListToMap(resourceList *v1alpha1.ClusterResourceList) map[string]*v1alpha1.ClusterResource {
 	resourceMap := map[string]*v1alpha1.ClusterResource{}
 	for _, resource := range resourceList.Items {
-		if !strings.HasPrefix(resource.GetNamespace(), managerCommon.ClusterWorkspacePrefix) {
+		if !strings.HasPrefix(resource.GetNamespace(), managerCommon.ClusterNamespaceInControlPlanePrefix) {
 			continue
 		}
 		key := mapKey(resource.GetNamespace(), resource.GetName())
