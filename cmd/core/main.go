@@ -9,11 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"harmonycloud.cn/stellaris/pkg/core/monitor"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	"k8s.io/klog/v2/klogr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -124,15 +124,16 @@ func main() {
 		logrus.Fatalf("failed create manager: %s", err)
 	}
 
-	ss := strings.SplitN(tmplStr, "/", 2)
-	if len(ss) < 2 {
+	// get cue template configmap metadata
+	tmplNs, tmplName, err := cache.SplitMetaNamespaceKey(tmplStr)
+	if err != nil {
 		logrus.Fatalf("--cue-template-config-map args must format be namespace/name, but got %s", tmplStr)
 	}
-
 	controllerArgs := controllerCommon.Args{
 		IsControlPlane:     true,
-		TmplNamespacedName: types.NamespacedName{Namespace: ss[0], Name: ss[1]},
+		TmplNamespacedName: types.NamespacedName{Namespace: tmplNs, Name: tmplName},
 	}
+
 	// register webhook
 	managerWebhook.Register(mgr, controllerArgs)
 	if err := waitWebhookSecretVolume(certDir, 90*time.Second, 2*time.Second); err != nil {
