@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"time"
 
+	"harmonycloud.cn/stellaris/pkg/controller/resource_aggregate_rule"
+
+	resource_aggregate_policy "harmonycloud.cn/stellaris/pkg/controller/resource-aggregate-policy"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"harmonycloud.cn/stellaris/config"
@@ -18,7 +22,7 @@ import (
 	"harmonycloud.cn/stellaris/pkg/util/core"
 	timeutil "harmonycloud.cn/stellaris/pkg/util/time"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var coreRegisterLog = logf.Log.WithName("core_register")
@@ -79,7 +83,7 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 	ctx := context.Background()
 	update := true
 
-	existCluster, err := s.mClient.MulticlusterV1alpha1().Clusters().Get(ctx, cluster.Name, v1.GetOptions{})
+	existCluster, err := s.mClient.MulticlusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			update = false
@@ -99,7 +103,7 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 			return err
 		}
 		// update cluster status
-		nowTime := v1.Time{Time: timeutil.NowTimeWithLoc()}
+		nowTime := metav1.Time{Time: timeutil.NowTimeWithLoc()}
 		existCluster.Status.LastUpdateTimestamp = nowTime
 		existCluster.Status.LastReceiveHeartBeatTimestamp = nowTime
 		existCluster.Status.Status = v1alpha1.OnlineStatus
@@ -109,7 +113,7 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 		return err
 	}
 
-	_, err = s.mClient.MulticlusterV1alpha1().Clusters().Create(ctx, cluster, v1.CreateOptions{})
+	_, err = s.mClient.MulticlusterV1alpha1().Clusters().Create(ctx, cluster, metav1.CreateOptions{})
 	return err
 }
 
@@ -125,67 +129,27 @@ func (s *CoreServer) getRegisterResources(clusterName string) (*model.RegisterRe
 	}
 	body.ClusterResources = clusterResourceList
 
-	policyList, err := s.getPolicyList(ctx, clusterNamespace)
+	policyList, err := resource_aggregate_policy.AggregatePolicyList(ctx, s.mClient, clusterNamespace)
 	if err != nil {
 		coreRegisterLog.Error(err, "register response, get policy list failed")
 		return body, err
 	}
-	body.MultiClusterResourceAggregatePolicies = policyList
+	body.ResourceAggregatePolicies = policyList.Items
 
-	ruleList, err := s.getRuleList(ctx)
+	ruleList, err := resource_aggregate_rule.AggregateRuleList(ctx, s.mClient, metav1.NamespaceAll)
 	if err != nil {
 		coreRegisterLog.Error(err, "register response, get rule list failed")
 		return body, err
 	}
-	body.MultiClusterResourceAggregateRules = ruleList
+	body.MultiClusterResourceAggregateRules = ruleList.Items
 
 	return body, nil
 }
 
-func (s *CoreServer) getClusterResourceList(ctx context.Context, clusterNamespace string) ([]string, error) {
-	var itemList []string
-	clusterResourceList, err := s.mClient.MulticlusterV1alpha1().ClusterResources(clusterNamespace).List(ctx, v1.ListOptions{})
-	if err != nil {
-		return itemList, err
+func (s *CoreServer) getClusterResourceList(ctx context.Context, clusterNamespace string) ([]v1alpha1.ClusterResource, error) {
+	clusterResourceList, err := s.mClient.MulticlusterV1alpha1().ClusterResources(clusterNamespace).List(ctx, metav1.ListOptions{})
+	if clusterResourceList == nil {
+		return nil, err
 	}
-	for _, item := range clusterResourceList.Items {
-		itemData, err := json.Marshal(item)
-		if err != nil {
-			break
-		}
-		itemList = append(itemList, string(itemData))
-	}
-	return itemList, nil
-}
-
-func (s *CoreServer) getPolicyList(ctx context.Context, clusterNamespace string) ([]string, error) {
-	var itemList []string
-	policyList, err := s.mClient.MulticlusterV1alpha1().MultiClusterResourceAggregatePolicies(clusterNamespace).List(ctx, v1.ListOptions{})
-	if err != nil {
-		return itemList, err
-	}
-	for _, item := range policyList.Items {
-		itemData, err := json.Marshal(item)
-		if err != nil {
-			break
-		}
-		itemList = append(itemList, string(itemData))
-	}
-	return itemList, nil
-}
-
-func (s *CoreServer) getRuleList(ctx context.Context) ([]string, error) {
-	var itemList []string
-	ruleList, err := s.mClient.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(v1.NamespaceAll).List(ctx, v1.ListOptions{})
-	if err != nil {
-		return itemList, err
-	}
-	for _, item := range ruleList.Items {
-		itemData, err := json.Marshal(item)
-		if err != nil {
-			break
-		}
-		itemList = append(itemList, string(itemData))
-	}
-	return itemList, nil
+	return clusterResourceList.Items, err
 }

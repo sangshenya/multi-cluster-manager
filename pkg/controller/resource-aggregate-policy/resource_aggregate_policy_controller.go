@@ -12,6 +12,7 @@ import (
 	"harmonycloud.cn/stellaris/pkg/model"
 
 	"github.com/go-logr/logr"
+	agentAggregate "harmonycloud.cn/stellaris/pkg/agent/aggregate"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,11 +45,11 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	// core focus on clusterNamespaces ClusterResource
+	// core focus on clusterNamespaces ResourceAggregatePolicy
 	if r.isControlPlane && !strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
 		return ctrl.Result{}, nil
 	}
-	// agent ignore clusterNamespaces ClusterResource
+	// agent ignore clusterNamespaces ResourceAggregatePolicy
 	if !r.isControlPlane && strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
 		return ctrl.Result{}, nil
 	}
@@ -78,11 +79,12 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 		// core send ResourceAggregatePolicy to proxy
 		return r.syncResourceAggregatePolicyToProxy(model.AggregateUpdateOrCreate, instance)
 	}
-	// proxy aggregate target resource
-}
-
-func (r *Reconciler) aggregateTargetResource() {
-
+	// proxy aggregate target resource, add config, add informer
+	err := agentAggregate.AddResourceAggregatePolicy(instance)
+	if err != nil {
+		return controllerCommon.ReQueueResult(err)
+	}
+	return ctrl.Result{}, nil
 }
 
 // sendResourceAggregatePolicyToProxy core send ResourceAggregatePolicy to proxy with create/update/delete event

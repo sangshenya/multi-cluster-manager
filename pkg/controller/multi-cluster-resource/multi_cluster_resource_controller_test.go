@@ -6,8 +6,6 @@ import (
 	"reflect"
 	"time"
 
-	"harmonycloud.cn/stellaris/pkg/controller/resource_binding"
-
 	"sigs.k8s.io/yaml"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,6 +15,7 @@ import (
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
+	resource_binding "harmonycloud.cn/stellaris/pkg/controller/resource-binding"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

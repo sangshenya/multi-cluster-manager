@@ -6,15 +6,15 @@ import (
 	"errors"
 	"fmt"
 
+	resource_aggregate_policy "harmonycloud.cn/stellaris/pkg/controller/resource-aggregate-policy"
+	"harmonycloud.cn/stellaris/pkg/controller/resource_aggregate_rule"
+
 	"harmonycloud.cn/stellaris/pkg/agent/send"
 
 	clusterResourceController "harmonycloud.cn/stellaris/pkg/controller/cluster-resource"
 
-	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"harmonycloud.cn/stellaris/config"
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
@@ -61,80 +61,30 @@ func syncResource(agentClient *multclusterclient.Clientset, resourceList *model.
 		return err
 	}
 
-	if err := syncPolicys(ctx, agentClient, resourceList.MultiClusterResourceAggregatePolicies); err != nil {
+	if err := resource_aggregate_policy.SyncAggregatePolicyList(ctx, agentClient, model.SyncResource, resourceList.ResourceAggregatePolicies); err != nil {
 		return err
 	}
 
-	if err := syncRules(ctx, agentClient, resourceList.MultiClusterResourceAggregateRules); err != nil {
+	if err := resource_aggregate_rule.SyncAggregateRuleList(ctx, agentClient, model.SyncResource, resourceList.MultiClusterResourceAggregateRules); err != nil {
 		return err
 	}
 	return nil
 }
 
-func syncClusterResourcesList(ctx context.Context, agentClient *multclusterclient.Clientset, clusterResourceList []string) error {
-	for _, str := range clusterResourceList {
-		registerLog.Info(fmt.Sprintf("start sync register response clusterResource"))
-		clusterResource := &v1alpha1.ClusterResource{}
-		err := json.Unmarshal([]byte(str), clusterResource)
-		if err != nil {
-			registerLog.Error(err, "get cluster resource failed")
-			return err
-		}
-		resource, err := clusterResourceController.GetClusterResourceObjectForRawExtension(clusterResource)
+func syncClusterResourcesList(ctx context.Context, agentClient *multclusterclient.Clientset, clusterResourceList []v1alpha1.ClusterResource) error {
+	for _, clusterResource := range clusterResourceList {
+
+		resource, err := clusterResourceController.GetClusterResourceObjectForRawExtension(&clusterResource)
 		if err != nil {
 			continue
 		}
 		clusterResource.SetNamespace(resource.GetNamespace())
-		err = clusterResourceController.SyncAgentClusterResource(ctx, agentClient, clusterResource)
+		err = clusterResourceController.SyncAgentClusterResource(ctx, agentClient, &clusterResource)
 		if err != nil {
 			registerLog.Error(err, fmt.Sprintf("sync ClusterResource(%s:%s) failed", clusterResource.Namespace, clusterResource.Name))
 			return err
 		} else {
 			registerLog.Info(fmt.Sprintf("sync ClusterResource(%s:%s) success", clusterResource.Namespace, clusterResource.Name))
-		}
-	}
-	return nil
-}
-
-func syncPolicys(ctx context.Context, agentClient *multclusterclient.Clientset, policyList []string) error {
-	for _, str := range policyList {
-		policy := &v1alpha1.MultiClusterResourceAggregatePolicy{}
-		err := json.Unmarshal([]byte(str), policy)
-		if err != nil {
-			registerLog.Error(err, "get policy failed")
-			return err
-		}
-		_, err = agentClient.MulticlusterV1alpha1().MultiClusterResourceAggregatePolicies(policy.GetNamespace()).Create(ctx, policy, metav1.CreateOptions{})
-		if err != nil {
-			if !apierrors.IsAlreadyExists(err) {
-				return err
-			}
-			_, err = agentClient.MulticlusterV1alpha1().MultiClusterResourceAggregatePolicies(policy.GetNamespace()).Update(ctx, policy, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func syncRules(ctx context.Context, agentClient *multclusterclient.Clientset, ruleList []string) error {
-	for _, str := range ruleList {
-		rule := &v1alpha1.MultiClusterResourceAggregateRule{}
-		err := json.Unmarshal([]byte(str), rule)
-		if err != nil {
-			registerLog.Error(err, "get rule failed")
-			return err
-		}
-		_, err = agentClient.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(rule.GetNamespace()).Create(ctx, rule, metav1.CreateOptions{})
-		if err != nil {
-			if !apierrors.IsAlreadyExists(err) {
-				return err
-			}
-			_, err = agentClient.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(rule.GetNamespace()).Update(ctx, rule, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
 		}
 	}
 	return nil

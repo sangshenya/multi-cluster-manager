@@ -96,7 +96,7 @@ func main() {
 	}
 
 	// new agentConfig
-	agentcfg.NewAgentConfig(cfg, agentClient, mgr.GetClient())
+	agentcfg.NewAgentConfig(cfg, agentClient, mgr.GetClient(), restCfg)
 
 	// new stream
 	stream := agentStream.GetConnection()

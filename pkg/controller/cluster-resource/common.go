@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var clusterResourceCommonLog = logf.Log.WithName("agent_clusterResource_common")
+var clusterResourceCommonLog = logf.Log.WithName("clusterResource_common")
 
 // sync clusterResource when update/create/none
 func SyncAgentClusterResource(ctx context.Context, agentClient *multclusterclient.Clientset, clusterResource *v1alpha1.ClusterResource) error {

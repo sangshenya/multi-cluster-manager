@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"harmonycloud.cn/stellaris/pkg/model"
-
 	coreSender "harmonycloud.cn/stellaris/pkg/core/sender"
+	"harmonycloud.cn/stellaris/pkg/model"
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 
@@ -59,7 +58,7 @@ func (r *Reconciler) syncResourceAggregateRule(ctx context.Context, instance *v1
 
 func (r *Reconciler) sendAggregateRuleToAgent(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregateRule) (ctrl.Result, error) {
 	aggregateModel := &model.SyncAggregateResourceModel{
-		RuleList: []*v1alpha1.MultiClusterResourceAggregateRule{instance},
+		RuleList: []v1alpha1.MultiClusterResourceAggregateRule{*instance},
 	}
 	jsonString, err := json.Marshal(aggregateModel)
 	if err != nil {

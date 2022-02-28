@@ -9,10 +9,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var informerResourceConfig *InformerResourceConfig
+var ResourceConfig *InformerResourceConfig
 
 func init() {
-	informerResourceConfig = &InformerResourceConfig{ConfigMap: make(map[string]*v1alpha1.ResourceAggregatePolicySpec)}
+	ResourceConfig = &InformerResourceConfig{ConfigMap: make(map[string]*v1alpha1.ResourceAggregatePolicySpec)}
 }
 
 type InformerResourceConfig struct {

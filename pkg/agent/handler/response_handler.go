@@ -61,6 +61,10 @@ func RecvResponse() {
 			RecvSyncResourceResponse(response)
 		case model.ResourceStatusUpdateFailed.String():
 			RecvSyncResourceResponse(response)
+		case model.AggregateUpdateOrCreate.String():
+			RecvSyncAggregateResponse(response)
+		case model.AggregateDelete.String():
+			RecvSyncAggregateResponse(response)
 
 		}
 	}
