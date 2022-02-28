@@ -24,6 +24,21 @@ func SyncClusterResourceWithBinding(ctx context.Context, clientSet client.Client
 	return syncClusterResource(ctx, clientSet, clusterResourceList, binding)
 }
 
+func deleteClusterResource(ctx context.Context, clientSet client.Client, binding *v1alpha1.MultiClusterResourceBinding) error {
+	// get ClusterResourceList
+	clusterResourceList, err := getClusterResourceListForBinding(ctx, clientSet, binding)
+	if err != nil {
+		return err
+	}
+	for _, item := range clusterResourceList.Items {
+		err = clientSet.Delete(ctx, &item)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // syncClusterResource update or create or delete ClusterResource
 func syncClusterResource(ctx context.Context, clientSet client.Client, clusterResourceList *v1alpha1.ClusterResourceList, binding *v1alpha1.MultiClusterResourceBinding) error {
 	if len(binding.Spec.Resources) == 0 {
@@ -95,8 +110,6 @@ func newClusterResource(bindingName string, cluster v1alpha1.MultiClusterResourc
 	// set labels
 	newLabels := clusterResourceLabels(bindingName, multiClusterResource.GetName(), multiClusterResource.Spec.ResourceRef)
 	clusterResource.SetLabels(newLabels)
-	// set owner
-	clusterResource.SetOwnerReferences([]metav1.OwnerReference{*owner})
 
 	// set resourceInfo
 	// TODO if MultiClusterResourceOverride alive

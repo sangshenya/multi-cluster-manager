@@ -199,7 +199,7 @@ func sendClusterResourceToProxy(eventType SyncEventType, clusterResource *v1alph
 	if err != nil {
 		return err
 	}
-	return core_sender.SendResponseToAgent(syncResourceResponse)
+	return core_sender.SendResponseToProxy(syncResourceResponse)
 }
 
 func newSyncResourceResponse(resType model.ServiceResponseType, clusterName string, clusterResource *v1alpha1.ClusterResource) (*config.Response, error) {

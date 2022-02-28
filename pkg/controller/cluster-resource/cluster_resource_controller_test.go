@@ -121,7 +121,7 @@ var _ = Describe("Test ControlPlane ClusterResource Controller", func() {
 		Expect(clusterResource.Status.Phase).Should(Equal(common.Creating))
 		Expect(clusterResource.Status.ObservedReceiveGeneration).Should(Equal(clusterResource.Generation))
 
-		// send event, proxy will create resource in agent
+		// send event, proxy will create resource in proxy
 		_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterResourceNamespacedName})
 		Expect(err).Should(BeNil())
 		// get clusterResource

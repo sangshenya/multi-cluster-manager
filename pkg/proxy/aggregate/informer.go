@@ -8,13 +8,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 
-	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
+	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 
-	resourceConfig "harmonycloud.cn/stellaris/pkg/agent/aggregate/config"
-	aggregateController "harmonycloud.cn/stellaris/pkg/agent/aggregate/controller"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+	resourceConfig "harmonycloud.cn/stellaris/pkg/proxy/aggregate/config"
+	aggregateController "harmonycloud.cn/stellaris/pkg/proxy/aggregate/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 )
@@ -84,7 +84,7 @@ func AddResourceAggregatePolicy(policy *v1alpha1.ResourceAggregatePolicy) error 
 	if controllerConfig != nil {
 		return nil
 	}
-	kubeClient, err := kubernetes.NewForConfig(agentconfig.AgentConfig.KubeConfig)
+	kubeClient, err := kubernetes.NewForConfig(proxy_cfg.ProxyConfig.KubeConfig)
 	if err != nil {
 		return err
 	}

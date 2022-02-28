@@ -16,10 +16,10 @@ type DefaultConfig struct {
 
 var ProxyConfig *DefaultConfig
 
-func NewProxyConfig(c *Configuration, agentClient *multclusterclient.Clientset, controllerClient client.Client, kubeConfig *rest.Config) {
+func NewProxyConfig(c *Configuration, proxyClient *multclusterclient.Clientset, controllerClient client.Client, kubeConfig *rest.Config) {
 	ProxyConfig = &DefaultConfig{}
 	ProxyConfig.Cfg = c
-	ProxyConfig.ProxyClient = agentClient
+	ProxyConfig.ProxyClient = proxyClient
 	ProxyConfig.ControllerClient = controllerClient
 	ProxyConfig.KubeConfig = kubeConfig
 }

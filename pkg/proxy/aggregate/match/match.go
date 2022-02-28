@@ -6,10 +6,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	resourceConfig "harmonycloud.cn/stellaris/pkg/agent/aggregate/config"
-	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-	sliceutil "harmonycloud.cn/stellaris/pkg/util/slice"
+	resourceConfig "harmonycloud.cn/stellaris/pkg/proxy/aggregate/config"
+	proxyconfig "harmonycloud.cn/stellaris/pkg/proxy/config"
+	sliceutil "harmonycloud.cn/stellaris/pkg/utils/slice"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -125,7 +125,7 @@ func targetNamespaces(ctx context.Context, namespaceSelector *metav1.LabelSelect
 		return nil, err
 	}
 	nsList := &v1.NamespaceList{}
-	err = agentconfig.AgentConfig.ControllerClient.List(ctx, nsList, &client.ListOptions{
+	err = proxyconfig.ProxyConfig.ControllerClient.List(ctx, nsList, &client.ListOptions{
 		LabelSelector: labelSelector,
 	})
 	if err != nil {

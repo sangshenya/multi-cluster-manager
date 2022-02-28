@@ -67,29 +67,29 @@ func syncAggregateRule(ctx context.Context, clientSet *multclusterclient.Clients
 			newRule := newAggregateRule(rule)
 			newRule, err = clientSet.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(rule.GetNamespace()).Create(ctx, newRule, metav1.CreateOptions{})
 			if err != nil {
-				aggregateRuleCommonLog.Error(err, fmt.Sprintf("sync agent aggregate rule(%s:%s) failed", rule.GetNamespace(), rule.GetName()))
+				aggregateRuleCommonLog.Error(err, fmt.Sprintf("sync proxy aggregate rule(%s:%s) failed", rule.GetNamespace(), rule.GetName()))
 			}
 			return err
 		}
-		aggregateRuleCommonLog.Error(err, fmt.Sprintf("sync agent aggregate rule(%s:%s) failed", rule.GetNamespace(), rule.GetName()))
+		aggregateRuleCommonLog.Error(err, fmt.Sprintf("sync proxy aggregate rule(%s:%s) failed", rule.GetNamespace(), rule.GetName()))
 		return err
 	}
 	if responseType == model.DeleteResource {
 		err = clientSet.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(rule.GetNamespace()).Delete(ctx, rule.Name, metav1.DeleteOptions{})
 		if err != nil {
-			aggregateRuleCommonLog.Error(err, fmt.Sprintf("delete agent aggregate rule(%s:%s) failed", rule.GetNamespace(), rule.GetName()))
+			aggregateRuleCommonLog.Error(err, fmt.Sprintf("delete proxy aggregate rule(%s:%s) failed", rule.GetNamespace(), rule.GetName()))
 		}
 		return err
 	}
 	// update
 	if reflect.DeepEqual(existRule.Spec, rule.Spec) {
-		aggregateRuleCommonLog.Info(fmt.Sprintf("sync agent aggregate rule(%s:%s) success, spec equal", rule.GetNamespace(), rule.GetName()))
+		aggregateRuleCommonLog.Info(fmt.Sprintf("sync proxy aggregate rule(%s:%s) success, spec equal", rule.GetNamespace(), rule.GetName()))
 		return nil
 	}
 	existRule.Spec = rule.Spec
 	_, err = clientSet.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(rule.GetNamespace()).Update(ctx, existRule, metav1.UpdateOptions{})
 	if err != nil {
-		aggregateRuleCommonLog.Error(err, fmt.Sprintf("sync agent aggregate rule(%s:%s) failed", rule.GetNamespace(), rule.GetName()))
+		aggregateRuleCommonLog.Error(err, fmt.Sprintf("sync proxy aggregate rule(%s:%s) failed", rule.GetNamespace(), rule.GetName()))
 	}
 	return err
 }

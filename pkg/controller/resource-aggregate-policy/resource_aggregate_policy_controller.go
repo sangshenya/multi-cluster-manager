@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
+
+	"k8s.io/client-go/tools/record"
 
 	"harmonycloud.cn/stellaris/config"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
@@ -12,9 +15,9 @@ import (
 	"harmonycloud.cn/stellaris/pkg/model"
 
 	"github.com/go-logr/logr"
-	agentAggregate "harmonycloud.cn/stellaris/pkg/agent/aggregate"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
+	proxyAggregate "harmonycloud.cn/stellaris/pkg/proxy/aggregate"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,6 +29,7 @@ type Reconciler struct {
 	log            logr.Logger
 	Scheme         *runtime.Scheme
 	isControlPlane bool
+	Recorder       record.EventRecorder
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -41,19 +45,27 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 		log:            logf.Log.WithName("resource_aggregate_policy_controller"),
 		isControlPlane: controllerCommon.IsControlPlane,
 	}
+	if controllerCommon.IsControlPlane {
+		reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-core")
+	} else {
+		reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-proxy")
+	}
 	return reconciler.SetupWithManager(mgr)
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	// core focus on clusterNamespaces ResourceAggregatePolicy
-	if r.isControlPlane && !strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
+	if r.isControlPlane && !strings.HasPrefix(request.Namespace, managerCommon.ClusterNamespaceInControlPlanePrefix) {
 		return ctrl.Result{}, nil
 	}
-	// agent ignore clusterNamespaces ResourceAggregatePolicy
-	if !r.isControlPlane && strings.HasPrefix(request.Namespace, managerCommon.ClusterWorkspacePrefix) {
+	// proxy ignore clusterNamespaces ResourceAggregatePolicy
+	if !r.isControlPlane && strings.HasPrefix(request.Namespace, managerCommon.ClusterNamespaceInControlPlanePrefix) {
 		return ctrl.Result{}, nil
 	}
-	r.log.Info(fmt.Sprintf("Reconciling ResourceAggregatePolicy(%s:%s)", request.Namespace, request.Name))
+
+	r.log.V(4).Info(fmt.Sprintf("Start Reconciling ResourceAggregatePolicy(%s:%s)", request.Namespace, request.Name))
+	defer r.log.V(4).Info(fmt.Sprintf("End Reconciling ResourceAggregatePolicy(%s:%s)", request.Namespace, request.Name))
+
 	// get resource
 	instance := &v1alpha1.ResourceAggregatePolicy{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
@@ -63,43 +75,59 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 
 	// add Finalizers
 	if controllerCommon.ShouldAddFinalizer(instance) {
-		return r.addFinalizer(ctx, instance)
+		if err = controllerCommon.AddFinalizer(ctx, r.Client, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("append finalizer failed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedAddFinalizers", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
-		return r.removeFinalizer(ctx, instance)
+		if err = r.syncResourceAggregatePolicyToProxy(model.AggregateDelete, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("delete finalizer plan failed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedDeleteFinalizersPlan", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		if err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("delete finalizer failed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedDeleteFinalizers", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
-	return r.syncResourceAggregatePolicy(ctx, instance)
+	if err = r.syncResourceAggregatePolicy(ctx, instance); err != nil {
+		r.log.Error(err, fmt.Sprintf("sync ResourceAggregatePolicy failed, resource(%s:%s)", instance.Namespace, instance.Name))
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+	}
+	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.ResourceAggregatePolicy) (ctrl.Result, error) {
+// syncResourceAggregatePolicy create or update ResourceAggregatePolicy
+func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.ResourceAggregatePolicy) error {
 	if r.isControlPlane {
 		// core send ResourceAggregatePolicy to proxy
 		return r.syncResourceAggregatePolicyToProxy(model.AggregateUpdateOrCreate, instance)
 	}
 	// proxy aggregate target resource, add config, add informer
-	err := agentAggregate.AddResourceAggregatePolicy(instance)
-	if err != nil {
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
+	return proxyAggregate.AddResourceAggregatePolicy(instance)
 }
 
 // sendResourceAggregatePolicyToProxy core send ResourceAggregatePolicy to proxy with create/update/delete event
-func (r *Reconciler) syncResourceAggregatePolicyToProxy(responseType model.ServiceResponseType, instance *v1alpha1.ResourceAggregatePolicy) (ctrl.Result, error) {
+func (r *Reconciler) syncResourceAggregatePolicyToProxy(responseType model.ServiceResponseType, instance *v1alpha1.ResourceAggregatePolicy) error {
 	policyResponse, err := newResourceAggregatePolicyResponse(responseType, instance)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("marshal policy(%s:%s) failed", instance.GetNamespace(), instance.GetName()))
-		return controllerCommon.ReQueueResult(err)
+		err = fmt.Errorf(fmt.Sprintf("marshal policy(%s:%s) failed", instance.GetNamespace(), instance.GetName()), err)
+		return err
 	}
-	err = coreSender.SendResponseToAgent(policyResponse)
+	err = coreSender.SendResponseToProxy(policyResponse)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("send policy(%s:%s) to proxy failed", instance.GetNamespace(), instance.GetName()))
-		return controllerCommon.ReQueueResult(err)
+		err = fmt.Errorf(fmt.Sprintf("send policy(%s:%s) to proxy failed", instance.GetNamespace(), instance.GetName()), err)
+		return err
 	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func newResourceAggregatePolicyResponse(responseType model.ServiceResponseType, instance *v1alpha1.ResourceAggregatePolicy) (*config.Response, error) {
@@ -109,33 +137,4 @@ func newResourceAggregatePolicyResponse(responseType model.ServiceResponseType, 
 		return nil, err
 	}
 	return coreSender.NewResponse(responseType, clusterName, string(policyData))
-}
-
-// removeResourceAggregatePolicy core send delete ResourceAggregatePolicy response to proxy first，then remove finalizer
-func (r *Reconciler) removeResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.ResourceAggregatePolicy) (ctrl.Result, error) {
-	if r.isControlPlane {
-		_, err := r.syncResourceAggregatePolicyToProxy(model.AggregateDelete, instance)
-		if err != nil {
-			return controllerCommon.ReQueueResult(err)
-		}
-	}
-	return r.removeFinalizer(ctx, instance)
-}
-
-func (r *Reconciler) addFinalizer(ctx context.Context, instance client.Object) (ctrl.Result, error) {
-	err := controllerCommon.AddFinalizer(ctx, r.Client, instance)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("append finalizer filed, resource(%s)", instance.GetName()))
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *Reconciler) removeFinalizer(ctx context.Context, instance client.Object) (ctrl.Result, error) {
-	err := controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("delete finalizer filed, resource(%s)", instance.GetName()))
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
 }

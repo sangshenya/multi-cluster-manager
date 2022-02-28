@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"harmonycloud.cn/stellaris/pkg/agent/aggregate/match"
+	"harmonycloud.cn/stellaris/pkg/proxy/aggregate/match"
 
-	agentsend "harmonycloud.cn/stellaris/pkg/agent/send"
+	proxysend "harmonycloud.cn/stellaris/pkg/proxy/send"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	"harmonycloud.cn/stellaris/pkg/model"
@@ -18,8 +18,8 @@ import (
 
 	resource_aggregate_policy "harmonycloud.cn/stellaris/pkg/controller/resource-aggregate-policy"
 
-	agentconfig "harmonycloud.cn/stellaris/pkg/agent/config"
 	"harmonycloud.cn/stellaris/pkg/controller/resource_aggregate_rule"
+	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -47,7 +47,7 @@ import (
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	cueRender "harmonycloud.cn/stellaris/pkg/util/cur-render"
+	cueRender "harmonycloud.cn/stellaris/pkg/utils/cue-render"
 )
 
 type Controller struct {
@@ -252,13 +252,13 @@ func (c *Controller) deleteResource(obj interface{}) {
 
 func (c *Controller) getTargetResourceInfo(ctx context.Context, object client.Object) error {
 	// find rule
-	ruleList, err := resource_aggregate_rule.GetAggregateRuleListWithLabelSelector(ctx, agentconfig.AgentConfig.AgentClient, c.resourceRef, metav1.NamespaceAll)
+	ruleList, err := resource_aggregate_rule.GetAggregateRuleListWithLabelSelector(ctx, proxy_cfg.ProxyConfig.ProxyClient, c.resourceRef, metav1.NamespaceAll)
 	if err != nil {
 		return err
 	}
 
 	for _, rule := range ruleList.Items {
-		policyList, err := resource_aggregate_policy.GetAggregatePolicyListWithLabelSelector(ctx, agentconfig.AgentConfig.AgentClient, managerCommon.ManagerNamespace, common.NamespacedName{
+		policyList, err := resource_aggregate_policy.GetAggregatePolicyListWithLabelSelector(ctx, proxy_cfg.ProxyConfig.ProxyClient, managerCommon.ManagerNamespace, common.NamespacedName{
 			Namespace: rule.GetNamespace(),
 			Name:      rule.GetName(),
 		})
@@ -275,11 +275,11 @@ func (c *Controller) getTargetResourceInfo(ctx context.Context, object client.Ob
 			if err != nil {
 				return err
 			}
-			request, err := agentsend.NewAggregateRequest(agentconfig.AgentConfig.Cfg.ClusterName, string(data))
+			request, err := proxysend.NewAggregateRequest(proxy_cfg.ProxyConfig.Cfg.ClusterName, string(data))
 			if err != nil {
 				return err
 			}
-			err = agentsend.SendSyncResourceRequest(request)
+			err = proxysend.SendSyncResourceRequest(request)
 			if err != nil {
 				return err
 			}
@@ -291,7 +291,7 @@ func (c *Controller) getTargetResourceInfo(ctx context.Context, object client.Ob
 func NewAggregateResourceDataRequest(rule *v1alpha1.MultiClusterResourceAggregateRule, policy *v1alpha1.ResourceAggregatePolicy, object client.Object, resourceData []byte) *model.AggregateResourceDataModel {
 	data := &model.AggregateResourceDataModel{}
 	data.ResourceAggregatePolicy = &common.NamespacedName{
-		Namespace: managerCommon.ClusterNamespace(agentconfig.AgentConfig.Cfg.ClusterName),
+		Namespace: managerCommon.ClusterNamespace(proxy_cfg.ProxyConfig.Cfg.ClusterName),
 		Name:      policy.GetName(),
 	}
 	data.MultiClusterResourceAggregateRule = &common.NamespacedName{

@@ -2,6 +2,8 @@ package cluster_set
 
 import (
 	"context"
+	"fmt"
+
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
@@ -19,8 +21,9 @@ type ClusterSetReconciler struct {
 }
 
 func (r *ClusterSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.WithValues("Request.Name", req.Name)
-	r.log.Info("Reconciling ClusterSet")
+	r.log.V(4).Info(fmt.Sprintf("Start Reconciling ClusterSet(%s:%s)", req.Namespace, req.Name))
+	defer r.log.V(4).Info(fmt.Sprintf("End Reconciling ClusterSet(%s:%s)", req.Namespace, req.Name))
+
 	clusterSet := &v1alpha1.ClusterSet{}
 	if err := r.Client.Get(context.TODO(), req.NamespacedName, clusterSet); err != nil {
 		if errors.IsNotFound(err) {

@@ -7,7 +7,7 @@ import (
 	"harmonycloud.cn/stellaris/pkg/util/common"
 	cueRender "harmonycloud.cn/stellaris/pkg/utils/cue-render"
 
-	"harmonycloud.cn/stellaris/pkg/agent/aggregate/match"
+	"harmonycloud.cn/stellaris/pkg/proxy/aggregate/match"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"

@@ -67,29 +67,29 @@ func syncAggregatePolicy(ctx context.Context, clientSet *multclusterclient.Clien
 			newPolicy := newAggregatePolicy(policy)
 			newPolicy, err = clientSet.MulticlusterV1alpha1().ResourceAggregatePolicies(policy.GetNamespace()).Create(ctx, newPolicy, metav1.CreateOptions{})
 			if err != nil {
-				aggregatePolicyCommonLog.Error(err, fmt.Sprintf("create agent aggregate policy(%s:%s) failed", policy.GetNamespace(), policy.GetName()))
+				aggregatePolicyCommonLog.Error(err, fmt.Sprintf("create proxy aggregate policy(%s:%s) failed", policy.GetNamespace(), policy.GetName()))
 			}
 			return err
 		}
-		aggregatePolicyCommonLog.Error(err, fmt.Sprintf("get agent aggregate policy(%s:%s) failed", policy.GetNamespace(), policy.GetName()))
+		aggregatePolicyCommonLog.Error(err, fmt.Sprintf("get proxy aggregate policy(%s:%s) failed", policy.GetNamespace(), policy.GetName()))
 		return err
 	}
 	if responseType == model.DeleteResource {
 		err = clientSet.MulticlusterV1alpha1().ResourceAggregatePolicies(policy.GetNamespace()).Delete(ctx, policy.Name, metav1.DeleteOptions{})
 		if err != nil {
-			aggregatePolicyCommonLog.Error(err, fmt.Sprintf("delete agent aggregate policy(%s:%s) failed", policy.GetNamespace(), policy.GetName()))
+			aggregatePolicyCommonLog.Error(err, fmt.Sprintf("delete proxy aggregate policy(%s:%s) failed", policy.GetNamespace(), policy.GetName()))
 		}
 		return err
 	}
 	// update
 	if reflect.DeepEqual(existPolicy.Spec, policy.Spec) {
-		aggregatePolicyCommonLog.Info(fmt.Sprintf("update agent aggregate policy(%s:%s) success, spec equal", policy.GetNamespace(), policy.GetName()))
+		aggregatePolicyCommonLog.Info(fmt.Sprintf("update proxy aggregate policy(%s:%s) success, spec equal", policy.GetNamespace(), policy.GetName()))
 		return nil
 	}
 	existPolicy.Spec = policy.Spec
 	_, err = clientSet.MulticlusterV1alpha1().ResourceAggregatePolicies(policy.GetNamespace()).Update(ctx, existPolicy, metav1.UpdateOptions{})
 	if err != nil {
-		aggregatePolicyCommonLog.Error(err, fmt.Sprintf("sync agent aggregate policy(%s:%s) failed", existPolicy.GetNamespace(), existPolicy.GetName()))
+		aggregatePolicyCommonLog.Error(err, fmt.Sprintf("sync proxy aggregate policy(%s:%s) failed", existPolicy.GetNamespace(), existPolicy.GetName()))
 	}
 	return err
 }

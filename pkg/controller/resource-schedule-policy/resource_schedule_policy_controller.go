@@ -31,26 +31,30 @@ type Reconciler struct {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	r.log.Info("Reconciling MultiClusterResourceSchedulePolicy")
+	r.log.V(4).Info(fmt.Sprintf("Start Reconciling MultiClusterResourceSchedulePolicy(%s:%s)", request.Namespace, request.Name))
+	defer r.log.V(4).Info(fmt.Sprintf("End Reconciling MultiClusterResourceSchedulePolicy(%s:%s)", request.Namespace, request.Name))
+
 	schedulePolicy := &v1alpha1.MultiClusterResourceSchedulePolicy{}
 	err := r.Client.Get(ctx, request.NamespacedName, schedulePolicy)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	err = r.updateLastModifyTime(ctx, schedulePolicy)
-	if err != nil {
-		r.log.Error(err, "fail to update status")
-		return controllerCommon.ReQueueResult(err)
+
+	if err = r.updateLastModifyTime(ctx, schedulePolicy); err != nil {
+		r.log.Error(err, fmt.Sprintf("fail to update schedulePolicy(%s:%s) status", schedulePolicy.Namespace, schedulePolicy.Name))
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 	}
 	if schedulePolicy.Spec.Reschedule {
-		return r.doSchedule(ctx, schedulePolicy)
+		if err = r.doSchedule(ctx, schedulePolicy); err != nil {
+			r.log.Error(err, fmt.Sprintf("fail to reschedule schedulePolicy(%s:%s)", schedulePolicy.Namespace, schedulePolicy.Name))
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }
 
 // schedule by assign or clusterset,
-func (r *Reconciler) doSchedule(ctx context.Context, policy *v1alpha1.MultiClusterResourceSchedulePolicy) (ctrl.Result, error) {
+func (r *Reconciler) doSchedule(ctx context.Context, policy *v1alpha1.MultiClusterResourceSchedulePolicy) error {
 	// TODO label
 	var (
 		binding *v1alpha1.MultiClusterResourceBinding
@@ -60,14 +64,14 @@ func (r *Reconciler) doSchedule(ctx context.Context, policy *v1alpha1.MultiClust
 	case v1alpha1.ClusterSourceTypeAssign:
 		binding, err = r.scheduleByAssign(ctx, policy)
 		if err != nil {
-			r.log.Error(err, "fail to do schedule")
-			return controllerCommon.ReQueueResult(err)
+			err = fmt.Errorf(fmt.Sprintf("fail to do schedule(%s:%s)", policy.Namespace, policy.Name), err)
+			return err
 		}
 	case v1alpha1.ClusterSourceTypeClusterset:
 		binding, err = r.scheduleByClusterSet(ctx, policy)
 		if err != nil {
-			r.log.Error(err, "fail to do schedule")
-			return controllerCommon.ReQueueResult(err)
+			err = fmt.Errorf(fmt.Sprintf("fail to do schedule(%s:%s)", policy.Namespace, policy.Name), err)
+			return err
 		}
 	}
 	// create or update only when changed
@@ -75,17 +79,18 @@ func (r *Reconciler) doSchedule(ctx context.Context, policy *v1alpha1.MultiClust
 	if !same {
 		err = r.createOrUpdateBinding(ctx, binding)
 		if err != nil {
-			return controllerCommon.ReQueueResult(err)
+			err = fmt.Errorf(fmt.Sprintf("create or update binding failed, schedule(%s:%s)", policy.Namespace, policy.Name), err)
+			return err
 		}
 	}
 
 	err = r.updateLastScheduleTime(ctx, policy)
 	if err != nil {
-		r.log.Error(err, "fail to update status")
-		return controllerCommon.ReQueueResult(err)
+		err = fmt.Errorf(fmt.Sprintf("update last scheduleTime failed, schedule(%s:%s)", policy.Namespace, policy.Name), err)
+		return err
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // schedule by duplicated or weighted

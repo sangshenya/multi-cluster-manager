@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
+
+	"k8s.io/client-go/tools/record"
 
 	"harmonycloud.cn/stellaris/pkg/util/common"
 
@@ -21,13 +24,15 @@ import (
 
 type Reconciler struct {
 	client.Client
-	log    logr.Logger
-	Scheme *runtime.Scheme
+	log      logr.Logger
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	r.log.Info("Reconciling MultiClusterResourceAggregatePolicy")
+	r.log.V(4).Info(fmt.Sprintf("Start Reconciling MultiClusterResourceAggregatePolicy(%s:%s)", request.Namespace, request.Name))
+	defer r.log.V(4).Info(fmt.Sprintf("End Reconciling MultiClusterResourceAggregatePolicy(%s:%s)", request.Namespace, request.Name))
+
 	// get resource
 	instance := &v1alpha1.MultiClusterResourceAggregatePolicy{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
@@ -37,42 +42,59 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 
 	// add Finalizers
 	if controllerCommon.ShouldAddFinalizer(instance) {
-		return r.addFinalizer(ctx, instance)
+		if err = controllerCommon.AddFinalizer(ctx, r.Client, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("append finalizer failed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedAddFinalizers", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
-		return r.removeFinalizer(ctx, instance)
+		if err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("delete finalizer filed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedDeleteFinalizers", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// add labels
 	if shouldChangePolicyLabels(instance) {
-		return r.addPolicyLabels(ctx, instance)
+		if err = r.addPolicyLabels(ctx, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("add labels filed, resource(%s:%s)", instance.Namespace, instance.Name))
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
-	return r.syncResourceAggregatePolicy(ctx, instance)
+	if err = r.syncResourceAggregatePolicy(ctx, instance); err != nil {
+		r.log.Error(err, fmt.Sprintf("sync ResourceAggregatePolicy filed, resource(%s:%s)", instance.Namespace, instance.Name))
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+	}
+	return ctrl.Result{}, nil
 }
 
 // sync ResourceAggregatePolicy
-func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) (ctrl.Result, error) {
+func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) error {
 	if len(instance.Spec.AggregateRules) == 0 || instance.Spec.Clusters == nil {
-		return ctrl.Result{}, nil
+		return nil
 	}
 	clusterNamespaces, err := controllerCommon.GetClusterNamespaces(ctx, r.Client, instance.Spec.Clusters.ClusterType, instance.Spec.Clusters.Clusters, instance.Spec.Clusters.Clusterset)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()))
-		return controllerCommon.ReQueueResult(err)
+		err = fmt.Errorf(fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()), err)
+		return err
 	}
 	if len(clusterNamespaces) <= 0 {
-		err = errors.New("can not find clusterNamespace")
-		r.log.Error(err, fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()))
-		return controllerCommon.ReQueueResult(err)
+		err = fmt.Errorf(fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()), errors.New("can not find clusterNamespace"))
+		return err
 	}
 
 	policyMap, err := getResourceAggregatePolicyMap(ctx, r.Client, common.NewNamespacedName(instance.GetNamespace(), instance.GetName()))
 	if err != nil {
-		r.log.Error(err, "get ResourceAggregatePolicy failed")
-		return controllerCommon.ReQueueResult(err)
+		err = fmt.Errorf(fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()), err)
+		return err
 	}
 
 	for _, clusterNamespace := range clusterNamespaces {
@@ -80,8 +102,8 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 			// get rule
 			rule, err := getPolicyRule(ctx, r.Client, ruleName, instance.GetNamespace())
 			if err != nil {
-				r.log.Error(err, fmt.Sprintf("policyRule(%s:%s) can not find", instance.GetNamespace(), ruleName))
-				continue
+				err = fmt.Errorf(fmt.Sprintf("policyRule(%s:%s) can not find", instance.GetNamespace(), ruleName), err)
+				return err
 			}
 
 			policyMapKey := getResourceAggregatePolicyMapKey(common.NewNamespacedName(instance.GetNamespace(), instance.GetName()), common.NewNamespacedName(rule.GetNamespace(), rule.GetName()))
@@ -91,8 +113,8 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 				resourceAggregatePolicy = newResourceAggregatePolicy(clusterNamespace, rule, instance)
 				err = r.Client.Create(ctx, resourceAggregatePolicy)
 				if err != nil {
-					r.log.Error(err, fmt.Sprintf("create resourceAggregatePolicy(%s:%s) failed", clusterNamespace, resourceAggregatePolicy.Name))
-					return controllerCommon.ReQueueResult(err)
+					err = fmt.Errorf(fmt.Sprintf("create resourceAggregatePolicy(%s:%s) failed", clusterNamespace, resourceAggregatePolicy.Name), err)
+					return err
 				}
 				continue
 			}
@@ -109,26 +131,26 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 			resourceAggregatePolicy.Spec = policySpec
 			err = r.Client.Update(ctx, resourceAggregatePolicy)
 			if err != nil {
-				r.log.Error(err, fmt.Sprintf("update resourceAggregatePolicy(%s:%s) failed", clusterNamespace, resourceAggregatePolicy.Name))
-				return controllerCommon.ReQueueResult(err)
+				err = fmt.Errorf(fmt.Sprintf("update resourceAggregatePolicy(%s:%s) failed", clusterNamespace, resourceAggregatePolicy.Name), err)
+				return err
 			}
 		}
 	}
 
 	if len(policyMap) <= 0 {
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	// delete
 	for _, p := range policyMap {
 		err = r.Client.Delete(ctx, p)
 		if err != nil {
-			r.log.Error(err, fmt.Sprintf("delete resourceAggregatePolicy(%s:%s) failed", p.Namespace, p.Name))
-			return controllerCommon.ReQueueResult(err)
+			err = fmt.Errorf(fmt.Sprintf("delete resourceAggregatePolicy(%s:%s) failed", p.Namespace, p.Name), err)
+			return err
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // add labels
@@ -146,34 +168,12 @@ func shouldChangePolicyLabels(instance *v1alpha1.MultiClusterResourceAggregatePo
 	}
 	return true
 }
-func (r *Reconciler) addPolicyLabels(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) (ctrl.Result, error) {
+func (r *Reconciler) addPolicyLabels(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) error {
 	currentLabels := getPolicyRuleLabels(instance)
 	existLabels := shouldExistLabels(instance)
 
 	instance.SetLabels(replaceLabels(instance.GetLabels(), currentLabels, existLabels))
-	err := r.Client.Update(ctx, instance)
-	if err != nil {
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *Reconciler) addFinalizer(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) (ctrl.Result, error) {
-	err := controllerCommon.AddFinalizer(ctx, r.Client, instance)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("append finalizer filed, resource(%s)", instance.Name))
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *Reconciler) removeFinalizer(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) (ctrl.Result, error) {
-	err := controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("delete finalizer filed, resource(%s)", instance.Name))
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
+	return r.Client.Update(ctx, instance)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -188,6 +188,7 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 		Scheme: mgr.GetScheme(),
 		log:    logf.Log.WithName("multi_resource_aggregate_policy_controller"),
 	}
+	reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-core")
 	return reconciler.SetupWithManager(mgr)
 }
 

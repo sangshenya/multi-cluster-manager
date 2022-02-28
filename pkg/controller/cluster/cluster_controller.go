@@ -38,8 +38,8 @@ type ClusterReconciler struct {
 }
 
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.V(4).Info("start reconcile cluster")
-	defer r.log.V(4).Info("end reconcile cluster")
+	r.log.V(4).Info(fmt.Sprintf("Start Reconciling Cluster(%s:%s)", req.Namespace, req.Name))
+	defer r.log.V(4).Info(fmt.Sprintf("End Reconciling Cluster(%s:%s)", req.Namespace, req.Name))
 
 	cluster := &v1alpha1.Cluster{}
 	err := r.Client.Get(ctx, req.NamespacedName, cluster)

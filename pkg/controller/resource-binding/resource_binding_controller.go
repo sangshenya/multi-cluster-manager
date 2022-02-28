@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
+
+	"k8s.io/client-go/tools/record"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 
@@ -22,13 +25,15 @@ import (
 
 type Reconciler struct {
 	client.Client
-	log    logr.Logger
-	Scheme *runtime.Scheme
+	log      logr.Logger
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	r.log.Info("Reconciling MultiClusterResourceBinding")
+	r.log.V(4).Info(fmt.Sprintf("Start Reconciling ResourceAggregatePolicy(%s:%s)", request.Namespace, request.Name))
+	defer r.log.V(4).Info(fmt.Sprintf("End Reconciling ResourceAggregatePolicy(%s:%s)", request.Namespace, request.Name))
+
 	// get resource
 	instance := &v1alpha1.MultiClusterResourceBinding{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
@@ -38,20 +43,45 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 
 	// add Finalizers
 	if controllerCommon.ShouldAddFinalizer(instance) {
-		return r.addFinalizer(ctx, instance)
+		if err = controllerCommon.AddFinalizer(ctx, r.Client, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("append finalizer failed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedAddFinalizers", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
-		return r.removeFinalizer(ctx, instance)
+		if err = deleteClusterResource(ctx, r.Client, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("delete finalizer plan failed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedDeleteFinalizersPlan", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		if err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("delete finalizer failed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedDeleteFinalizers", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// add labels
 	if shouldChangeBindingLabels(instance) {
-		return r.addBindingLabels(ctx, instance)
+		if err = r.addBindingLabels(ctx, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("add binding labels failed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedAddBindingLabel", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
-	return r.updateStatusAndSyncClusterResource(ctx, instance)
+	if err = r.updateStatusAndSyncClusterResource(ctx, instance); err != nil {
+		r.log.Error(err, fmt.Sprintf("update binding and sync clusterResource failed, resource(%s:%s)", instance.Namespace, instance.Name))
+		r.Recorder.Event(instance, "Warning", "FailedSyncClusterResource", err.Error())
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+	}
+	return ctrl.Result{}, nil
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -66,6 +96,7 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 		Scheme: mgr.GetScheme(),
 		log:    logf.Log.WithName("resource_binding_controller"),
 	}
+	reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-core")
 	return reconciler.SetupWithManager(mgr)
 }
 
@@ -87,31 +118,31 @@ func (r *Reconciler) removeFinalizer(ctx context.Context, instance *v1alpha1.Mul
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) updateStatusAndSyncClusterResource(ctx context.Context, instance *v1alpha1.MultiClusterResourceBinding) (ctrl.Result, error) {
+func (r *Reconciler) updateStatusAndSyncClusterResource(ctx context.Context, instance *v1alpha1.MultiClusterResourceBinding) error {
 	// get ClusterResourceList
 	clusterResourceList, err := getClusterResourceListForBinding(ctx, r.Client, instance)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			r.log.Error(err, fmt.Sprintf("get clusterResource for resource failed, resource(%s)", instance.Name))
-			return controllerCommon.ReQueueResult(err)
+			err = fmt.Errorf(fmt.Sprintf("get clusterResource for resource failed, resource(%s)", instance.Name), err)
+			return err
 		}
 	}
 
 	// sync ClusterResource
 	err = syncClusterResource(ctx, r.Client, clusterResourceList, instance)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("sync ClusterResource failed, resource(%s)", instance.Name))
-		return controllerCommon.ReQueueResult(err)
+		err = fmt.Errorf(fmt.Sprintf("sync ClusterResource failed, resource(%s)", instance.Name), err)
+		return err
 	}
 
 	// update status
 	err = updateBindingStatus(ctx, r.Client, instance, clusterResourceList)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("update binding status failed, resource(%s)", instance.Name))
-		return controllerCommon.ReQueueResult(err)
+		err = fmt.Errorf(fmt.Sprintf("update binding status failed, resource(%s)", instance.Name), err)
+		return err
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func getMultiClusterResourceForName(ctx context.Context, clientSet client.Client, multiClusterResourceName, multiClusterResourceNamespace string) (*v1alpha1.MultiClusterResource, error) {
@@ -200,16 +231,16 @@ func shouldChangeBindingLabels(binding *v1alpha1.MultiClusterResourceBinding) bo
 	}
 	return true
 }
-func (r *Reconciler) addBindingLabels(ctx context.Context, binding *v1alpha1.MultiClusterResourceBinding) (ctrl.Result, error) {
+func (r *Reconciler) addBindingLabels(ctx context.Context, binding *v1alpha1.MultiClusterResourceBinding) error {
 	currentLabels := getMultiClusterResourceLabels(binding)
 	existLabels := shouldExistLabels(binding)
 
 	binding.SetLabels(replaceLabels(binding.GetLabels(), currentLabels, existLabels))
 	err := r.Client.Update(ctx, binding)
 	if err != nil {
-		return controllerCommon.ReQueueResult(err)
+		return err
 	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func replaceLabels(bindingLabels, removeLabels, addLabels map[string]string) map[string]string {

@@ -3,6 +3,7 @@ package namespace_mapping
 import (
 	"context"
 	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
@@ -53,7 +54,7 @@ var _ = Describe("NamespaceMappingController", func() {
 		createdNamespaceMapping := &v1alpha1.NamespaceMapping{}
 		_ = k8sClient.Get(context.TODO(), mappingNamespacedName, createdNamespaceMapping)
 
-		Expect(controllerutil.ContainsFinalizer(createdNamespaceMapping, managerCommon.NamespaceMappingControllerFinalizer)).Should(BeTrue())
+		Expect(controllerutil.ContainsFinalizer(createdNamespaceMapping, managerCommon.FinalizerName)).Should(BeTrue())
 
 	})
 	It(fmt.Sprintf("update namespaceMapping(%s), check finalizers", namespaceMapping.Name), func() {
@@ -70,7 +71,7 @@ var _ = Describe("NamespaceMappingController", func() {
 		rule[cluster] = ns
 		expectKey, _ := controllerCommon.GenerateLabelKey(cluster, "mapping")
 		ctx := context.TODO()
-		createdNamespaceMapping.Spec.Mapping[cluster]=ns
+		createdNamespaceMapping.Spec.Mapping[cluster] = ns
 
 		Expect(k8sClient.Update(ctx, createdNamespaceMapping)).Should(BeNil())
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: mappingNamespacedName})
@@ -82,7 +83,7 @@ var _ = Describe("NamespaceMappingController", func() {
 
 		createdNamespaceMapping = &v1alpha1.NamespaceMapping{}
 		_ = k8sClient.Get(context.TODO(), mappingNamespacedName, createdNamespaceMapping)
-		Expect(controllerutil.ContainsFinalizer(createdNamespaceMapping, managerCommon.NamespaceMappingControllerFinalizer)).Should(BeTrue())
+		Expect(controllerutil.ContainsFinalizer(createdNamespaceMapping, managerCommon.FinalizerName)).Should(BeTrue())
 
 	})
 	It(fmt.Sprintf("delete namespaceMapping(%s), check finalizers", namespaceMapping.Name), func() {
@@ -101,8 +102,7 @@ var _ = Describe("NamespaceMappingController", func() {
 		// check finalizer
 		createdNamespaceMapping := &v1alpha1.NamespaceMapping{}
 		_ = k8sClient.Get(context.TODO(), mappingNamespacedName, createdNamespaceMapping)
-		Expect(controllerutil.ContainsFinalizer(createdNamespaceMapping, managerCommon.NamespaceMappingControllerFinalizer)).Should(BeFalse())
-
+		Expect(controllerutil.ContainsFinalizer(createdNamespaceMapping, managerCommon.FinalizerName)).Should(BeFalse())
 
 	})
 })

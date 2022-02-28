@@ -3,11 +3,11 @@ package controller
 import (
 	"context"
 	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	"harmonycloud.cn/stellaris/pkg/utils/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,7 +26,7 @@ var _ = Describe("ClusterController", func() {
 			Name: clusterName,
 		},
 		Spec: v1alpha1.ClusterSpec{
-			Addons: []v1alpha1.ClusterAddons{},
+			Addons: []v1alpha1.ClusterAddon{},
 		},
 	}
 
@@ -38,14 +38,14 @@ var _ = Describe("ClusterController", func() {
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterNamespacedName})
 		Expect(err).Should(BeNil())
 		// create workspace
-		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterNamespaceInControlPlanePrefix, cluster.Name)
+		clusterWorkspaceName := managerCommon.ClusterNamespace(cluster.Name)
 		clusterWorkspaceExist := &corev1.Namespace{}
 		err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist)
 		Expect(err).Should(BeNil())
 		// add finalizer
 		createdCluster := &v1alpha1.Cluster{}
 		_ = k8sClient.Get(context.TODO(), clusterNamespacedName, createdCluster)
-		Expect(controllerutil.ContainsFinalizer(createdCluster, managerCommon.ClusterControllerFinalizer)).Should(BeTrue())
+		Expect(controllerutil.ContainsFinalizer(createdCluster, managerCommon.ClusterNamespaceInControlPlanePrefix)).Should(BeTrue())
 
 	})
 	It(fmt.Sprintf("update cluster(%s), check cluster finalizers", cluster.Name), func() {
@@ -60,14 +60,14 @@ var _ = Describe("ClusterController", func() {
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterNamespacedName})
 		Expect(err).Should(BeNil())
 		// workspace should exist
-		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterNamespaceInControlPlanePrefix, cluster.Name)
+		clusterWorkspaceName := managerCommon.ClusterNamespace(cluster.Name)
 		clusterWorkspaceExist := &corev1.Namespace{}
 		err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist)
 		Expect(err).Should(BeNil())
 		// check finalizer
 		createdCluster = &v1alpha1.Cluster{}
 		_ = k8sClient.Get(context.TODO(), clusterNamespacedName, createdCluster)
-		Expect(controllerutil.ContainsFinalizer(createdCluster, managerCommon.ClusterControllerFinalizer)).Should(BeTrue())
+		Expect(controllerutil.ContainsFinalizer(createdCluster, managerCommon.FinalizerName)).Should(BeTrue())
 	})
 	It(fmt.Sprintf("delete cluster(%s), check cluster finalizers", cluster.Name), func() {
 		// Expect(k8sClient.Create(ctx, cluster)).Should(BeNil())
@@ -79,12 +79,12 @@ var _ = Describe("ClusterController", func() {
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: clusterNamespacedName})
 		Expect(err).Should(BeNil())
 
-		clusterWorkspaceName, _ := common.GenerateName(managerCommon.ClusterNamespaceInControlPlanePrefix, cluster.Name)
+		clusterWorkspaceName := managerCommon.ClusterNamespace(cluster.Name)
 		clusterWorkspaceExist := &corev1.Namespace{}
 		err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterWorkspaceName}, clusterWorkspaceExist)
 		Expect(clusterWorkspaceExist.Status.Phase).Should(Equal(corev1.NamespaceTerminating))
 
 		// check finalizer
-		Expect(controllerutil.ContainsFinalizer(cluster, managerCommon.ClusterControllerFinalizer)).Should(BeFalse())
+		Expect(controllerutil.ContainsFinalizer(cluster, managerCommon.FinalizerName)).Should(BeFalse())
 	})
 })
