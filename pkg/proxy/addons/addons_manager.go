@@ -10,7 +10,7 @@ import (
 )
 
 type AddonManager struct {
-	addonMap map[string]*model.Addon
+	addonMap map[string]*model.AddonsData
 	sync.RWMutex
 }
 
@@ -18,11 +18,11 @@ var emptyAddonPrefix = "empty-"
 
 func NewAddonManager() *AddonManager {
 	m := &AddonManager{}
-	m.addonMap = make(map[string]*model.Addon)
+	m.addonMap = make(map[string]*model.AddonsData)
 	return m
 }
 
-func (a *AddonManager) AppendAddon(addon *model.Addon) {
+func (a *AddonManager) AppendAddon(addon *model.AddonsData) {
 	if addon == nil {
 		addon = randEmptyAddon()
 	}
@@ -43,8 +43,8 @@ func (a *AddonManager) Len() int {
 	return len(a.addonMap)
 }
 
-func (a *AddonManager) AddonList() []model.Addon {
-	var addonList []model.Addon
+func (a *AddonManager) AddonList() []model.AddonsData {
+	var addonList []model.AddonsData
 	a.RLock()
 	defer a.RUnlock()
 	for _, v := range a.addonMap {
@@ -55,13 +55,13 @@ func (a *AddonManager) AddonList() []model.Addon {
 	return addonList
 }
 
-func randEmptyAddon() *model.Addon {
-	return &model.Addon{
-		Name:       emptyAddonPrefix + rand.String(8),
-		Properties: nil,
+func randEmptyAddon() *model.AddonsData {
+	return &model.AddonsData{
+		Name: emptyAddonPrefix + rand.String(8),
+		Info: nil,
 	}
 }
 
-func isEmptyAddon(addon *model.Addon) bool {
+func isEmptyAddon(addon *model.AddonsData) bool {
 	return strings.HasPrefix(addon.Name, emptyAddonPrefix)
 }

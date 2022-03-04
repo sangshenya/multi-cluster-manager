@@ -8,6 +8,7 @@ type Configuration struct {
 	CoreAddress      string
 	AddonPath        string
 	AddonLoadTimeout time.Duration
+	TestFlag         bool
 }
 
 func DefaultConfiguration() *Configuration {

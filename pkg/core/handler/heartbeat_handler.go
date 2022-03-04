@@ -74,11 +74,15 @@ func (s *CoreServer) updateClusterWithHeartbeat(clusterName string, heartbeatReq
 func (s *CoreServer) updateClusterStatusWithHeartbeat(ctx context.Context, cluster *v1alpha1.Cluster, conditions []model.Condition, healthy bool) error {
 	if len(conditions) > 0 {
 		clusterConditions := core.ConvertCondition2KubeCondition(conditions)
-		cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
+		if len(clusterConditions) > 0 {
+			cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
+		}
 	}
 	if cluster.Status.Status != v1alpha1.OnlineStatus {
 		clusterConditions := clusterHealth.GenerateReadyCondition(true, healthy)
-		cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
+		if len(clusterConditions) > 0 {
+			cluster.Status.Conditions = append(cluster.Status.Conditions, clusterConditions...)
+		}
 	}
 	nowTime := v1.Time{Time: timeutils.NowTimeWithLoc()}
 	cluster.Status.Status = v1alpha1.OnlineStatus
@@ -90,7 +94,7 @@ func (s *CoreServer) updateClusterStatusWithHeartbeat(ctx context.Context, clust
 	return err
 }
 
-func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addons []model.Addon, cluster *v1alpha1.Cluster) (*v1alpha1.Cluster, error) {
+func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addons []model.AddonsData, cluster *v1alpha1.Cluster) (*v1alpha1.Cluster, error) {
 	if len(addons) <= 0 {
 		return cluster, nil
 	}

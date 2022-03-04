@@ -85,7 +85,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
-		if err = r.syncResourceAggregatePolicyToProxy(model.AggregateDelete, instance); err != nil {
+		if err = r.deleteResourceAggregatePolicy(ctx, instance); err != nil {
 			r.log.Error(err, fmt.Sprintf("delete finalizer plan failed, resource(%s:%s)", instance.Namespace, instance.Name))
 			r.Recorder.Event(instance, "Warning", "FailedDeleteFinalizersPlan", err.Error())
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
@@ -105,7 +105,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	return ctrl.Result{}, nil
 }
 
-// syncResourceAggregatePolicy create or update ResourceAggregatePolicy
+// syncResourceAggregatePolicy
+// core send ResourceAggregatePolicy create or update event to proxy
+// proxy aggregate target resource, add config, add informer
 func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.ResourceAggregatePolicy) error {
 	if r.isControlPlane {
 		// core send ResourceAggregatePolicy to proxy
@@ -113,6 +115,16 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 	}
 	// proxy aggregate target resource, add config, add informer
 	return proxyAggregate.AddResourceAggregatePolicy(instance)
+}
+
+// deleteResourceAggregatePolicy
+// core send ResourceAggregatePolicy delete event to proxy
+// proxy delete config and informer
+func (r *Reconciler) deleteResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.ResourceAggregatePolicy) error {
+	if r.isControlPlane {
+		return r.syncResourceAggregatePolicyToProxy(model.AggregateDelete, instance)
+	}
+	return proxyAggregate.RemoveResourceAggregatePolicy(instance)
 }
 
 // sendResourceAggregatePolicyToProxy core send ResourceAggregatePolicy to proxy with create/update/delete event

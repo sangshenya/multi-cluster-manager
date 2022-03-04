@@ -20,8 +20,9 @@ func OfflineCluster(ctx context.Context, client *multclusterclient.Clientset, cl
 	cluster.Status.Status = v1alpha1.OfflineStatus
 	cluster.Status.LastUpdateTimestamp = metav1.Now()
 	conditions := clusterHealth.GenerateReadyCondition(false, false)
-	cluster.Status.Conditions = append(cluster.Status.Conditions, conditions...)
-
+	if len(conditions) > 0 {
+		cluster.Status.Conditions = append(cluster.Status.Conditions, conditions...)
+	}
 	_, err := UpdateClusterStatus(ctx, client, cluster)
 	return err
 }

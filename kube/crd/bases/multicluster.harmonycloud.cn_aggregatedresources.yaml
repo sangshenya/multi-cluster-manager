@@ -29,18 +29,30 @@ spec:
               internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           clusters:
-            properties:
-              name:
-                type: string
-              resourceName:
-                type: string
-              result:
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
-            required:
-            - name
-            - resourceName
-            type: object
+            items:
+              properties:
+                name:
+                  type: string
+                resourceList:
+                  items:
+                    properties:
+                      resourceName:
+                        type: string
+                      result:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                    - resourceName
+                    type: object
+                  type: array
+                resourceNamespace:
+                  type: string
+              required:
+              - name
+              - resourceList
+              - resourceNamespace
+              type: object
+            type: array
           kind:
             description: 'Kind is a string value representing the REST resource this
               object represents. Servers may infer this from the endpoint the client
@@ -55,7 +67,7 @@ spec:
                   properties:
                     name:
                       type: string
-                    resourceName:
+                    resourceNamespace:
                       type: string
                     status:
                       type: string
@@ -64,7 +76,7 @@ spec:
                       type: string
                   required:
                   - name
-                  - resourceName
+                  - resourceNamespace
                   - status
                   - updateTime
                   type: object

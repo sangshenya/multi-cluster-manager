@@ -1,0 +1,66 @@
+run:
+  skip-dirs: # 设置要忽略的目录
+    - template
+    - proto
+    - img
+    - bin
+    - build
+    - charts
+    - design
+    - hack
+    - kube
+    - pkg/client
+  skip-files: # 设置不需要检查的go源码文件，支持正则
+    - _test.go
+linters:
+  # 除了enable选中的linter启用，其他的全部不启用
+  disable-all: true
+  enable:
+    - govet
+    - deadcode
+    - gosimple
+    - ineffassign
+    - staticcheck
+    - structcheck
+    - varcheck
+#    - errcheck
+    - gci
+    - godox
+    - lll
+    - stylecheck
+linters-settings:
+  govet:
+    check-shadowing: true
+  errcheck:
+    # 报告不检查类型断言的错误:' a:= b.(MyStruct) '
+    check-type-assertions: true
+    # 报告给空白标识符赋值错误:' num， _:= strconv.Atoi(numStr) '。
+    check-blank: false
+  gci:
+    # 包排序
+    sections:
+      - standard
+      - default
+      - harmonycloud.cn/stellaris
+  godox:
+    # 报告任何以关键字开头的注释，这对TODO或FIXME注释非常有用
+    keywords:
+      - BUG
+      - FIXME
+      - OPTIMIZE
+      - HACK
+      - TODO
+  lll:
+    # 设置代码单行最大长度为100
+    line-length: 100
+  stylecheck:
+    # Select the Go version to target.
+    go: "1.16"
+    # 此选项设置应该启用哪些检查
+    checks: [ "all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022" ]
+    dot-import-whitelist:
+      - fmt
+    # ST1003检查首字母大写是否正确。可以使用此选项配置已知的首字母缩略词集。
+    initialisms: [ "ACL", "API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "QPS", "RAM", "RPC", "SLA", "SMTP", "SQL", "SSH", "TCP", "TLS", "TTL", "UDP", "UI", "GID", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XMPP", "XSRF", "XSS" ]
+    # ST1013建议使用net/http包中的常量，而不是硬编码数字HTTP状态码。此设置指定此检查不会报错的数字状态码列表。
+    http-status-code-whitelist: [ "200", "400", "404", "500" ]

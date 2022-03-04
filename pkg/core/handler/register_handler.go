@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
+
 	"harmonycloud.cn/stellaris/pkg/controller/resource_aggregate_rule"
 
 	resource_aggregate_policy "harmonycloud.cn/stellaris/pkg/controller/resource-aggregate-policy"
@@ -15,7 +17,6 @@ import (
 	"harmonycloud.cn/stellaris/config"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
 	clusterController "harmonycloud.cn/stellaris/pkg/controller/cluster"
 	table "harmonycloud.cn/stellaris/pkg/core/stream"
 	"harmonycloud.cn/stellaris/pkg/model"
@@ -108,7 +109,10 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 		existCluster.Status.LastReceiveHeartBeatTimestamp = nowTime
 		existCluster.Status.Status = v1alpha1.OnlineStatus
 		existCluster.Status.Healthy = true
-		existCluster.Status.Conditions = append(existCluster.Status.Conditions, clusterHealth.GenerateReadyCondition(true, true)...)
+		conditions := clusterHealth.GenerateReadyCondition(true, true)
+		if len(conditions) > 0 {
+			existCluster.Status.Conditions = append(existCluster.Status.Conditions, conditions...)
+		}
 		_, err = clusterController.UpdateClusterStatus(ctx, s.mClient, existCluster)
 		return err
 	}

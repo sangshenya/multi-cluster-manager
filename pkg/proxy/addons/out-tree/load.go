@@ -1,18 +1,24 @@
 package outTree
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
 
-	"github.com/google/uuid"
 	"harmonycloud.cn/stellaris/pkg/model"
 	"harmonycloud.cn/stellaris/pkg/utils/httprequest"
 )
 
+type OutTreeResponseModel struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    []byte `json:"data,omitempty"`
+}
+
 // load outTree plugins data
-func LoadOutTreeData(url string) (*model.PluginsData, error) {
-	response, err := httprequest.HttpGetWithEmptyHeader(url)
+func LoadOutTreeData(ctx context.Context, out *model.Out) (*model.AddonsData, error) {
+	response, err := httprequest.HttpGetWithEmptyHeader(out.Http.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -25,13 +31,26 @@ func LoadOutTreeData(url string) (*model.PluginsData, error) {
 		return nil, err
 	}
 
-	outTreeData := &model.PluginsData{}
+	outTreeData := &OutTreeResponseModel{}
 	err = json.Unmarshal(data, outTreeData)
 	if err != nil {
 		return nil, err
 	}
-	if len(outTreeData.Uid) <= 0 {
-		outTreeData.Uid = uuid.NewString()
+
+	addonsInfo := model.AddonsInfo{
+		Type:    model.AddonInfoSourceStatic,
+		Address: out.Http.Url,
+		Status:  model.AddonStatusTypeNotReady,
 	}
-	return outTreeData, nil
+
+	if outTreeData.Code == 0 {
+		addonsInfo.Status = model.AddonStatusTypeReady
+	}
+
+	return &model.AddonsData{
+		Name: out.Name,
+		Info: []model.AddonsInfo{
+			addonsInfo,
+		},
+	}, nil
 }

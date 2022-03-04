@@ -5,16 +5,16 @@ import (
 	"harmonycloud.cn/stellaris/pkg/model"
 )
 
-func GetAddonConfig(path string) (*model.PluginsConfig, error) {
+func GetAddonConfig(path string) (*model.AddonsConfig, error) {
 	var configViperConfig = viper.New()
 	configViperConfig.SetConfigFile(path)
 
 	if err := configViperConfig.ReadInConfig(); err != nil {
 		return nil, err
 	}
-	var c model.PluginsConfig
-	if err := configViperConfig.Unmarshal(&c); err != nil {
+	var cfg model.AddonsConfig
+	if err := configViperConfig.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	return &c, nil
+	return &cfg, nil
 }

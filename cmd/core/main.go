@@ -101,17 +101,6 @@ func main() {
 	cfg.ClusterStatusCheckPeriod = time.Duration(clusterStatusCheckPeriod) * time.Second
 	cfg.OnlineExpirationTime = time.Duration(onlineExpirationTime) * time.Second
 
-	s := grpc.NewServer()
-	config.RegisterChannelServer(s, &handler.Channel{
-		Server: handler.NewCoreServer(cfg, mClient),
-	})
-	go func() {
-		logrus.Infof("listening port %d", lisPort)
-		if err := s.Serve(l); err != nil {
-			logrus.Fatalf("grpc server running error: %s", err)
-		}
-	}()
-
 	restCfg := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
 		Scheme:                 coreScheme,
@@ -123,6 +112,17 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("failed create manager: %s", err)
 	}
+
+	s := grpc.NewServer()
+	config.RegisterChannelServer(s, &handler.Channel{
+		Server: handler.NewCoreServer(cfg, mClient, mgr.GetClient()),
+	})
+	go func() {
+		logrus.Infof("listening port %d", lisPort)
+		if err := s.Serve(l); err != nil {
+			logrus.Fatalf("grpc server running error: %s", err)
+		}
+	}()
 
 	// get cue template configmap metadata
 	tmplNs, tmplName, err := cache.SplitMetaNamespaceKey(tmplStr)

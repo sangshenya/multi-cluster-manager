@@ -10,7 +10,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	"harmonycloud.cn/stellaris/pkg/model"
@@ -105,10 +105,4 @@ func newAggregatePolicy(aggregatePolicy *v1alpha1.ResourceAggregatePolicy) *v1al
 
 func AggregatePolicyList(ctx context.Context, clientSet *multclusterclient.Clientset, ns string) (*v1alpha1.ResourceAggregatePolicyList, error) {
 	return clientSet.MulticlusterV1alpha1().ResourceAggregatePolicies(ns).List(ctx, metav1.ListOptions{})
-}
-
-func GetAggregatePolicyListWithLabelSelector(ctx context.Context, clientSet *multclusterclient.Clientset, ns string, ruleName common.NamespacedName) (*v1alpha1.ResourceAggregatePolicyList, error) {
-	return clientSet.MulticlusterV1alpha1().ResourceAggregatePolicies(ns).List(ctx, metav1.ListOptions{
-		LabelSelector: managerCommon.MultiAggregatePolicyLabelName + "=" + ruleName.String(),
-	})
 }

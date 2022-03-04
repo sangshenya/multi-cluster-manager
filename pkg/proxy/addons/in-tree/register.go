@@ -1,6 +1,7 @@
 package inTree
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,17 +14,20 @@ var (
 )
 
 type addonsLoader interface {
-	Load() (*model.PluginsData, error)
+	Load(ctx context.Context, inTree *model.In) (*model.AddonsData, error)
 }
 
 type AddonRegisterType string
 
 const (
-	Prometheus    AddonRegisterType = "prometheus"
-	Elasticsearch AddonRegisterType = "elasticsearch"
-	Ingress       AddonRegisterType = "ingress"
-	ApiServer     AddonRegisterType = "apiserver"
-	Etcd          AddonRegisterType = "etcd"
+	Prometheus        AddonRegisterType = "prometheus"
+	Elasticsearch     AddonRegisterType = "elasticsearch"
+	Ingress           AddonRegisterType = "ingress"
+	ApiServer         AddonRegisterType = "kube-apiserver-healthy"
+	ControllerManager AddonRegisterType = "kube-controller-manager-healthy"
+	Scheduler         AddonRegisterType = "kube-scheduler-healthy"
+	Etcd              AddonRegisterType = "kube-etcd-healthy"
+	CoreDNS           AddonRegisterType = "coredns"
 )
 
 func (a AddonRegisterType) String() string {
@@ -33,18 +37,18 @@ func (a AddonRegisterType) String() string {
 func init() {
 	AddonsRegisterMap = map[string]addonsLoader{}
 	// register inTree addons
-	//AddonsRegisterMap[Prometheus.String()] = &prometheusAddons{}
-	//AddonsRegisterMap[Elasticsearch.String()] = &esAddons{}
-	//AddonsRegisterMap[Ingress.String()] = &ingressAddons{}
-	AddonsRegisterMap[ApiServer.String()] = &apiServerAddons{}
-	AddonsRegisterMap[Etcd.String()] = &etcdAddons{}
+	AddonsRegisterMap[ApiServer.String()] = &kubeAddons{}
+	AddonsRegisterMap[Etcd.String()] = &kubeAddons{}
+	AddonsRegisterMap[ControllerManager.String()] = &kubeAddons{}
+	AddonsRegisterMap[Scheduler.String()] = &kubeAddons{}
+	AddonsRegisterMap[CoreDNS.String()] = &coreDNSAddons{}
 }
 
 // load inTree plugins data
-func LoadInTreeData(name string) (*model.PluginsData, error) {
-	loader, ok := AddonsRegisterMap[strings.ToLower(name)]
+func LoadInTreeData(ctx context.Context, inTree *model.In) (*model.AddonsData, error) {
+	loader, ok := AddonsRegisterMap[strings.ToLower(inTree.Name)]
 	if !ok || loader == nil {
-		return nil, errors.New(fmt.Sprintf("can not find inTree(%s)", name))
+		return nil, errors.New(fmt.Sprintf("can not find inTree(%s)", inTree.Name))
 	}
-	return loader.Load()
+	return loader.Load(ctx, inTree)
 }

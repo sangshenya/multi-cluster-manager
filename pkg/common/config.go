@@ -23,6 +23,7 @@ const (
 	Scheduler                                   = "multiclusterresourceschedulepolicy"
 	AggregateResourceGvkLabelName               = "stellaris/AggregateResourceGvk"
 	AggregateRuleLabelName                      = "stellaris/AggregateRule"
+	AggregatePolicyLabelName                    = "stellaris/AggregatePolicy"
 	MultiAggregatePolicyLabelName               = "stellaris/MultiAggregatePolicy"
 )
 

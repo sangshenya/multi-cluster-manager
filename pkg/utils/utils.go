@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"encoding/json"
+
 	"cuelang.org/go/cue/build"
 	"cuelang.org/go/cue/parser"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
@@ -38,19 +40,27 @@ func GenerateNamespaceInControlPlane(cluster *v1alpha1.Cluster) *corev1.Namespac
 	}
 }
 
-func ConvertCluster2AddonsModel(cluster v1alpha1.Cluster) model.Plugins {
-	addons := model.Plugins{
+func ConvertCluster2AddonsModel(cluster v1alpha1.Cluster) model.Addons {
+	addons := model.Addons{
 		InTree: make([]model.In, 0, 1),
 	}
 	for _, addon := range cluster.Spec.Addons {
 		if addon.Type != v1alpha1.InTreeType {
 			continue
 		}
-		// TODO convert configuration to properties
-		addonCfg := model.In{
-			Name: addon.Name,
+		addonCfgData, err := addon.Configuration.MarshalJSON()
+		if err != nil {
+			continue
 		}
-		addons.InTree = append(addons.InTree, addonCfg)
+		inTreeCfg := &model.InTreeConfig{}
+		err = json.Unmarshal(addonCfgData, inTreeCfg)
+		if err != nil {
+			continue
+		}
+		addons.InTree = append(addons.InTree, model.In{
+			Name:           addon.Name,
+			Configurations: inTreeCfg,
+		})
 	}
 	return addons
 }

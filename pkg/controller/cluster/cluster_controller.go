@@ -55,7 +55,6 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 		}
 	}
-
 	// delete event need delete cluster
 	if !cluster.DeletionTimestamp.IsZero() {
 		if err := r.deleteCluster(ctx, cluster); err != nil {
@@ -69,7 +68,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if cluster.Annotations[AutoDeployProxyAnnotationKey] == AutoDeployProxyAnnotationValue &&
 		(cluster.Status.Status == "" || cluster.Status.Status == v1alpha1.InitializingStatus) {
 		cluster.Status.Status = v1alpha1.InitializingStatus
-		if err := r.Status().Update(ctx, cluster); err != nil {
+		if err := r.Client.Status().Update(ctx, cluster); err != nil {
 			r.log.Error(err, "failed update cluster status", "clusterName", cluster.Name)
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 		}
@@ -108,7 +107,7 @@ func (r *ClusterReconciler) deleteCluster(ctx context.Context, cluster *v1alpha1
 func (r *ClusterReconciler) kubeconfigGetterForStellarisCluster(cluster *v1alpha1.Cluster) clientcmd.KubeconfigGetter {
 	return func() (*api.Config, error) {
 		secret := &corev1.Secret{}
-		if err := r.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Spec.SecretRef.Namespace, Name: cluster.Spec.SecretRef.Name}, secret); err != nil {
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Spec.SecretRef.Namespace, Name: cluster.Spec.SecretRef.Name}, secret); err != nil {
 			return nil, err
 		}
 		data, ok := secret.Data[cluster.Spec.SecretRef.Field]
@@ -158,7 +157,7 @@ func (r *ClusterReconciler) deployProxy(ctx context.Context, cluster *v1alpha1.C
 	}
 
 	cm := &corev1.ConfigMap{}
-	if err := r.Get(ctx, r.tmplNamespacedName, cm); err != nil {
+	if err := r.Client.Get(ctx, r.tmplNamespacedName, cm); err != nil {
 		return err
 	}
 

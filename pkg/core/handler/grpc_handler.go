@@ -4,17 +4,20 @@ import (
 	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
 	corecfg "harmonycloud.cn/stellaris/pkg/core/config"
 	"harmonycloud.cn/stellaris/pkg/model"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CoreServer struct {
-	Handlers map[string][]Fn
-	Config   *corecfg.Configuration
-	mClient  *multclusterclient.Clientset
+	Handlers  map[string][]Fn
+	Config    *corecfg.Configuration
+	mClient   *multclusterclient.Clientset
+	clientSet client.Client
 }
 
-func NewCoreServer(cfg *corecfg.Configuration, mClient *multclusterclient.Clientset) *CoreServer {
+func NewCoreServer(cfg *corecfg.Configuration, mClient *multclusterclient.Clientset, clientSet client.Client) *CoreServer {
 	s := &CoreServer{Config: cfg}
 	s.mClient = mClient
+	s.clientSet = clientSet
 	s.init()
 	return s
 }

@@ -31,6 +31,9 @@ func deleteClusterResource(ctx context.Context, clientSet client.Client, binding
 		return err
 	}
 	for _, item := range clusterResourceList.Items {
+		if !item.GetDeletionTimestamp().IsZero() {
+			continue
+		}
 		err = clientSet.Delete(ctx, &item)
 		if err != nil {
 			return err

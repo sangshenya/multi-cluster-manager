@@ -3,22 +3,27 @@ package informers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
-	"harmonycloud.cn/stellaris/pkg/proxy/aggregate/match"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	utils "harmonycloud.cn/stellaris/pkg/utils/common"
 
 	proxysend "harmonycloud.cn/stellaris/pkg/proxy/send"
+
+	"harmonycloud.cn/stellaris/pkg/proxy/aggregate/match"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	"harmonycloud.cn/stellaris/pkg/model"
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 
-	resource_aggregate_policy "harmonycloud.cn/stellaris/pkg/controller/resource-aggregate-policy"
-
-	"harmonycloud.cn/stellaris/pkg/controller/resource_aggregate_rule"
 	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,7 +32,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -77,15 +81,15 @@ func NewController(controllerName string, resourceRef *metav1.GroupVersionKind, 
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
 
 	if clientSet != nil && clientSet.CoreV1().RESTClient().GetRateLimiter() != nil {
-		if err := ratelimiter.RegisterMetricAndTrackRateLimiterUsage(controllerName, clientSet.CoreV1().RESTClient().GetRateLimiter()); err != nil {
+		if err := ratelimiter.RegisterMetricAndTrackRateLimiterUsage(strings.ToLower(resourceRef.Kind)+"_controller", clientSet.CoreV1().RESTClient().GetRateLimiter()); err != nil {
 			return nil, err
 		}
 	}
 
 	c := &Controller{
 		clientSet:     clientSet,
-		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: controllerName}),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: strings.ToLower(resourceRef.Kind) + "-controller"}),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), strings.ToLower(resourceRef.Kind)),
 	}
 
 	c.controllerName = controllerName
@@ -101,6 +105,8 @@ func NewController(controllerName string, resourceRef *metav1.GroupVersionKind, 
 	c.syncHandler = c.syncResource
 	c.enqueueResource = c.enqueue
 
+	c.log = logf.Log.WithName(strings.ToLower(resourceRef.Kind) + "_controller")
+
 	return c, nil
 }
 
@@ -109,11 +115,8 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 	c.log.Info(fmt.Sprintf("start controller(%s)", c.controllerName))
-	defer c.log.Info(fmt.Sprintf("shutting down controller(%s)", c.controllerName))
 
-	c.informer.Informer().HasSynced()
-
-	if !cache.WaitForNamedCacheSync(c.controllerName, stopCh, c.informer.Informer().HasSynced) {
+	if !cache.WaitForNamedCacheSync(strings.ToLower(c.resourceRef.Kind), stopCh, c.informer.Informer().HasSynced) {
 		return
 	}
 	for i := 0; i < workers; i++ {
@@ -121,6 +124,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	<-stopCh
+	c.log.Info(fmt.Sprintf("shutting down controller(%s)", c.controllerName))
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
@@ -144,7 +148,7 @@ func (c *Controller) processNextWorkItem() bool {
 }
 
 func (c *Controller) handleErr(err error, key interface{}) {
-	if err == nil || errors.HasStatusCause(err, v1.NamespaceTerminatingCause) {
+	if err == nil || apierrors.HasStatusCause(err, v1.NamespaceTerminatingCause) {
 		c.queue.Forget(key)
 		return
 	}
@@ -206,7 +210,11 @@ func (c *Controller) syncResource(key string) error {
 
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.Object = unstructuredMap
-	//unstructuredResource.SetGroupVersionKind(c.resourceRef)
+	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   c.resourceRef.Group,
+		Version: c.resourceRef.Version,
+		Kind:    c.resourceRef.Kind,
+	})
 
 	ctx := context.Background()
 	if !match.IsTargetResource(ctx, c.resourceRef, unstructuredResource) {
@@ -214,7 +222,7 @@ func (c *Controller) syncResource(key string) error {
 	}
 
 	// get target resource info
-	err = c.getTargetResourceInfo(ctx, unstructuredResource)
+	err = c.aggregateResourceAndSendToCore(ctx, unstructuredResource)
 	if err != nil {
 		return err
 	}
@@ -250,58 +258,87 @@ func (c *Controller) deleteResource(obj interface{}) {
 	c.enqueue(resource)
 }
 
-func (c *Controller) getTargetResourceInfo(ctx context.Context, object client.Object) error {
-	// find rule
-	ruleList, err := resource_aggregate_rule.GetAggregateRuleListWithLabelSelector(ctx, proxy_cfg.ProxyConfig.ProxyClient, c.resourceRef, metav1.NamespaceAll)
+func (c *Controller) aggregateResourceAndSendToCore(ctx context.Context, object client.Object) error {
+	data, err := c.getTargetResourceInfo(ctx, object)
 	if err != nil {
 		return err
 	}
+	err = c.sendAggregateResourceToCore(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
+func (c *Controller) getTargetResourceInfo(ctx context.Context, object client.Object) ([]byte, error) {
+	// find rule
+	ruleList, err := utils.GetAggregateRuleListWithLabelSelector(ctx, proxy_cfg.ProxyConfig.ProxyClient, c.resourceRef, metav1.NamespaceAll)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ruleList.Items) == 0 {
+		return nil, errors.New("rule list is empty")
+	}
+
+	modelList := &model.AggregateResourceDataModelList{
+		List: make([]model.AggregateResourceDataModel, 0, 1),
+	}
 	for _, rule := range ruleList.Items {
-		policyList, err := resource_aggregate_policy.GetAggregatePolicyListWithLabelSelector(ctx, proxy_cfg.ProxyConfig.ProxyClient, managerCommon.ManagerNamespace, common.NamespacedName{
+		policyList, err := utils.GetAggregatePolicyListWithLabelSelector(ctx, proxy_cfg.ProxyConfig.ProxyClient, managerCommon.ManagerNamespace, common.NamespacedName{
 			Namespace: rule.GetNamespace(),
 			Name:      rule.GetName(),
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		resourceData, err := cueRender.RenderCue(object, rule.Spec.Rule.Cue, "")
 		if err != nil {
-			return err
+			return nil, err
 		}
+
 		for _, policy := range policyList.Items {
-			resourceDataModel := NewAggregateResourceDataRequest(&rule, &policy, object, resourceData)
-			data, err := json.Marshal(resourceDataModel)
-			if err != nil {
-				return err
+			data := NewAggregateResourceDataRequest(&rule, &policy, object, resourceData)
+			if data == nil {
+				continue
 			}
-			request, err := proxysend.NewAggregateRequest(proxy_cfg.ProxyConfig.Cfg.ClusterName, string(data))
-			if err != nil {
-				return err
-			}
-			err = proxysend.SendSyncResourceRequest(request)
-			if err != nil {
-				return err
-			}
+			modelList.List = append(modelList.List, *data)
 		}
+	}
+	data, err := json.Marshal(modelList)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (c *Controller) sendAggregateResourceToCore(data []byte) error {
+	request, err := proxysend.NewAggregateRequest(proxy_cfg.ProxyConfig.Cfg.ClusterName, string(data))
+	if err != nil {
+		return err
+	}
+	err = proxysend.SendSyncAggregateRequest(request)
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
 func NewAggregateResourceDataRequest(rule *v1alpha1.MultiClusterResourceAggregateRule, policy *v1alpha1.ResourceAggregatePolicy, object client.Object, resourceData []byte) *model.AggregateResourceDataModel {
 	data := &model.AggregateResourceDataModel{}
-	data.ResourceAggregatePolicy = &common.NamespacedName{
+	data.ResourceAggregatePolicy = common.NamespacedName{
 		Namespace: managerCommon.ClusterNamespace(proxy_cfg.ProxyConfig.Cfg.ClusterName),
 		Name:      policy.GetName(),
 	}
-	data.MultiClusterResourceAggregateRule = &common.NamespacedName{
+	data.MultiClusterResourceAggregateRule = common.NamespacedName{
 		Namespace: rule.GetNamespace(),
 		Name:      rule.GetName(),
 	}
+	data.ResourceRef = rule.Spec.ResourceRef
 	data.TargetResourceData = append(data.TargetResourceData, model.TargetResourceDataModel{
 		Namespace: object.GetNamespace(),
 		ResourceInfoList: []model.ResourceDataModel{
-			model.ResourceDataModel{
+			{
 				Name:         object.GetName(),
 				ResourceData: resourceData,
 			},

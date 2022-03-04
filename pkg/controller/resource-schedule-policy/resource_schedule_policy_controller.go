@@ -798,7 +798,7 @@ func (r *Reconciler) checkNamespaceMapping(ctx context.Context, policy *v1alpha1
 	if err != nil {
 		return err
 	}
-	if value, ok := labels[mappingK]; ok {
+	if value, ok := labels[mappingK]; ok && len(value) > 0 {
 		bindingResourceCluster.Override = append(bindingResourceCluster.Override, apicommon.JSONPatch{
 			Path:  pkgcommon.BindingPathNamespace,
 			Op:    pkgcommon.BindingOpReplace,

@@ -54,7 +54,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
 		if r.isControlPlane {
-			// TODO send request to proxy delete event
+			if err = r.sendAggregateRuleToProxy(ctx, model.AggregateDelete, instance); err != nil {
+				r.log.Error(err, fmt.Sprintf("send delete event to proxy failed, resource(%s:%s)", instance.Namespace, instance.Name))
+				r.Recorder.Event(instance, "Warning", "FailedSendDeleteEventToProxy", err.Error())
+				return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+			}
 		}
 		if err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance); err != nil {
 			r.log.Error(err, fmt.Sprintf("delete finalizer failed, resource(%s:%s)", instance.Namespace, instance.Name))
@@ -80,10 +84,11 @@ func (r *Reconciler) syncResourceAggregateRule(ctx context.Context, instance *v1
 		return nil
 	}
 	// send rule to proxy
-	return r.sendAggregateRuleToProxy(ctx, instance)
+	return r.sendAggregateRuleToProxy(ctx, model.AggregateUpdateOrCreate, instance)
 }
 
-func (r *Reconciler) sendAggregateRuleToProxy(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregateRule) error {
+// sendAggregateRuleToProxy send rule to proxy when rule update/create/delete
+func (r *Reconciler) sendAggregateRuleToProxy(ctx context.Context, eventType model.ServiceResponseType, instance *v1alpha1.MultiClusterResourceAggregateRule) error {
 	aggregateModel := &model.SyncAggregateResourceModel{
 		RuleList: []v1alpha1.MultiClusterResourceAggregateRule{*instance},
 	}
@@ -103,7 +108,7 @@ func (r *Reconciler) sendAggregateRuleToProxy(ctx context.Context, instance *v1a
 			r.log.Info(fmt.Sprintf("clusterName is empty or cluster status is offline"))
 			continue
 		}
-		ruleResponse, err := coreSender.NewResponse(model.AggregateUpdateOrCreate, cluster.GetName(), string(jsonString))
+		ruleResponse, err := coreSender.NewResponse(eventType, cluster.GetName(), string(jsonString))
 		if err != nil {
 			err = fmt.Errorf(fmt.Sprintf("new rule response failed, rule(%s:%s)", instance.Namespace, instance.Name), err)
 			return err
@@ -136,24 +141,6 @@ func shouldAddRuleLabels(instance *v1alpha1.MultiClusterResourceAggregateRule) b
 		return false
 	}
 	return true
-}
-
-func (r *Reconciler) addFinalizer(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregateRule) (ctrl.Result, error) {
-	err := controllerCommon.AddFinalizer(ctx, r.Client, instance)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("append finalizer filed, resource(%s)", instance.Name))
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *Reconciler) removeFinalizer(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregateRule) (ctrl.Result, error) {
-	err := controllerCommon.RemoveFinalizer(ctx, r.Client, instance)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("delete finalizer filed, resource(%s)", instance.Name))
-		return controllerCommon.ReQueueResult(err)
-	}
-	return ctrl.Result{}, nil
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {

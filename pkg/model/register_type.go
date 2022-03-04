@@ -3,7 +3,7 @@ package model
 import "harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 
 type RegisterRequest struct {
-	Addons []Addon `json:"addons"`
+	Addons []AddonsData `json:"addons"`
 }
 
 type RegisterResponse struct {
@@ -17,9 +17,4 @@ func (r *RegisterResponse) IsEmpty() bool {
 		return true
 	}
 	return false
-}
-
-type Addon struct {
-	Name       string      `json:"name"`
-	Properties interface{} `json:"properties,omitempty"`
 }

@@ -2,7 +2,8 @@ package model
 
 import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type SyncAggregateResourceModel struct {
@@ -19,9 +20,14 @@ const (
 	DeleteResource         SyncAggregateResourceType = "Delete"
 )
 
+type AggregateResourceDataModelList struct {
+	List []AggregateResourceDataModel `json:"list"`
+}
+
 type AggregateResourceDataModel struct {
-	ResourceAggregatePolicy           *common.NamespacedName    `json:"resourceAggregatePolicy"`
-	MultiClusterResourceAggregateRule *common.NamespacedName    `json:"multiClusterResourceAggregateRule"`
+	ResourceAggregatePolicy           common.NamespacedName     `json:"resourceAggregatePolicy"`
+	MultiClusterResourceAggregateRule common.NamespacedName     `json:"multiClusterResourceAggregateRule"`
+	ResourceRef                       *metav1.GroupVersionKind  `json:"resourceRef"`
 	TargetResourceData                []TargetResourceDataModel `json:"targetResourceData"`
 }
 

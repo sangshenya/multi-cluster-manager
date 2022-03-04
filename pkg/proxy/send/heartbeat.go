@@ -6,14 +6,14 @@ import (
 	"sync"
 	"time"
 
+	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
+	"harmonycloud.cn/stellaris/pkg/model"
 	"harmonycloud.cn/stellaris/pkg/proxy/addons"
 	"harmonycloud.cn/stellaris/pkg/proxy/condition"
 	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
 	proxy_stream "harmonycloud.cn/stellaris/pkg/proxy/stream"
-	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
-	"harmonycloud.cn/stellaris/pkg/model"
-	"harmonycloud.cn/stellaris/pkg/utils/proxy"
 	"harmonycloud.cn/stellaris/pkg/utils/common"
+	"harmonycloud.cn/stellaris/pkg/utils/proxy"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -73,8 +73,8 @@ func SetLastHeartbeat(request *model.HeartbeatWithChangeRequest) {
 	heartbeat.LastHeartbeat = request
 }
 
-func (heartbeat *HeartbeatObject) getAddon() []model.Addon {
-	var addonsInfo []model.Addon
+func (heartbeat *HeartbeatObject) getAddon() []model.AddonsData {
+	var addonsInfo []model.AddonsData
 	if len(proxy_cfg.ProxyConfig.Cfg.AddonPath) == 0 {
 		return addonsInfo
 	}
@@ -86,7 +86,7 @@ func (heartbeat *HeartbeatObject) getAddon() []model.Addon {
 	return addonsInfo
 }
 
-func isEqualAddons(new, old []model.Addon) bool {
+func isEqualAddons(new, old []model.AddonsData) bool {
 	if len(old) == 0 {
 		return false
 	}
@@ -96,8 +96,8 @@ func isEqualAddons(new, old []model.Addon) bool {
 	return reflect.DeepEqual(getAddonMap(new), getAddonMap(old))
 }
 
-func getAddonMap(addonList []model.Addon) map[string]model.Addon {
-	addonMap := map[string]model.Addon{}
+func getAddonMap(addonList []model.AddonsData) map[string]model.AddonsData {
+	addonMap := map[string]model.AddonsData{}
 	for _, item := range addonList {
 		addonMap[item.Name] = item
 	}

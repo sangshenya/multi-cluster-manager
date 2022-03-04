@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 
+	"harmonycloud.cn/stellaris/pkg/proxy/aggregate"
+
 	resource_aggregate_policy "harmonycloud.cn/stellaris/pkg/controller/resource-aggregate-policy"
 	"harmonycloud.cn/stellaris/pkg/controller/resource_aggregate_rule"
 
-	"harmonycloud.cn/stellaris/pkg/proxy/send"
+	proxysend "harmonycloud.cn/stellaris/pkg/proxy/send"
 
 	clusterResourceController "harmonycloud.cn/stellaris/pkg/controller/cluster-resource"
 
@@ -35,7 +37,7 @@ func RecvRegisterResponse(response *config.Response) {
 	}
 
 	registerLog.Info(fmt.Sprintf("start send heartbeat"))
-	go send.HeartbeatStart()
+	go proxysend.HeartbeatStart()
 
 	err = dealResponse(proxy_cfg.ProxyConfig.ProxyClient, response)
 	if err != nil {
@@ -57,14 +59,39 @@ func dealResponse(proxyClient *multclusterclient.Clientset, response *config.Res
 
 func syncResource(proxyClient *multclusterclient.Clientset, resourceList *model.RegisterResponse) error {
 	ctx := context.Background()
+	if len(resourceList.ResourceAggregatePolicies) != 0 && len(resourceList.MultiClusterResourceAggregateRules) != 0 {
+		err := aggregateResourceWhenRegister(ctx, resourceList.MultiClusterResourceAggregateRules, resourceList.ResourceAggregatePolicies)
+		if err != nil {
+			registerLog.Error(err, "aggregate resource failed when register")
+		}
+	}
 	if err := syncClusterResourcesList(ctx, proxyClient, resourceList.ClusterResources); err != nil {
 		return err
 	}
 	if err := resource_aggregate_policy.SyncAggregatePolicyList(ctx, proxyClient, model.SyncResource, resourceList.ResourceAggregatePolicies); err != nil {
 		return err
 	}
-
 	if err := resource_aggregate_rule.SyncAggregateRuleList(ctx, proxyClient, model.SyncResource, resourceList.MultiClusterResourceAggregateRules); err != nil {
+		return err
+	}
+	return nil
+}
+
+func aggregateResourceWhenRegister(ctx context.Context, ruleList []v1alpha1.MultiClusterResourceAggregateRule, policyList []v1alpha1.ResourceAggregatePolicy) error {
+	modelList, err := aggregate.AggregateResourceWithResourceList(ctx, ruleList, policyList)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(modelList)
+	if err != nil {
+		return err
+	}
+	request, err := proxysend.NewAggregateRequest(proxy_cfg.ProxyConfig.Cfg.ClusterName, string(data))
+	if err != nil {
+		return err
+	}
+	err = proxysend.SendSyncAggregateRequest(request)
+	if err != nil {
 		return err
 	}
 	return nil

@@ -3,9 +3,9 @@ package model
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type HeartbeatWithChangeRequest struct {
-	Healthy    bool        `json:"healthy"`
-	Addons     []Addon     `json:"addons"`
-	Conditions []Condition `json:"conditions"`
+	Healthy    bool         `json:"healthy"`
+	Addons     []AddonsData `json:"addons"`
+	Conditions []Condition  `json:"conditions"`
 }
 
 type Condition struct {

@@ -113,7 +113,10 @@ func (r *NamespaceMappingReconciler) mappingOperator(ctx context.Context, namesp
 			if err != nil {
 				return err
 			}
-			delete(labels, labelK)
+			if len(labelK) > 0 {
+				delete(labels, labelK)
+			}
+
 			workspace.SetLabels(labels)
 			err = r.Client.Update(ctx, workspace)
 			if err != nil {

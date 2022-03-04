@@ -39,7 +39,7 @@ func NewCluster(clusterName string) *v1alpha1.Cluster {
 	}
 }
 
-func ConvertRegisterAddons2KubeAddons(addons []model.Addon) ([]v1alpha1.ClusterAddonStatus, error) {
+func ConvertRegisterAddons2KubeAddons(addons []model.AddonsData) ([]v1alpha1.ClusterAddonStatus, error) {
 	var result []v1alpha1.ClusterAddonStatus
 	for _, addon := range addons {
 		if len(addon.Name) <= 0 {
@@ -48,11 +48,11 @@ func ConvertRegisterAddons2KubeAddons(addons []model.Addon) ([]v1alpha1.ClusterA
 		clusterAddon := v1alpha1.ClusterAddonStatus{
 			Name: addon.Name,
 		}
-		if addon.Properties == nil {
+		if addon.Info == nil {
 			result = append(result, clusterAddon)
 			continue
 		}
-		raw, err := Object2RawExtension(addon.Properties)
+		raw, err := Object2RawExtension(addon.Info)
 		if err != nil {
 			return nil, err
 		}
@@ -74,6 +74,20 @@ func ConvertCondition2KubeCondition(conditions []model.Condition) []common.Condi
 		result = append(result, clusterCondition)
 	}
 	return result
+}
+
+func ConvertResourceInfoList2KubeResourceInfoList(infoList []model.ResourceDataModel) []v1alpha1.ResourceInfo {
+	kubeResourceInfoList := []v1alpha1.ResourceInfo{}
+	for _, item := range infoList {
+		kubeResourceInfo := v1alpha1.ResourceInfo{
+			ResourceName: item.Name,
+			Result: runtime.RawExtension{
+				Raw: item.ResourceData,
+			},
+		}
+		kubeResourceInfoList = append(kubeResourceInfoList, kubeResourceInfo)
+	}
+	return kubeResourceInfoList
 }
 
 func Object2RawExtension(obj interface{}) (*runtime.RawExtension, error) {

@@ -62,7 +62,7 @@ func (i *InformerControllerConfigMap) GetControllerConfig(resourceRef *metav1.Gr
 
 func RemoveResourceAggregatePolicy(policy *v1alpha1.ResourceAggregatePolicy) error {
 	controllerConfig := informerControllerConfigMap.GetControllerConfig(policy.Spec.ResourceRef)
-	if controllerConfig != nil {
+	if controllerConfig == nil {
 		return nil
 	}
 
@@ -75,6 +75,7 @@ func RemoveResourceAggregatePolicy(policy *v1alpha1.ResourceAggregatePolicy) err
 	return nil
 }
 
+// add resource config then add informer controller when controller is not found
 func AddResourceAggregatePolicy(policy *v1alpha1.ResourceAggregatePolicy) error {
 	err := resourceConfig.ResourceConfig.AddConfig(policy)
 	if err != nil {
@@ -106,11 +107,13 @@ func AddResourceAggregatePolicy(policy *v1alpha1.ResourceAggregatePolicy) error 
 		kubeClient,
 		informer,
 	)
+
 	if err != nil {
 		return err
 	}
 
 	stopCh := make(chan struct{})
+	go informer.Informer().Run(stopCh)
 	go resourceController.Run(2, stopCh)
 
 	informerControllerConfigMap.AddControllerConfig(policy.Spec.ResourceRef, stopCh)

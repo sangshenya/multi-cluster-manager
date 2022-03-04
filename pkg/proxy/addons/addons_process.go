@@ -18,9 +18,9 @@ import (
 
 var addonsLog = logf.Log.WithName("proxy_addon")
 
-func LoadAddon(cfg *model.PluginsConfig) []model.Addon {
-	if len(cfg.Plugins.InTree) <= 0 && len(cfg.Plugins.OutTree) <= 0 {
-		return []model.Addon{}
+func LoadAddon(cfg *model.AddonsConfig) []model.AddonsData {
+	if len(cfg.Addons.InTree) <= 0 && len(cfg.Addons.OutTree) <= 0 {
+		return []model.AddonsData{}
 	}
 
 	deadline := time.Now().Add(proxy_cfg.ProxyConfig.Cfg.AddonLoadTimeout)
@@ -28,60 +28,54 @@ func LoadAddon(cfg *model.PluginsConfig) []model.Addon {
 	defer cancel()
 
 	addCh := model.AddonsChannel{}
-	for _, in := range cfg.Plugins.InTree {
-		channels := make(chan *model.Addon)
+	for _, in := range cfg.Addons.InTree {
+
+		channels := make(chan *model.AddonsData)
 		addCh.Channels = append(addCh.Channels, channels)
 
-		go runPlugins(in.Name, "", channels)
+		go func(ch chan *model.AddonsData, inTreeCfg model.In) {
+			res := getInTreeAddon(deadlineCtx, &inTreeCfg)
+			ch <- res
+		}(channels, in)
 	}
 
-	for _, out := range cfg.Plugins.OutTree {
-		channels := make(chan *model.Addon)
+	for _, out := range cfg.Addons.OutTree {
+		channels := make(chan *model.AddonsData)
 		addCh.Channels = append(addCh.Channels, channels)
 
-		go runPlugins(out.Name, out.Url, channels)
+		go func(ch chan *model.AddonsData, outTreeCfg model.Out) {
+			res := getOutTreeAddon(deadlineCtx, &outTreeCfg)
+			ch <- res
+		}(channels, out)
 	}
 
 	addonsInfo := getAddonsInfo(deadlineCtx, addCh)
 	return addonsInfo
 }
 
-func getAddon(name string, url string) *model.Addon {
-	if len(name) == 0 {
+func getOutTreeAddon(ctx context.Context, out *model.Out) *model.AddonsData {
+	// load outTree data
+	outTreeData, err := outTree.LoadOutTreeData(ctx, out)
+	if err != nil || outTreeData == nil {
+		addonsLog.Error(err, fmt.Sprintf("get outTree plugin(%s) info failed", out.Name))
 		return nil
 	}
-	res := &model.Addon{
-		Name: name,
-	}
-	if len(url) != 0 {
-		// load outTree data
-		outTreeData, err := outTree.LoadOutTreeData(url)
-		if err != nil || outTreeData == nil {
-			addonsLog.Error(err, fmt.Sprintf("get outTree plugin(%s) info failed", url))
-			return nil
-		}
-		res.Properties = outTreeData
-		return res
-	}
-	// load inTree data
-	inTreeData, err := inTree.LoadInTreeData(name)
+	return outTreeData
+}
+
+func getInTreeAddon(ctx context.Context, in *model.In) *model.AddonsData {
+	inTreeData, err := inTree.LoadInTreeData(ctx, in)
 	if err != nil || inTreeData == nil {
-		addonsLog.Error(err, fmt.Sprintf("get inTree plugin(%s) info failed", name))
+		addonsLog.Error(err, fmt.Sprintf("get inTree plugin(%s) info failed", in.Name))
 		return nil
 	}
-	res.Properties = inTreeData
-	return res
+	return inTreeData
 }
 
-func runPlugins(name, url string, ch chan *model.Addon) {
-	res := getAddon(name, url)
-	ch <- res
-}
-
-func getAddonsInfo(ctx context.Context, addCh model.AddonsChannel) []model.Addon {
+func getAddonsInfo(ctx context.Context, addCh model.AddonsChannel) []model.AddonsData {
 	am := NewAddonManager()
 	for _, ch := range addCh.Channels {
-		go func(addonCh chan *model.Addon) {
+		go func(addonCh chan *model.AddonsData) {
 			addon := <-addonCh
 			am.AppendAddon(addon)
 		}(ch)

@@ -10,7 +10,7 @@ import (
 
 	"k8s.io/client-go/tools/record"
 
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 
 	"github.com/go-logr/logr"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
@@ -52,6 +52,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 
 	// the object is being deleted
 	if !instance.GetDeletionTimestamp().IsZero() {
+		if err = r.deleteResourceAggregatePolicy(ctx, instance); err != nil {
+			r.log.Error(err, fmt.Sprintf("delete ResourceAggregatePolicy failed, resource(%s:%s)", instance.Namespace, instance.Name))
+			r.Recorder.Event(instance, "Warning", "FailedDeleteResourceAggregatePolicy", err.Error())
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
 		if err = controllerCommon.RemoveFinalizer(ctx, r.Client, instance); err != nil {
 			r.log.Error(err, fmt.Sprintf("delete finalizer filed, resource(%s:%s)", instance.Namespace, instance.Name))
 			r.Recorder.Event(instance, "Warning", "FailedDeleteFinalizers", err.Error())
@@ -76,7 +81,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	return ctrl.Result{}, nil
 }
 
-// sync ResourceAggregatePolicy
+func (r *Reconciler) deleteResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) error {
+	policyList, err := getResourceAggregatePolicyList(ctx, r.Client, common.NewNamespacedName(instance.GetNamespace(), instance.GetName()))
+	if err != nil {
+		return err
+	}
+	for _, item := range policyList.Items {
+		err = r.Client.Delete(ctx, &item)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// syncResourceAggregatePolicy update or create or delete ResourceAggregatePolicy when mPolicy update or create
 func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) error {
 	if len(instance.Spec.AggregateRules) == 0 || instance.Spec.Clusters == nil {
 		return nil
@@ -153,7 +172,6 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 	return nil
 }
 
-// add labels
 func shouldChangePolicyLabels(instance *v1alpha1.MultiClusterResourceAggregatePolicy) bool {
 	if len(instance.Spec.AggregateRules) <= 0 {
 		return false

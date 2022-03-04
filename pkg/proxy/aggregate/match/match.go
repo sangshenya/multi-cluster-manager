@@ -51,11 +51,12 @@ func limitJudgment(ctx context.Context, limit *v1alpha1.AggregatePolicyLimit, ob
 
 // limitRuleJudgment Satisfy either LabelsMatch or Match
 func limitRuleJudgment(ctx context.Context, limitRule *v1alpha1.AggregatePolicyLimitRule, object *unstructured.Unstructured) bool {
-	isMatch := true
 	if !labelsMatchIsEmpty(limitRule.LabelsMatch) {
-		isMatch = labelMatchResource(ctx, limitRule.LabelsMatch, object)
+		if labelMatchResource(ctx, limitRule.LabelsMatch, object) {
+			return true
+		}
 	}
-	return isMatch || matchResource(limitRule.Match, object)
+	return matchResource(limitRule.Match, object)
 }
 
 // matchResource find target resource with matchList

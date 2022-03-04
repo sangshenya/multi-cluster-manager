@@ -8,7 +8,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	maputil "harmonycloud.cn/stellaris/pkg/util/map"
+	maputil "harmonycloud.cn/stellaris/pkg/utils/map"
 	timeutils "harmonycloud.cn/stellaris/pkg/utils/time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"

@@ -27,22 +27,22 @@ spec:
     namespace: stellaris-system
     field: admin.conf
   addons:
-  - type: in-tree
-    name: <in-tree plugin name>
-    configuration: <configuration object>
-  - type: out-tree
-    name: <out-tree plugin name>
-    url: <out tree plugin url>
+    - type: in-tree
+      name: <in-tree plugin name>
+      configuration: <configuration object>
+    - type: out-tree
+      name: <out-tree plugin name>
+      url: <out tree plugin url>
 ...
 status:
   addons:
-  - name: cluster.skyview.harmonycloud
-    info: <info object>
+    - name: cluster.skyview.harmonycloud
+      info: <info object>
   conditions:
-  - timestamp: "2021-11-02T08:51:39Z"
-    message: Apiserver cannot provider service in this cluster
-    reason: ApiserverIsDown
-    type: KubernetesUnavailable
+    - timestamp: "2021-11-02T08:51:39Z"
+      message: Apiserver cannot provider service in this cluster
+      reason: ApiserverIsDown
+      type: KubernetesUnavailable
   lastReceiveHeartBeatTimestamp: <timestamp>
   lastUpdateTimestamp: <timestamp>
   healthy: true/false
@@ -53,9 +53,9 @@ status:
 
 纳管集群共分为两种模式：
 * 通过在管理集群中创建 Cluster 对象，由 core 向目标集群中部署 proxy 完成纳管；
-![alt](../../img/01-auto-create-proxy.png)
+  ![alt](../../img/01-auto-create-proxy.png)
 * 手动再目标集群中部署proxy，并填写管理集群 core 组件地址作为 proxy 启动参数，proxy 与 core 建立连接后，由 core 在管理集群创建 Cluster 对象完成纳管；
-![alt](../../img/02-manual-create-proxy.png)
+  ![alt](../../img/02-manual-create-proxy.png)
 
 #### 自动部署 Proxy
 
@@ -124,3 +124,270 @@ plugins:
     http:
       url: <http url>
 ```
+
+#### in-tree kube-apiserver-healthy addons
+
+kube-apiserver-healthy 插件将根据配置检测集群 apiserver 组件信息，其配置示例如下：
+
+```yaml
+- name: kube-apiserver-healthy
+  configurations:
+    selector:
+    - namespace: kube-system
+      labels:
+        component: kube-apiserver
+    - namespace: kube-system
+      include: kube-apiserver
+    static:
+    - endpoint: https://binaray-apiserver:6443
+```
+
+`selector` 字段将从目标集群对应命名空间选择符合规则的 pod，`labels` 代表以标签作为选择的依据，`include` 则表示通过名称模糊匹配搜索对应的 pod。
+
+`static` 字段将指定 apiserver 实例的地址进行健康检查，通常用于二进制部署的 apiserver 实例。
+
+kube-apiserver-healthy 插件返回的数据示例如下：
+
+```yaml
+status:
+  addons:
+  - name: kube-apiserver-healthy
+    info:
+    - type: pod
+      address: https://pod-apiserver:6443
+      targetRef:
+        name: <pod name>
+        namespace: <pod namespace>
+      status: ready|notready
+    - type: static
+      address: https://binaray-apiserver:6443
+      status: ready|notready
+```
+
+`type` 字段描述该 apiserver 实例的类型是目标集群的 pod 或静态地址
+
+`targetRef` 字段在类型为 pod 时有效，描述该实例在目标集群中的位置
+
+`address` 描述该实例静态地址，pod 将返回其 podIP 作为地址
+
+`status` 字段描述该实例目前是否健康，通过 apiserver 实例的 /healthz 接口判断
+
+#### in-tree kube-controller-manager-healthy addons
+
+kube-controller-manager-healthy 插件将根据配置检测集群 controller-manager 组件信息，其配置示例如下：
+
+```yaml
+- name: kube-controller-manager-healthy
+  configurations:
+    selector:
+    - namespace: kube-system
+      labels:
+        component: kube-controller-manager
+    - namespace: kube-system
+      include: kube-controller-manager
+    static:
+    - endpoint: https://binaray-controller-manager:10257
+```
+
+`selector` 字段将从目标集群对应命名空间选择符合规则的 pod，`labels` 代表以标签作为选择的依据，`include` 则表示通过名称模糊匹配搜索对应的 pod。
+
+`static` 字段将指定 controller-manager 实例的地址进行健康检查，通常用于二进制部署的 apiserver 实例。
+
+kube-controller-manager-healthy 插件返回的数据示例如下：
+
+```yaml
+status:
+  addons:
+  - name: kube-controller-manager-healthy
+    info:
+    - type: pod
+      address: https://pod-controller-manager:10257
+      targetRef:
+        name: <pod name>
+        namespace: <pod namespace>
+      status: ready|notready
+    - type: static
+      address: https://binaray-controller-manager:10257
+      status: ready|notready
+```
+
+`type` 字段描述该 controller-manager 实例的类型是目标集群的 pod 或静态地址
+
+`targetRef` 字段在类型为 pod 时有效，描述该实例在目标集群中的位置
+
+`address` 描述该实例静态地址，pod 将返回其 podIP 作为地址
+
+`status` 字段描述该实例目前是否健康，通过 controller-manager 实例的 /healthz 接口判断
+
+#### in-tree kube-scheduler-healthy addons
+
+kube-scheduler-healthy 插件将根据配置检测集群 scheduler 组件信息，其配置示例如下：
+
+```yaml
+- name: kube-scheduler-healthy
+  configurations:
+    selector:
+    - namespace: kube-system
+      labels:
+        component: kube-scheduler
+    - namespace: kube-system
+      include: kube-scheduler
+    static:
+    - endpoint: https://binaray-scheduler:10259
+```
+
+`selector` 字段将从目标集群对应命名空间选择符合规则的 pod，`labels` 代表以标签作为选择的依据，`include` 则表示通过名称模糊匹配搜索对应的 pod。
+
+`static` 字段将指定 scheduler 实例的地址进行健康检查，通常用于二进制部署的 apiserver 实例。
+
+kube-scheduler-healthy 插件返回的数据示例如下：
+
+```yaml
+status:
+  addons:
+  - name: kube-scheduler-healthy
+    info:
+    - type: pod
+      address: https://pod-scheduler:10259
+      targetRef:
+        name: <pod name>
+        namespace: <pod namespace>
+      status: ready|notready
+    - type: static
+      address: https://binaray-scheduler:10259
+      status: ready|notready
+```
+
+`type` 字段描述该 scheduler 实例的类型是目标集群的 pod 或静态地址
+
+`targetRef` 字段在类型为 pod 时有效，描述该实例在目标集群中的位置
+
+`address` 描述该实例静态地址，pod 将返回其 podIP 作为地址
+
+`status` 字段描述该实例目前是否健康，通过 scheduler 实例的 /healthz 接口判断
+
+#### in-tree kube-etcd-healthy addons
+
+kube-etcd-healthy 插件将根据配置检测集群 etcd 组件信息，其配置示例如下：
+
+```yaml
+- name: kube-etcd-healthy
+  configurations:
+    selector:
+    - namespace: kube-system
+      labels:
+        component: kube-etcd
+    - namespace: kube-system
+      include: kube-etcd
+    static:
+    - endpoint: https://binaray-etcd:2381
+```
+
+`selector` 字段将从目标集群对应命名空间选择符合规则的 pod，`labels` 代表以标签作为选择的依据，`include` 则表示通过名称模糊匹配搜索对应的 pod。
+
+`static` 字段将指定 etcd 实例的地址进行健康检查，通常用于二进制部署的 etcd 实例。
+
+kube-etcd-healthy 插件返回的数据示例如下：
+
+```yaml
+status:
+  addons:
+  - name: kube-etcd-healthy
+    info:
+    - type: pod
+      address: https://pod-etcd:2381
+      targetRef:
+        name: <pod name>
+        namespace: <pod namespace>
+      status: ready|notready
+    - type: static
+      address: https://binaray-etcd:2381
+      status: ready|notready
+```
+
+`type` 字段描述该 etcd 实例的类型是目标集群的 pod 或静态地址
+
+`targetRef` 字段在类型为 pod 时有效，描述该实例在目标集群中的位置
+
+`address` 描述该实例静态地址，pod 将返回其 podIP 作为地址
+
+`status` 字段描述该实例目前是否健康，通过 etcd 实例的 /health 接口判断
+
+#### in-tree coredns addons
+
+coredns 插件将根据配置检测集群 coredns 组件健康状态和配置信息，其配置示例如下：
+
+```yaml
+- name: coredns
+  configurations:
+    selector:
+    - namespace: kube-system
+      labels:
+        k8s-app: kube-dns
+    - namespace: kube-system
+      include: coredns
+    volumesType: configMap
+```
+`selector` 字段将从目标集群对应命名空间选择符合规则的 pod，`labels` 代表以标签作为选择的依据，`include` 则表示通过名称模糊匹配搜索对应的 pod。
+
+`volumesType` 字段表示获取到pod之后从数据卷获取配置信息的类型。
+
+coredns 插件返回的数据示例如下：
+
+```yaml
+status:
+  addons:
+  - name: coredns
+    info:
+    - type: pod
+      address: https://pod-coredns:13145
+      targetRef:
+        name: <pod name>
+        namespace: <pod namespace>
+      status: ready|notready
+    volumesInfo:
+      data:
+        enableErrorLogging: true or false
+        cacheTime: 30
+        hosts: 
+          - domain: "."
+            resolution: 
+              - "/etc/resolv.conf"
+          - domain: "www.baidu.com"
+            resolution: 
+              - "114.114.114.114"
+        forward:
+          - domain: "."
+            resolution:
+              - "/etc/resolv.conf"
+          - domain: "www.baidu.com"
+            resolution:
+              - "114.114.114.114" 
+      message: <error info> | "success"
+```
+
+`type` 字段描述该 coredns 实例的类型是目标集群的 pod 或静态地址
+
+`targetRef` 字段在类型为 pod 时有效，描述该实例在目标集群中的位置
+
+`address` 描述该实例静态地址，pod 将返回其 podIP 作为地址
+
+`status` 字段描述该实例目前是否健康，通过 coredns 实例的 /health 接口判断
+
+`volumesInfo` 字段当配置中设置`volumesType`字段时有值
+
+`message` 字段表示获取成功或者获取失败的错误信息
+
+`data` 字段表示获取到的配置数据，获取失败时为空
+
+`enableErrorLogging` 字段表示coredns是否启用错误日志
+
+`cacheTime` 字段表示coredns的缓存时间
+
+`hosts` 字段表示coredns单独配置每一条域名到IP的解析
+
+`forward` 字段表示coredns配置特定域名解析的DNS服务器地址
+
+`domain` 字段表示域名，"."表示所以域名
+
+`resolution` 字段表示解析服务器地址

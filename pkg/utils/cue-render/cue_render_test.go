@@ -1,8 +1,15 @@
 package cur_render
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strconv"
 	"testing"
+
+	"github.com/coredns/caddy"
+	"github.com/coredns/caddy/caddyfile"
 
 	v1 "k8s.io/api/core/v1"
 )
@@ -60,4 +67,91 @@ func TestCueRender(t *testing.T) {
 		return
 	}
 	fmt.Println(string(data))
+}
+
+type corednsPluginConfigModel struct {
+	EnableErrorLogging bool       `json:"enableErrorLogging"`
+	CacheTime          int        `json:"cacheTime"`
+	Hosts              []DnsModel `json:"hosts,omitempty"`
+	Forward            []DnsModel `json:"forward,omitempty"`
+}
+
+type DnsModel struct {
+	Domain     string   `json:"domain"`
+	Resolution []string `json:"resolution"`
+}
+
+func TestCoreDnsConfig(t *testing.T) {
+	caddy.DefaultConfigFile = "/Users/chenkun/Downloads/coredns-1.8.0/corefile"
+	caddy.SetDefaultCaddyfileLoader("default", caddy.LoaderFunc(defaultLoader))
+	// Get Corefile input
+	corefile, err := caddy.LoadCaddyfile("dns")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	validDirectives := caddy.ValidDirectives("dns")
+	serverBlocks, err := caddyfile.Parse(corefile.Path(), bytes.NewReader(corefile.Body()), validDirectives)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if len(serverBlocks) <= 0 {
+		fmt.Println("serverBlocks is empty")
+		return
+	}
+	pluginConfigModel := &corednsPluginConfigModel{}
+	for _, serverBlock := range serverBlocks {
+		for key, value := range serverBlock.Tokens {
+			switch key {
+			case "errors":
+				pluginConfigModel.EnableErrorLogging = true
+			case "cache":
+				if len(value) >= 2 && value[0].Text == "cache" {
+					cacheTime, err := strconv.Atoi(value[1].Text)
+					if err == nil {
+						pluginConfigModel.CacheTime = cacheTime
+					}
+				}
+			case "forward":
+				dnsModel := DnsModel{}
+				if len(value) < 3 {
+					return
+				}
+				dnsModel.Domain = value[1].Text
+				for i := 2; i < len(value); i++ {
+					dnsModel.Resolution = append(dnsModel.Resolution, value[i].Text)
+				}
+				pluginConfigModel.Forward = append(pluginConfigModel.Forward, dnsModel)
+			case "hosts":
+				dnsModel := DnsModel{}
+				if len(value) < 3 {
+					return
+				}
+				dnsModel.Domain = value[1].Text
+				for i := 2; i < len(value); i++ {
+					dnsModel.Resolution = append(dnsModel.Resolution, value[i].Text)
+				}
+				pluginConfigModel.Hosts = append(pluginConfigModel.Hosts, dnsModel)
+			}
+		}
+	}
+
+	fmt.Println(pluginConfigModel)
+}
+
+// defaultLoader loads the Corefile from the current working directory.
+func defaultLoader(serverType string) (caddy.Input, error) {
+	contents, err := ioutil.ReadFile(caddy.DefaultConfigFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return caddy.CaddyfileInput{
+		Contents:       contents,
+		Filepath:       caddy.DefaultConfigFile,
+		ServerTypeName: serverType,
+	}, nil
 }

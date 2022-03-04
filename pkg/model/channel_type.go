@@ -1,5 +1,5 @@
 package model
 
 type AddonsChannel struct {
-	Channels []chan *Addon
+	Channels []chan *AddonsData
 }

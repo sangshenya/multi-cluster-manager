@@ -5,7 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
 
@@ -82,8 +82,8 @@ func newResourceAggregatePolicy(policyNamespace string, rule *v1alpha1.MultiClus
 	resourceAggregatePolicy.Spec.Limit = mPolicy.Spec.Limit
 	// label
 	policyLabels := map[string]string{}
-	policyLabels[managerCommon.MultiAggregatePolicyLabelName] = common.NewNamespacedName(mPolicy.Namespace, mPolicy.Name).String()
-	policyLabels[managerCommon.AggregateRuleLabelName] = common.NewNamespacedName(rule.Namespace, rule.Name).String()
+	policyLabels[managerCommon.MultiAggregatePolicyLabelName] = mPolicy.Namespace + "." + mPolicy.Name
+	policyLabels[managerCommon.AggregateRuleLabelName] = rule.Namespace + "." + rule.Name
 	resourceAggregatePolicy.SetLabels(policyLabels)
 
 	return resourceAggregatePolicy

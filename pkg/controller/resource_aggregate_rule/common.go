@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"reflect"
 
-	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"harmonycloud.cn/stellaris/pkg/util/common"
+	"harmonycloud.cn/stellaris/pkg/utils/common"
 
 	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
 
@@ -105,11 +103,4 @@ func newAggregateRule(aggregateRule *v1alpha1.MultiClusterResourceAggregateRule)
 
 func AggregateRuleList(ctx context.Context, clientSet *multclusterclient.Clientset, ns string) (*v1alpha1.MultiClusterResourceAggregateRuleList, error) {
 	return clientSet.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(ns).List(ctx, metav1.ListOptions{})
-}
-
-func GetAggregateRuleListWithLabelSelector(ctx context.Context, clientSet *multclusterclient.Clientset, gvk *metav1.GroupVersionKind, ns string) (*v1alpha1.MultiClusterResourceAggregateRuleList, error) {
-	targetGvkString := managerCommon.GvkLabelString(gvk)
-	return clientSet.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(ns).List(ctx, metav1.ListOptions{
-		LabelSelector: managerCommon.AggregateResourceGvkLabelName + "=" + targetGvkString,
-	})
 }
