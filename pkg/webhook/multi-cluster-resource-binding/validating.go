@@ -1,4 +1,4 @@
-package cluster_resource_aggregate_rule
+package multi_cluster_resource_binding
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// ValidatingAdmission validates aggregateRule object when creating/updating/deleting.
+// ValidatingAdmission validates multiClusterResource object when creating/updating/deleting.
 type ValidatingAdmission struct {
 	decoder *admission.Decoder
 }
@@ -18,16 +18,17 @@ type ValidatingAdmission struct {
 // Handle implements admission.Handler interface.
 // It yields a response to an AdmissionRequest.
 func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request) admission.Response {
-	aggregateRule := &v1alpha1.MultiClusterResourceAggregateRule{}
-	err := v.decoder.Decode(req, aggregateRule)
+	binding := &v1alpha1.MultiClusterResourceBinding{}
+	err := v.decoder.Decode(req, binding)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	klog.V(2).Infof("Validating aggregateRule(%s) for request: %s", aggregateRule.Name, req.Operation)
-	// TODO(chenkun) currently we only validate whether it contains CUE.
-	if len(aggregateRule.Spec.Rule.Cue) == 0 {
-		klog.Error(validationCommon.CueIsEmpty)
-		return admission.Denied(validationCommon.CueIsEmpty)
+	klog.V(2).Infof("Validating multiClusterResource(%s) for request: %s", binding.Name, req.Operation)
+
+	// empty binding can not be create
+	if len(binding.Spec.Resources) == 0 {
+		klog.Error(validationCommon.ResourceIsNil)
+		return admission.Denied(validationCommon.ResourceIsNil)
 	}
 
 	return admission.Allowed("")

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"harmonycloud.cn/stellaris/config"
-	proxy_stream "harmonycloud.cn/stellaris/pkg/proxy/stream"
 	"harmonycloud.cn/stellaris/pkg/model"
+	proxy_stream "harmonycloud.cn/stellaris/pkg/proxy/stream"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 

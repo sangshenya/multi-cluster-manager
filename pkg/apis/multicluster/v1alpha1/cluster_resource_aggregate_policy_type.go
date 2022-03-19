@@ -57,8 +57,8 @@ type Match struct {
 }
 
 type MatchScope struct {
-	Regexp string   `json:"regexp,omitempty"`
-	List   []string `json:"list,omitempty"`
+	Include string   `json:"include,omitempty"`
+	List    []string `json:"list,omitempty"`
 }
 
 type AggregatePolicyStatus string

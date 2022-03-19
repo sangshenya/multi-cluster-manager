@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 
 	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
@@ -65,7 +64,7 @@ func (c *coreDNSAddons) Load(ctx context.Context, inTree *model.In) (*model.Addo
 func getVolumesInfoWithConfigMap(ctx context.Context, podList []v1.Pod) *model.VolumesInfo {
 	var cmDataString string
 	var err error
-	var volumesInfo *model.VolumesInfo
+	volumesInfo := &model.VolumesInfo{}
 	for _, pod := range podList {
 		cmDataString, err = getConfigMapFromPod(ctx, pod)
 		if err != nil {
@@ -75,10 +74,8 @@ func getVolumesInfoWithConfigMap(ctx context.Context, podList []v1.Pod) *model.V
 			break
 		}
 	}
-	if len(cmDataString) <= 0 {
-		volumesInfo = &model.VolumesInfo{
-			Message: "can not find configMap data",
-		}
+	if len(cmDataString) == 0 {
+		volumesInfo.Message = "can not find configMap data"
 	}
 	// parse cmData String
 	configModel, err := CoreDNSConfig(cmDataString)
@@ -96,7 +93,7 @@ func getVolumesInfoWithConfigMap(ctx context.Context, podList []v1.Pod) *model.V
 }
 
 func getConfigMapFromPod(ctx context.Context, pod v1.Pod) (string, error) {
-	if len(pod.Spec.Volumes) <= 0 {
+	if len(pod.Spec.Volumes) == 0 {
 		return "", errors.New("can not find ConfigMap")
 	}
 
@@ -116,7 +113,7 @@ func getConfigMapFromPod(ctx context.Context, pod v1.Pod) (string, error) {
 			break
 		}
 	}
-	if len(configMapKey) <= 0 || len(configMapNamespaced.Name) <= 0 {
+	if len(configMapKey) == 0 || len(configMapNamespaced.Name) == 0 {
 		return "", errors.New("can not find ConfigMap")
 	}
 
@@ -127,7 +124,7 @@ func getConfigMapFromPod(ctx context.Context, pod v1.Pod) (string, error) {
 	}
 	cmData, ok := cm.Data[configMapKey]
 	if !ok {
-		return "", errors.New(fmt.Sprintf("can not get cm(%s:%s) data", cm.GetNamespace(), cm.GetName()))
+		return "", errors.New("can not get cm data")
 	}
 	return cmData, nil
 }
@@ -138,7 +135,7 @@ func CoreDNSConfig(coreDNSCfg string) (*CoreDNSPluginConfigModel, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(serverBlocks) <= 0 {
+	if len(serverBlocks) == 0 {
 		return nil, errors.New("can not parse coredns config")
 	}
 	pluginConfigModel := &CoreDNSPluginConfigModel{}

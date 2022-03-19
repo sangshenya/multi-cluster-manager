@@ -1,10 +1,17 @@
 package helper
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
+
+	"k8s.io/apimachinery/pkg/labels"
+
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,4 +49,39 @@ func GetResourceForRawExtension(resource *runtime.RawExtension) (*unstructured.U
 		return nil, err
 	}
 	return resourceObject, nil
+}
+
+// GetMappingNamespace Gets the mapping of the namespace in proxy
+func GetMappingNamespace(ctx context.Context, clientSet client.Client, proxyClusterName, ns string) (string, error) {
+	var namespace *v1.Namespace
+	err := clientSet.Get(ctx, types.NamespacedName{
+		Name: ns,
+	}, namespace)
+	if err != nil {
+		return "", err
+	}
+
+	n, ok := namespace.GetLabels()[proxyClusterName]
+	if !ok {
+		return ns, nil
+	}
+	return n, nil
+}
+
+// GetNamespaceMapping proxy namespace mapping in core
+func GetNamespaceMapping(ctx context.Context, clientSet client.Client, proxyNs, proxyClusterName string) (string, error) {
+	nsList := &v1.NamespaceList{}
+	set := labels.Set{
+		proxyClusterName: proxyNs,
+	}
+	err := clientSet.List(ctx, nsList, &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(set),
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(nsList.Items) == 0 {
+		return proxyNs, nil
+	}
+	return nsList.Items[0].Name, nil
 }

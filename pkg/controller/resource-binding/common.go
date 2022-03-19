@@ -89,7 +89,7 @@ func syncClusterResource(ctx context.Context, clientSet client.Client, clusterRe
 		}
 	}
 
-	if len(clusterResourceMap) <= 0 {
+	if len(clusterResourceMap) == 0 {
 		return nil
 	}
 
@@ -132,7 +132,7 @@ func clusterResourceLabels(bindingName, multiClusterResourceName string, multiCl
 }
 
 func removeItemForClusterStatusList(itemList []common.MultiClusterResourceClusterStatus, item common.MultiClusterResourceClusterStatus) []common.MultiClusterResourceClusterStatus {
-	if len(itemList) <= 0 {
+	if len(itemList) == 0 {
 		return itemList
 	}
 	var objectList []interface{}

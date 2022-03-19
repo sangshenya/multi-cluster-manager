@@ -119,7 +119,7 @@ func main() {
 	})
 	go func() {
 		logrus.Infof("listening port %d", lisPort)
-		if err := s.Serve(l); err != nil {
+		if err = s.Serve(l); err != nil {
 			logrus.Fatalf("grpc server running error: %s", err)
 		}
 	}()
@@ -136,7 +136,7 @@ func main() {
 
 	// register webhook
 	managerWebhook.Register(mgr, controllerArgs)
-	if err := waitWebhookSecretVolume(certDir, 90*time.Second, 2*time.Second); err != nil {
+	if err = waitWebhookSecretVolume(certDir, 90*time.Second, 2*time.Second); err != nil {
 		klog.ErrorS(err, "Unable to get webhook secret")
 		os.Exit(1)
 	}
@@ -178,7 +178,7 @@ func waitWebhookSecretVolume(certDir string, timeout, interval time.Duration) er
 				// nolint
 				defer f.Close()
 				// check if dir is empty
-				if _, err := f.Readdir(1); errors.Is(err, io.EOF) {
+				if _, err = f.Readdir(1); errors.Is(err, io.EOF) {
 					return false
 				}
 				// check if secret files are empty

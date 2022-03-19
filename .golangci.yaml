@@ -10,6 +10,7 @@ run:
     - hack
     - kube
     - pkg/client
+    - .github
   skip-files: # 设置不需要检查的go源码文件，支持正则
     - _test.go
 linters:
@@ -19,7 +20,6 @@ linters:
     - govet
     - deadcode
     - gosimple
-    - ineffassign
     - staticcheck
     - structcheck
     - varcheck
@@ -30,7 +30,7 @@ linters:
     - stylecheck
 linters-settings:
   govet:
-    check-shadowing: true
+    check-shadowing: false
   errcheck:
     # 报告不检查类型断言的错误:' a:= b.(MyStruct) '
     check-type-assertions: true
@@ -49,10 +49,9 @@ linters-settings:
       - FIXME
       - OPTIMIZE
       - HACK
-      - TODO
   lll:
-    # 设置代码单行最大长度为100
-    line-length: 100
+    # 设置代码单行最大长度为150
+    line-length: 160
   stylecheck:
     # Select the Go version to target.
     go: "1.16"

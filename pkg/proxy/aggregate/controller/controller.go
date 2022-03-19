@@ -22,7 +22,6 @@ import (
 	"harmonycloud.cn/stellaris/pkg/model"
 
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	"harmonycloud.cn/stellaris/pkg/utils/common"
 
 	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
 
@@ -75,13 +74,19 @@ const (
 	maxRetries = 15
 )
 
-func NewController(controllerName string, resourceRef *metav1.GroupVersionKind, clientSet clientset.Interface, informer informers.GenericInformer) (*Controller, error) {
+func NewController(
+	controllerName string,
+	resourceRef *metav1.GroupVersionKind,
+	clientSet clientset.Interface,
+	informer informers.GenericInformer) (*Controller, error) {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartStructuredLogging(0)
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
 
 	if clientSet != nil && clientSet.CoreV1().RESTClient().GetRateLimiter() != nil {
-		if err := ratelimiter.RegisterMetricAndTrackRateLimiterUsage(strings.ToLower(resourceRef.Kind)+"_controller", clientSet.CoreV1().RESTClient().GetRateLimiter()); err != nil {
+		if err := ratelimiter.RegisterMetricAndTrackRateLimiterUsage(
+			strings.ToLower(resourceRef.Kind)+"_controller",
+			clientSet.CoreV1().RESTClient().GetRateLimiter()); err != nil {
 			return nil, err
 		}
 	}
@@ -272,6 +277,7 @@ func (c *Controller) aggregateResourceAndSendToCore(ctx context.Context, object 
 
 func (c *Controller) getTargetResourceInfo(ctx context.Context, object client.Object) ([]byte, error) {
 	// find rule
+	var err error
 	ruleList, err := utils.GetAggregateRuleListWithLabelSelector(ctx, proxy_cfg.ProxyConfig.ProxyClient, c.resourceRef, metav1.NamespaceAll)
 	if err != nil {
 		return nil, err
@@ -285,10 +291,13 @@ func (c *Controller) getTargetResourceInfo(ctx context.Context, object client.Ob
 		List: make([]model.AggregateResourceDataModel, 0, 1),
 	}
 	for _, rule := range ruleList.Items {
-		policyList, err := utils.GetAggregatePolicyListWithLabelSelector(ctx, proxy_cfg.ProxyConfig.ProxyClient, managerCommon.ManagerNamespace, common.NamespacedName{
-			Namespace: rule.GetNamespace(),
-			Name:      rule.GetName(),
-		})
+		policyList, err := utils.GetAggregatePolicyListWithLabelSelector(ctx,
+			proxy_cfg.ProxyConfig.ProxyClient,
+			managerCommon.ManagerNamespace,
+			utils.NamespacedName{
+				Namespace: rule.GetNamespace(),
+				Name:      rule.GetName(),
+			})
 		if err != nil {
 			return nil, err
 		}
@@ -324,13 +333,17 @@ func (c *Controller) sendAggregateResourceToCore(data []byte) error {
 	return nil
 }
 
-func NewAggregateResourceDataRequest(rule *v1alpha1.MultiClusterResourceAggregateRule, policy *v1alpha1.ResourceAggregatePolicy, object client.Object, resourceData []byte) *model.AggregateResourceDataModel {
+func NewAggregateResourceDataRequest(
+	rule *v1alpha1.MultiClusterResourceAggregateRule,
+	policy *v1alpha1.ResourceAggregatePolicy,
+	object client.Object,
+	resourceData []byte) *model.AggregateResourceDataModel {
 	data := &model.AggregateResourceDataModel{}
-	data.ResourceAggregatePolicy = common.NamespacedName{
+	data.ResourceAggregatePolicy = utils.NamespacedName{
 		Namespace: managerCommon.ClusterNamespace(proxy_cfg.ProxyConfig.Cfg.ClusterName),
 		Name:      policy.GetName(),
 	}
-	data.MultiClusterResourceAggregateRule = common.NamespacedName{
+	data.MultiClusterResourceAggregateRule = utils.NamespacedName{
 		Namespace: rule.GetNamespace(),
 		Name:      rule.GetName(),
 	}

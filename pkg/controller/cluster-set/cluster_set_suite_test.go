@@ -3,21 +3,22 @@ package cluster_set
 import (
 	"context"
 	"flag"
+	"math/rand"
+	"path/filepath"
+	"testing"
+	"time"
+
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/pointer"
-	"math/rand"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -43,7 +44,6 @@ var _ = BeforeSuite(func(done Done) {
 	k8sconfig := flag.String("k8sconfig", "C:/Users/kuangye/Desktop/k8s/config", "kubernetes test")
 	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
 
-	// TODO fix test env
 	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
 	testEnv = &envtest.Environment{
 		ControlPlaneStartTimeout: time.Minute,

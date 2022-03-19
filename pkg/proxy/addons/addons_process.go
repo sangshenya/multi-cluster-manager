@@ -19,7 +19,7 @@ import (
 var addonsLog = logf.Log.WithName("proxy_addon")
 
 func LoadAddon(cfg *model.AddonsConfig) []model.AddonsData {
-	if len(cfg.Addons.InTree) <= 0 && len(cfg.Addons.OutTree) <= 0 {
+	if len(cfg.Addons.InTree) == 0 && len(cfg.Addons.OutTree) == 0 {
 		return []model.AddonsData{}
 	}
 
@@ -95,9 +95,6 @@ func getAddonsInfo(ctx context.Context, addCh model.AddonsChannel) []model.Addon
 		}
 	}()
 
-	select {
-	case <-stop:
-		return am.AddonList()
-	}
-
+	<-stop
+	return am.AddonList()
 }

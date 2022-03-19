@@ -75,7 +75,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	}
 
 	if err = r.syncResourceAggregatePolicy(ctx, instance); err != nil {
-		r.log.Error(err, fmt.Sprintf("sync ResourceAggregatePolicy filed, resource(%s:%s)", instance.Namespace, instance.Name))
+		r.log.Error(err,
+			fmt.Sprintf("sync ResourceAggregatePolicy filed, resource(%s:%s)",
+				instance.Namespace,
+				instance.Name))
 		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 	}
 	return ctrl.Result{}, nil
@@ -96,44 +99,50 @@ func (r *Reconciler) deleteResourceAggregatePolicy(ctx context.Context, instance
 }
 
 // syncResourceAggregatePolicy update or create or delete ResourceAggregatePolicy when mPolicy update or create
-func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) error {
+func (r *Reconciler) syncResourceAggregatePolicy(
+	ctx context.Context,
+	instance *v1alpha1.MultiClusterResourceAggregatePolicy) error {
 	if len(instance.Spec.AggregateRules) == 0 || instance.Spec.Clusters == nil {
 		return nil
 	}
-	clusterNamespaces, err := controllerCommon.GetClusterNamespaces(ctx, r.Client, instance.Spec.Clusters.ClusterType, instance.Spec.Clusters.Clusters, instance.Spec.Clusters.Clusterset)
+	clusterNamespaces, err := controllerCommon.GetClusterNamespaces(
+		ctx,
+		r.Client,
+		instance.Spec.Clusters.ClusterType,
+		instance.Spec.Clusters.Clusters,
+		instance.Spec.Clusters.Clusterset)
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()), err)
-		return err
+		return errors.New("mPolicy get clusterNamespaces failed," + err.Error())
 	}
-	if len(clusterNamespaces) <= 0 {
-		err = fmt.Errorf(fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()), errors.New("can not find clusterNamespace"))
-		return err
+	if len(clusterNamespaces) == 0 {
+		return errors.New("mPolicy get clusterNamespaces failed")
 	}
 
-	policyMap, err := getResourceAggregatePolicyMap(ctx, r.Client, common.NewNamespacedName(instance.GetNamespace(), instance.GetName()))
+	policyMap, err := getResourceAggregatePolicyMap(
+		ctx,
+		r.Client,
+		common.NewNamespacedName(instance.GetNamespace(),
+			instance.GetName()))
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("mPolicy(%s:%s) get clusterNamespaces failed", instance.GetNamespace(), instance.GetName()), err)
-		return err
+		return errors.New("mPolicy get clusterNamespaces failed," + err.Error())
 	}
 
 	for _, clusterNamespace := range clusterNamespaces {
 		for _, ruleName := range instance.Spec.AggregateRules {
 			// get rule
-			rule, err := getPolicyRule(ctx, r.Client, ruleName, instance.GetNamespace())
+			rule, err := getAggregateRule(ctx, r.Client, ruleName, instance.GetNamespace())
 			if err != nil {
-				err = fmt.Errorf(fmt.Sprintf("policyRule(%s:%s) can not find", instance.GetNamespace(), ruleName), err)
-				return err
+				return errors.New("can not find rule," + err.Error())
 			}
 
-			policyMapKey := getResourceAggregatePolicyMapKey(common.NewNamespacedName(instance.GetNamespace(), instance.GetName()), common.NewNamespacedName(rule.GetNamespace(), rule.GetName()))
+			policyMapKey := resourceAggregatePolicyMapKey(instance.GetNamespace(), instance.GetName(), rule.GetName())
 			resourceAggregatePolicy, ok := policyMap[policyMapKey]
 			if !ok {
 				// create ResourceAggregatePolicy
 				resourceAggregatePolicy = newResourceAggregatePolicy(clusterNamespace, rule, instance)
 				err = r.Client.Create(ctx, resourceAggregatePolicy)
 				if err != nil {
-					err = fmt.Errorf(fmt.Sprintf("create resourceAggregatePolicy(%s:%s) failed", clusterNamespace, resourceAggregatePolicy.Name), err)
-					return err
+					return errors.New("create resourceAggregatePolicy failed," + err.Error())
 				}
 				continue
 			}
@@ -144,19 +153,21 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 				Limit:       instance.Spec.Limit,
 			}
 			if reflect.DeepEqual(resourceAggregatePolicy.Spec, policySpec) {
-				r.log.Info(fmt.Sprintf("can not update resourceAggregatePolicy(%s:%s)", resourceAggregatePolicy.Namespace, resourceAggregatePolicy.Name))
+				r.log.Info(fmt.Sprintf(
+					"can not update resourceAggregatePolicy(%s:%s)",
+					resourceAggregatePolicy.Namespace,
+					resourceAggregatePolicy.Name))
 				continue
 			}
 			resourceAggregatePolicy.Spec = policySpec
 			err = r.Client.Update(ctx, resourceAggregatePolicy)
 			if err != nil {
-				err = fmt.Errorf(fmt.Sprintf("update resourceAggregatePolicy(%s:%s) failed", clusterNamespace, resourceAggregatePolicy.Name), err)
-				return err
+				return errors.New("update resourceAggregatePolicy failed," + err.Error())
 			}
 		}
 	}
 
-	if len(policyMap) <= 0 {
+	if len(policyMap) == 0 {
 		return nil
 	}
 
@@ -164,8 +175,7 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 	for _, p := range policyMap {
 		err = r.Client.Delete(ctx, p)
 		if err != nil {
-			err = fmt.Errorf(fmt.Sprintf("delete resourceAggregatePolicy(%s:%s) failed", p.Namespace, p.Name), err)
-			return err
+			return errors.New("delete resourceAggregatePolicy failed," + err.Error())
 		}
 	}
 
@@ -173,18 +183,15 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 }
 
 func shouldChangePolicyLabels(instance *v1alpha1.MultiClusterResourceAggregatePolicy) bool {
-	if len(instance.Spec.AggregateRules) <= 0 {
+	if len(instance.Spec.AggregateRules) == 0 {
 		return false
 	}
 	currentLabels := getPolicyRuleLabels(instance)
-	if len(currentLabels) <= 0 {
+	if len(currentLabels) == 0 {
 		return true
 	}
 	existLabels := shouldExistLabels(instance)
-	if reflect.DeepEqual(existLabels, currentLabels) {
-		return false
-	}
-	return true
+	return !reflect.DeepEqual(existLabels, currentLabels)
 }
 func (r *Reconciler) addPolicyLabels(ctx context.Context, instance *v1alpha1.MultiClusterResourceAggregatePolicy) error {
 	currentLabels := getPolicyRuleLabels(instance)
@@ -229,13 +236,13 @@ func shouldExistLabels(policy *v1alpha1.MultiClusterResourceAggregatePolicy) map
 }
 
 func replaceLabels(policyLabels, removeLabels, addLabels map[string]string) map[string]string {
-	if len(policyLabels) <= 0 || len(removeLabels) <= 0 {
+	if len(policyLabels) == 0 || len(removeLabels) == 0 {
 		return addLabels
 	}
 	if reflect.DeepEqual(policyLabels, removeLabels) {
 		return addLabels
 	}
-	for removeKey, _ := range removeLabels {
+	for removeKey := range removeLabels {
 		delete(policyLabels, removeKey)
 	}
 	for addKey, addValue := range addLabels {

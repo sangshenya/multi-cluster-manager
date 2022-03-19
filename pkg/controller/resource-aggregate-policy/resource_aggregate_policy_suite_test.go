@@ -1,4 +1,4 @@
-package resource_binding
+package resource_aggregate_policy
 
 import (
 	"context"
@@ -8,23 +8,20 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/client-go/tools/clientcmd"
-
-	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-
-	"k8s.io/utils/pointer"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+	"harmonycloud.cn/stellaris/pkg/client/clientset/versioned/scheme"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var cfg *rest.Config
@@ -39,7 +36,7 @@ func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
+		"ResourceAggregatePolicyController Suite",
 		[]Reporter{printer.NewlineReporter{}})
 
 }
@@ -49,7 +46,7 @@ var _ = BeforeSuite(func(done Done) {
 	rand.Seed(time.Now().UnixNano())
 	By("bootstrapping test environment")
 
-	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-238", "kubernetes auth config")
+	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-205", "kubernetes auth config")
 	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
 
 	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
@@ -87,10 +84,12 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).NotTo(HaveOccurred())
 
 	reconciler = &Reconciler{
-		Scheme: testScheme,
-		Client: k8sClient,
-		log:    logf.Log.WithName("resource_binding_controller"),
+		Scheme:         testScheme,
+		Client:         k8sClient,
+		log:            logf.Log.WithName("resource_aggregate_policy_controller"),
+		isControlPlane: true,
 	}
+	reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-core")
 
 	var ctx context.Context
 	ctx, controllerDone = context.WithCancel(context.Background())

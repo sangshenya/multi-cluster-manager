@@ -1,31 +1,26 @@
-package multi_cluster_resource
+package resource_aggregate_rule
 
 import (
 	"context"
 	"flag"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"k8s.io/client-go/tools/clientcmd"
-
-	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-
-	"k8s.io/utils/pointer"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var cfg *rest.Config
@@ -39,23 +34,16 @@ var mgr ctrl.Manager
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
-		[]Reporter{printer.NewlineReporter{}})
-
+	RunSpecs(t,
+		"MultiResourceAggregateRuleController Suite")
 }
 
 var _ = BeforeSuite(func(done Done) {
-	Expect(os.Setenv("TEST_ASSET_KUBE_APISERVER", "../../testbin/kube-apiserver")).To(Succeed())
-	Expect(os.Setenv("TEST_ASSET_ETCD", "../../testbin/etcd")).To(Succeed())
-	Expect(os.Setenv("TEST_ASSET_KUBECTL", "../../testbin/kubectl")).To(Succeed())
-
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 	rand.Seed(time.Now().UnixNano())
 	By("bootstrapping test environment")
 
-	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-238", "kubernetes auth config")
+	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-205", "kubernetes auth config")
 	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
 
 	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
@@ -93,11 +81,19 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).NotTo(HaveOccurred())
 
 	reconciler = &Reconciler{
-		Scheme: testScheme,
-		Client: k8sClient,
-		log:    logf.Log.WithName("multi_cluster_resource_controller"),
+		Scheme:         testScheme,
+		Client:         k8sClient,
+		log:            logf.Log.WithName("resource_aggregate_rule_controller"),
+		isControlPlane: true,
 	}
 
+	if reconciler.isControlPlane {
+		reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-core")
+	} else {
+		reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-proxy")
+	}
+
+	k8sClient = mgr.GetClient()
 	var ctx context.Context
 	ctx, controllerDone = context.WithCancel(context.Background())
 	// start the controller in the background so that new componentRevisions are created
@@ -110,14 +106,8 @@ var _ = BeforeSuite(func(done Done) {
 }, 120)
 
 var _ = AfterSuite(func() {
-
 	By("tearing down the test environment")
 	controllerDone()
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
-
-	Expect(os.Unsetenv("TEST_ASSET_KUBE_APISERVER")).To(Succeed())
-	Expect(os.Unsetenv("TEST_ASSET_ETCD")).To(Succeed())
-	Expect(os.Unsetenv("TEST_ASSET_KUBECTL")).To(Succeed())
-
 })

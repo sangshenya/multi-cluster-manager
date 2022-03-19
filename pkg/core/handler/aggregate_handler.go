@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
+
+	"harmonycloud.cn/stellaris/pkg/common/helper"
 
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"harmonycloud.cn/stellaris/pkg/utils/common"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,7 +40,7 @@ func (s *CoreServer) Aggregate(req *config.Request, stream config.Channel_Establ
 	}
 	coreAggregateLog.Info("aggregate resource data")
 	ctx := context.Background()
-	err = aggregateResourceInfo(ctx, s.clientSet, requestModel, req.ClusterName)
+	err = s.aggregateResourceInfo(ctx, requestModel, req.ClusterName)
 	if err != nil {
 		coreAggregateLog.Error(err, "aggregate resource info failed")
 		coreUtils.SendErrResponse(req.ClusterName, model.AggregateResourceFailed, err, stream)
@@ -57,9 +56,9 @@ func (s *CoreServer) Aggregate(req *config.Request, stream config.Channel_Establ
 	coreUtils.SendResponse(res, stream)
 }
 
-func aggregateResourceInfo(ctx context.Context, clientSet client.Client, modelList *model.AggregateResourceDataModelList, clusterName string) error {
+func (s *CoreServer) aggregateResourceInfo(ctx context.Context, modelList *model.AggregateResourceDataModelList, clusterName string) error {
 	for _, modelItem := range modelList.List {
-		err := syncAggregateResource(ctx, clientSet, clusterName, &modelItem)
+		err := s.syncAggregateResource(ctx, clusterName, &modelItem)
 		if err != nil {
 			return err
 		}
@@ -67,9 +66,14 @@ func aggregateResourceInfo(ctx context.Context, clientSet client.Client, modelLi
 	return nil
 }
 
-func syncAggregateResource(ctx context.Context, clientSet client.Client, clusterName string, resourceData *model.AggregateResourceDataModel) error {
+func (s *CoreServer) syncAggregateResource(ctx context.Context, clusterName string, resourceData *model.AggregateResourceDataModel) error {
 	for _, resource := range resourceData.TargetResourceData {
-		isAlive, err := validateNamespace(ctx, clientSet, resource.Namespace)
+		mappingNs, err := helper.GetNamespaceMapping(ctx, s.clientSet, clusterName, resource.Namespace)
+		if err != nil {
+			return err
+		}
+		resource.Namespace = mappingNs
+		isAlive, err := validateNamespace(ctx, s.clientSet, resource.Namespace)
 		if err != nil {
 			return err
 		}
@@ -78,12 +82,12 @@ func syncAggregateResource(ctx context.Context, clientSet client.Client, cluster
 		aggregateResourceName := getAggregateResourceName(resourceData.ResourceRef)
 		if !isAlive {
 			// should create namespace
-			err = createNamespace(ctx, clientSet, resource.Namespace)
+			err = createNamespace(ctx, s.clientSet, resource.Namespace)
 			if err != nil {
 				return err
 			}
 		} else {
-			err = clientSet.Get(ctx, types.NamespacedName{
+			err = s.clientSet.Get(ctx, types.NamespacedName{
 				Namespace: resource.Namespace,
 				Name:      aggregateResourceName,
 			}, aggregateResource)
@@ -94,99 +98,110 @@ func syncAggregateResource(ctx context.Context, clientSet client.Client, cluster
 
 		// should create AggregateResource
 		if len(aggregateResource.GetName()) == 0 {
-			aggregateResource, err = newAggregateResource(clusterName, resourceData.ResourceRef, resource, resourceData.MultiClusterResourceAggregateRule, resourceData.ResourceAggregatePolicy)
+			parentResourceNamespace, err := helper.GetNamespaceMapping(ctx, s.clientSet, clusterName, resourceData.MultiClusterResourceAggregateRule.Namespace)
 			if err != nil {
 				return err
 			}
-			err = clientSet.Create(ctx, aggregateResource)
+
+			aggregateResource, err = newAggregateResource(clusterName, parentResourceNamespace, resource, resourceData)
+			if err != nil {
+				return err
+			}
+			err = s.clientSet.Create(ctx, aggregateResource)
 			if err != nil {
 				return err
 			}
 			continue
 		}
 		// should update AggregateResource
-		aggregateResource, shouldUpdate := validateAggregatedResource(aggregateResource, clusterName, resource)
-		if shouldUpdate {
-			err = clientSet.Update(ctx, aggregateResource)
-			if err != nil {
-				return err
-			}
+		aggregateResource = validateAggregatedResource(aggregateResource, clusterName, resource)
+		if err = s.clientSet.Update(ctx, aggregateResource); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func validateAggregatedResource(aggregateResource *v1alpha1.AggregatedResource, clusterName string, resource model.TargetResourceDataModel) (newAggregateResource *v1alpha1.AggregatedResource, shouldUpdate bool) {
+func validateAggregatedResource(
+	aggregateResource *v1alpha1.AggregatedResource,
+	clusterName string,
+	resource model.TargetResourceDataModel) *v1alpha1.AggregatedResource {
 	for index, cluster := range aggregateResource.Clusters {
 		if cluster.Name != clusterName || cluster.ResourceNamespace != resource.Namespace {
 			continue
-		}
-		if resourceInfoEqual(cluster.ResourceList, resource.ResourceInfoList) {
-			return aggregateResource, false
 		}
 		aggregateResource.Clusters[index] = v1alpha1.AggregatedResourceClusters{
 			Name:              clusterName,
 			ResourceNamespace: resource.Namespace,
 			ResourceList:      coreUtils.ConvertResourceInfoList2KubeResourceInfoList(resource.ResourceInfoList),
 		}
-		return aggregateResource, true
+		return aggregateResource
 	}
 	aggregateResource.Clusters = append(aggregateResource.Clusters, v1alpha1.AggregatedResourceClusters{
 		Name:              clusterName,
 		ResourceNamespace: resource.Namespace,
 		ResourceList:      coreUtils.ConvertResourceInfoList2KubeResourceInfoList(resource.ResourceInfoList),
 	})
-	return aggregateResource, true
+	return aggregateResource
 }
 
-func resourceInfoEqual(old []v1alpha1.ResourceInfo, new []model.ResourceDataModel) bool {
-	if len(old) != len(new) {
-		return false
-	}
-	for _, oldItem := range old {
-		equalName := false
-		for _, newItem := range new {
-			if oldItem.ResourceName == newItem.Name {
-				equalName = true
-				if !reflect.DeepEqual(oldItem.Result.Raw, newItem.ResourceData) {
-					return false
-				}
+//func resourceInfoEqual(old []v1alpha1.ResourceInfo, new []model.ResourceDataModel) bool {
+//	if len(old) != len(new) {
+//		return false
+//	}
+//	for _, oldItem := range old {
+//		equalName := false
+//		for _, newItem := range new {
+//			if oldItem.ResourceName == newItem.Name {
+//				equalName = true
+//				if !reflect.DeepEqual(oldItem.Result.Raw, newItem.ResourceData) {
+//					return false
+//				}
+//
+//			}
+//		}
+//		if !equalName {
+//			return false
+//		}
+//	}
+//	return true
+//}
 
-			}
-		}
-		if !equalName {
-			return false
-		}
-	}
-	return true
-}
-
-func getAggregateResourceLabels(ruleNamespaced, policyNamespaced common.NamespacedName, resourceRef *metav1.GroupVersionKind) map[string]string {
+func getAggregateResourceLabels(parentResourceNamespace, ruleName, policyName string, resourceRef *metav1.GroupVersionKind) map[string]string {
 	labels := map[string]string{}
-	labels[managerCommon.AggregateRuleLabelName] = ruleNamespaced.String()
-	labels[managerCommon.AggregatePolicyLabelName] = policyNamespaced.String()
+	labels[managerCommon.AggregateRuleLabelName] = ruleName
+	labels[managerCommon.AggregatePolicyLabelName] = policyName
 	labels[managerCommon.AggregateResourceGvkLabelName] = managerCommon.GvkLabelString(resourceRef)
+	labels[managerCommon.ParentResourceNamespaceLabelName] = parentResourceNamespace
 	return labels
 }
 
-func newAggregateResource(clusterName string, resourceRef *metav1.GroupVersionKind, resourceInfo model.TargetResourceDataModel, ruleNamespaced, policyNamespaced common.NamespacedName) (*v1alpha1.AggregatedResource, error) {
-	if len(resourceInfo.ResourceInfoList) <= 0 {
+func newAggregateResource(
+	clusterName,
+	parentNamespace string,
+	resourceInfo model.TargetResourceDataModel,
+	model *model.AggregateResourceDataModel) (*v1alpha1.AggregatedResource, error) {
+	if len(resourceInfo.ResourceInfoList) == 0 {
 		return nil, errors.New("resource info list is empty")
 	}
 	aggregateResource := &v1alpha1.AggregatedResource{}
-	aggregateResource.SetName(getAggregateResourceName(resourceRef))
+	aggregateResource.SetName(getAggregateResourceName(model.ResourceRef))
 	aggregateResource.SetNamespace(resourceInfo.Namespace)
 	aggregatedResourceClusters := v1alpha1.AggregatedResourceClusters{
 		Name:              clusterName,
 		ResourceNamespace: resourceInfo.Namespace,
 	}
 	// add labels
-	labels := getAggregateResourceLabels(ruleNamespaced, policyNamespaced, resourceRef)
+	labels := getAggregateResourceLabels(
+		parentNamespace,
+		model.MultiClusterResourceAggregateRule.Name,
+		model.ResourceAggregatePolicy.Name,
+		model.ResourceRef)
 	aggregateResource.SetLabels(labels)
 
 	for _, item := range resourceInfo.ResourceInfoList {
-		if len(item.Name) <= 0 || len(item.ResourceData) <= 0 {
-			coreAggregateLog.Info(fmt.Sprint("resource info or name is empty"))
+		if len(item.Name) == 0 || len(item.ResourceData) == 0 {
+			coreAggregateLog.Info("resource info or name is empty")
 			continue
 		}
 		var info v1alpha1.ResourceInfo
@@ -209,11 +224,6 @@ func validateNamespace(ctx context.Context, clientSet client.Client, namespace s
 		Namespace: "",
 		Name:      namespace,
 	}, ns)
-	if apierrors.IsNotFound(err) {
-		// TODO: if namespacesMapping alive, should change namespace
-
-		return false, nil
-	}
 	if err != nil {
 		return false, err
 	}

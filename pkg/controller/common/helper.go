@@ -3,7 +3,6 @@ package common
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -52,7 +51,12 @@ func ReQueueResult(err error) (ctrl.Result, error) {
 	}, err
 }
 
-func GetClusterNamespaces(ctx context.Context, clientSet client.Client, sourceType common.ClusterType, clusterNames []string, clusterSetName string) ([]string, error) {
+func GetClusterNamespaces(
+	ctx context.Context,
+	clientSet client.Client,
+	sourceType common.ClusterType,
+	clusterNames []string,
+	clusterSetName string) ([]string, error) {
 	var clusterNamespaces []string
 	switch sourceType {
 	case common.ClusterTypeClusters:
@@ -76,7 +80,9 @@ func GetClusterNamespaces(ctx context.Context, clientSet client.Client, sourceTy
 	return clusterNamespaces, nil
 }
 
-func getClustersNameSpaceFromClusterSet(ctx context.Context, clientSet client.Client, clusterSetName string) ([]string, error) {
+func getClustersNameSpaceFromClusterSet(ctx context.Context,
+	clientSet client.Client,
+	clusterSetName string) ([]string, error) {
 	clusterSet := &v1alpha1.ClusterSet{}
 	err := clientSet.Get(ctx, types.NamespacedName{
 		Name: clusterSetName,
@@ -84,8 +90,9 @@ func getClustersNameSpaceFromClusterSet(ctx context.Context, clientSet client.Cl
 	if err != nil {
 		return nil, err
 	}
-	if len(clusterSet.Spec.Clusters) == 0 && (clusterSet.Spec.Selector.Labels == nil || len(clusterSet.Spec.Selector.Labels) == 0) {
-		return nil, errors.New(fmt.Sprintf("clusterSet(%s) is empty", clusterSetName))
+	if len(clusterSet.Spec.Clusters) == 0 &&
+		len(clusterSet.Spec.Selector.Labels) == 0 {
+		return nil, errors.New(clusterSetName + "clusterSet is empty")
 	}
 	var clusterNamespaces []string
 	if len(clusterSet.Spec.Clusters) > 0 {

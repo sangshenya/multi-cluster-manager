@@ -2,6 +2,7 @@ package resource_binding
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -123,23 +124,20 @@ func (r *Reconciler) updateStatusAndSyncClusterResource(ctx context.Context, ins
 	clusterResourceList, err := getClusterResourceListForBinding(ctx, r.Client, instance)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			err = fmt.Errorf(fmt.Sprintf("get clusterResource for resource failed, resource(%s)", instance.Name), err)
-			return err
+			return errors.New("get clusterResource for resource failed," + err.Error())
 		}
 	}
 
 	// sync ClusterResource
 	err = syncClusterResource(ctx, r.Client, clusterResourceList, instance)
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("sync ClusterResource failed, resource(%s)", instance.Name), err)
-		return err
+		return errors.New("sync ClusterResource failed," + err.Error())
 	}
 
 	// update status
 	err = updateBindingStatus(ctx, r.Client, instance, clusterResourceList)
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("update binding status failed, resource(%s)", instance.Name), err)
-		return err
+		return errors.New("update binding status failed," + err.Error())
 	}
 
 	return nil
@@ -162,7 +160,7 @@ func updateBindingStatus(ctx context.Context, clientSet client.Client, binding *
 	updateStatus := false
 	for _, clusterResource := range clusterResourceList.Items {
 		// no status
-		if len(clusterResource.Status.Phase) <= 0 {
+		if len(clusterResource.Status.Phase) == 0 {
 			continue
 		}
 
@@ -218,11 +216,11 @@ func statusEqual(clusterResourceStatus v1alpha1.ClusterResourceStatus, bindingSt
 
 // add labels
 func shouldChangeBindingLabels(binding *v1alpha1.MultiClusterResourceBinding) bool {
-	if len(binding.Spec.Resources) <= 0 {
+	if len(binding.Spec.Resources) == 0 {
 		return false
 	}
 	currentLabels := getMultiClusterResourceLabels(binding)
-	if len(currentLabels) <= 0 {
+	if len(currentLabels) == 0 {
 		return true
 	}
 	existLabels := shouldExistLabels(binding)
@@ -244,7 +242,7 @@ func (r *Reconciler) addBindingLabels(ctx context.Context, binding *v1alpha1.Mul
 }
 
 func replaceLabels(bindingLabels, removeLabels, addLabels map[string]string) map[string]string {
-	if len(bindingLabels) <= 0 || len(removeLabels) <= 0 {
+	if len(bindingLabels) == 0 || len(removeLabels) == 0 {
 		return addLabels
 	}
 	if reflect.DeepEqual(bindingLabels, removeLabels) {

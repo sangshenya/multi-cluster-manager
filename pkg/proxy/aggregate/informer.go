@@ -60,7 +60,7 @@ func (i *InformerControllerConfigMap) GetControllerConfig(resourceRef *metav1.Gr
 	return config
 }
 
-func RemoveResourceAggregatePolicy(policy *v1alpha1.ResourceAggregatePolicy) error {
+func RemoveInformerResourceConfig(policy *v1alpha1.ResourceAggregatePolicy) error {
 	controllerConfig := informerControllerConfigMap.GetControllerConfig(policy.Spec.ResourceRef)
 	if controllerConfig == nil {
 		return nil
@@ -70,14 +70,19 @@ func RemoveResourceAggregatePolicy(policy *v1alpha1.ResourceAggregatePolicy) err
 	if err != nil {
 		return err
 	}
+	// check gvk resource alive when delete controller config
+	specList := resourceConfig.ResourceConfig.GetConfig(policy.Spec.ResourceRef)
+	if len(specList) > 0 {
+		return nil
+	}
 	close(controllerConfig.stopCh)
 	informerControllerConfigMap.RemoveControllerConfig(policy.Spec.ResourceRef)
 	return nil
 }
 
 // add resource config then add informer controller when controller is not found
-func AddResourceAggregatePolicy(policy *v1alpha1.ResourceAggregatePolicy) error {
-	err := resourceConfig.ResourceConfig.AddConfig(policy)
+func AddInformerResourceConfig(policy *v1alpha1.ResourceAggregatePolicy) error {
+	err := resourceConfig.ResourceConfig.AddOrUpdateConfig(policy)
 	if err != nil {
 		return err
 	}

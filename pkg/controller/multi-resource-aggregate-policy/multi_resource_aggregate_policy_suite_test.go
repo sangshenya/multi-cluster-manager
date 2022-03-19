@@ -1,4 +1,4 @@
-package controller
+package multi_resource_aggregate_policy
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -27,22 +28,25 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var testScheme = runtime.NewScheme()
-var reconciler *ClusterReconciler
+var reconciler *Reconciler
 var controllerDone context.CancelFunc
 var mgr ctrl.Manager
 
-func TestCluster(t *testing.T) {
+func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Suite")
+
+	RunSpecsWithDefaultAndCustomReporters(t,
+		"MultiResourceAggregatePolicyController Suite",
+		[]Reporter{printer.NewlineReporter{}})
+
 }
 
 var _ = BeforeSuite(func(done Done) {
-
 	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 	rand.Seed(time.Now().UnixNano())
 	By("bootstrapping test environment")
 
-	k8sconfig := flag.String("k8sconfig", "path/to/k8s/config", "kubernetes test")
+	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-205", "kubernetes auth config")
 	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
 
 	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
@@ -79,11 +83,12 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	reconciler = &ClusterReconciler{
+	reconciler = &Reconciler{
 		Scheme: testScheme,
 		Client: k8sClient,
-		log:    logf.Log.WithName("cluster_controller"),
+		log:    logf.Log.WithName("multi_resource_aggregate_policy_controller"),
 	}
+	reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-core")
 
 	var ctx context.Context
 	ctx, controllerDone = context.WithCancel(context.Background())

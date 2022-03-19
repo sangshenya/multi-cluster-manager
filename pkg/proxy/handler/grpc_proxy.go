@@ -36,7 +36,7 @@ func RecvRegisterResponse(response *config.Response) {
 		return
 	}
 
-	registerLog.Info(fmt.Sprintf("start send heartbeat"))
+	registerLog.Info("start send heartbeat")
 	go proxysend.HeartbeatStart()
 
 	err = dealResponse(proxy_cfg.ProxyConfig.ProxyClient, response)
@@ -46,7 +46,7 @@ func RecvRegisterResponse(response *config.Response) {
 }
 
 func dealResponse(proxyClient *multclusterclient.Clientset, response *config.Response) error {
-	if len(response.Body) <= 0 {
+	if len(response.Body) == 0 {
 		return nil
 	}
 	resources := &model.RegisterResponse{}
@@ -77,7 +77,10 @@ func syncResource(proxyClient *multclusterclient.Clientset, resourceList *model.
 	return nil
 }
 
-func aggregateResourceWhenRegister(ctx context.Context, ruleList []v1alpha1.MultiClusterResourceAggregateRule, policyList []v1alpha1.ResourceAggregatePolicy) error {
+func aggregateResourceWhenRegister(
+	ctx context.Context,
+	ruleList []v1alpha1.MultiClusterResourceAggregateRule,
+	policyList []v1alpha1.ResourceAggregatePolicy) error {
 	modelList, err := aggregate.AggregateResourceWithResourceList(ctx, ruleList, policyList)
 	if err != nil {
 		return err

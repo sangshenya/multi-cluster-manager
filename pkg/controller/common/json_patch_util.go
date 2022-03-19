@@ -9,7 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func ApplyJsonPatch(resource *runtime.RawExtension, override []common.JSONPatch) (*runtime.RawExtension, error) {
+func ApplyJsonPatch(resource *runtime.RawExtension,
+	override []common.JSONPatch) (*runtime.RawExtension, error) {
 	if resource == nil {
 		return nil, errors.New("resource is empty")
 	}

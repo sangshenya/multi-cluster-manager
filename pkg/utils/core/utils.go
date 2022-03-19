@@ -42,7 +42,7 @@ func NewCluster(clusterName string) *v1alpha1.Cluster {
 func ConvertRegisterAddons2KubeAddons(addons []model.AddonsData) ([]v1alpha1.ClusterAddonStatus, error) {
 	var result []v1alpha1.ClusterAddonStatus
 	for _, addon := range addons {
-		if len(addon.Name) <= 0 {
+		if len(addon.Name) == 0 {
 			continue
 		}
 		clusterAddon := v1alpha1.ClusterAddonStatus{

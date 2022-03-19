@@ -95,7 +95,7 @@ func (s *CoreServer) updateClusterStatusWithHeartbeat(ctx context.Context, clust
 }
 
 func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addons []model.AddonsData, cluster *v1alpha1.Cluster) (*v1alpha1.Cluster, error) {
-	if len(addons) <= 0 {
+	if len(addons) == 0 {
 		return cluster, nil
 	}
 	clusterAddons, err := core.ConvertRegisterAddons2KubeAddons(addons)

@@ -79,7 +79,7 @@ func updateValidate(oldMultiClusterResource, multiClusterResource *v1alpha1.Mult
 		return errors.New(validationCommon.ResourceMarshalFail + ", error:" + err.Error())
 	}
 
-	if oldResource.GetName() != newResource.GetName() || oldResource.GetNamespace() != oldResource.GetNamespace() {
+	if oldResource.GetName() != newResource.GetName() || oldResource.GetNamespace() != newResource.GetNamespace() {
 		return errors.New(validationCommon.CanNotChangedIdentity)
 	}
 	return nil

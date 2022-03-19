@@ -33,9 +33,13 @@ func GroupVersionResourceFromUnstructured(u *unstructured.Unstructured) schema.G
 
 func GenerateNamespaceInControlPlane(cluster *v1alpha1.Cluster) *corev1.Namespace {
 	namespaceName := managerCommon.ClusterNamespaceInControlPlanePrefix + cluster.Name
+	labels := map[string]string{
+		managerCommon.ProxyWorkspaceLabelName: cluster.Name,
+	}
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: namespaceName,
+			Name:   namespaceName,
+			Labels: labels,
 		},
 	}
 }

@@ -2,6 +2,7 @@ package cluster_resource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -128,11 +129,11 @@ func (r *Reconciler) syncResourceAndUpdateStatus(ctx context.Context, instance *
 	// create/update resource
 	err := syncResource(ctx, r.Client, instance)
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("ClusterResource(%s:%s) sync resource failed", instance.Namespace, instance.Name), err)
+		err = errors.New("ClusterResource sync resource failed," + err.Error())
 		// update status, add sync error message
 		updateStatusError := r.updateClusterResourceStatusWithCreateErrorMessage(ctx, err.Error(), instance)
 		if updateStatusError != nil {
-			updateStatusError = fmt.Errorf(fmt.Sprintf("update status failed, resource(%s:%s)", instance.Namespace, instance.Name), updateStatusError)
+			updateStatusError = errors.New("update status failed," + updateStatusError.Error())
 			return updateStatusError
 		}
 		return err
@@ -140,7 +141,7 @@ func (r *Reconciler) syncResourceAndUpdateStatus(ctx context.Context, instance *
 	// update status,change phase to complete
 	err = r.updateClusterResourceStatusWithPhaseComplete(ctx, instance)
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("update clusterResource(%s:%s) status to complete failed", instance.Namespace, instance.Name), err)
+		err = errors.New("update clusterResource failed when update status to complete," + err.Error())
 	}
 	return err
 }
@@ -157,7 +158,7 @@ func (r *Reconciler) updateClusterResourceStatusWithCreateErrorMessage(ctx conte
 }
 
 func (r *Reconciler) updateClusterResourceStatusWithPhaseComplete(ctx context.Context, instance *v1alpha1.ClusterResource) error {
-	if instance.Status.Phase == common.Complete && instance.Status.ObservedReceiveGeneration == instance.Generation && len(instance.Status.Message) <= 0 {
+	if instance.Status.Phase == common.Complete && instance.Status.ObservedReceiveGeneration == instance.Generation && len(instance.Status.Message) == 0 {
 		return nil
 	}
 	// update status complete

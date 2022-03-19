@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"google.golang.org/grpc/credentials/insecure"
+
 	"k8s.io/klog/v2"
 
 	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
@@ -36,7 +38,7 @@ func GetConnection() config.Channel_EstablishClient {
 }
 
 func getConnection() (config.Channel_EstablishClient, error) {
-	conn, err := grpc.Dial(proxy_cfg.ProxyConfig.Cfg.CoreAddress, grpc.WithInsecure())
+	conn, err := grpc.Dial(proxy_cfg.ProxyConfig.Cfg.CoreAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,7 @@ package match
 
 import (
 	"context"
-	"regexp"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -23,15 +23,24 @@ const (
 	Ignores  PolicyType = "Ignores"
 )
 
-func IsTargetResource(ctx context.Context, resourceRef *metav1.GroupVersionKind, object *unstructured.Unstructured) bool {
-	config := resourceConfig.ResourceConfig.GetConfig(resourceRef)
-	if config == nil {
+func IsTargetResource(ctx context.Context,
+	resourceRef *metav1.GroupVersionKind,
+	object *unstructured.Unstructured) bool {
+	specList := resourceConfig.ResourceConfig.GetConfig(resourceRef)
+	if len(specList) == 0 {
 		return false
 	}
-	return limitJudgment(ctx, config.Limit, object)
+	for _, spec := range specList {
+		if limitJudgment(ctx, spec.Limit, object) {
+			return true
+		}
+	}
+	return false
 }
 
-func IsTargetResourceWithConfig(ctx context.Context, object *unstructured.Unstructured, config *v1alpha1.ResourceAggregatePolicySpec) bool {
+func IsTargetResourceWithConfig(ctx context.Context,
+	object *unstructured.Unstructured,
+	config *v1alpha1.ResourceAggregatePolicySpec) bool {
 	if config == nil {
 		return false
 	}
@@ -50,13 +59,15 @@ func limitJudgment(ctx context.Context, limit *v1alpha1.AggregatePolicyLimit, ob
 }
 
 // limitRuleJudgment Satisfy either LabelsMatch or Match
-func limitRuleJudgment(ctx context.Context, limitRule *v1alpha1.AggregatePolicyLimitRule, object *unstructured.Unstructured) bool {
+func limitRuleJudgment(ctx context.Context,
+	limitRule *v1alpha1.AggregatePolicyLimitRule,
+	obj *unstructured.Unstructured) bool {
 	if !labelsMatchIsEmpty(limitRule.LabelsMatch) {
-		if labelMatchResource(ctx, limitRule.LabelsMatch, object) {
+		if labelMatchResource(ctx, limitRule.LabelsMatch, obj) {
 			return true
 		}
 	}
-	return matchResource(limitRule.Match, object)
+	return matchResource(limitRule.Match, obj)
 }
 
 // matchResource find target resource with matchList
@@ -85,8 +96,7 @@ func nameMatch(scope *v1alpha1.MatchScope, name string) bool {
 	if len(scope.List) > 0 {
 		return sliceutil.ContainsString(scope.List, name)
 	}
-	nameRe := regexp.MustCompile(scope.Regexp)
-	return nameRe.MatchString(name)
+	return strings.Contains(name, scope.Include)
 }
 
 // labelMatchResource find target resource with LabelsMatch
@@ -157,7 +167,7 @@ func labelsMatchIsEmpty(labelsMatch *v1alpha1.LabelsMatch) bool {
 }
 
 func matchListIsEmpty(matchList []v1alpha1.Match) bool {
-	if matchList == nil || len(matchList) == 0 {
+	if len(matchList) == 0 {
 		return true
 	}
 	isEmpty := true
@@ -178,7 +188,7 @@ func matchIsEmpty(match v1alpha1.Match) bool {
 }
 
 func matchScopeIsEmpty(matchScope *v1alpha1.MatchScope) bool {
-	if matchScope == nil || (len(matchScope.List) == 0 && len(matchScope.Regexp) == 0) {
+	if matchScope == nil || (len(matchScope.List) == 0 && len(matchScope.Include) == 0) {
 		return true
 	}
 	return false

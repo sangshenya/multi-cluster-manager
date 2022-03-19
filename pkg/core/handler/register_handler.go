@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"harmonycloud.cn/stellaris/pkg/common/helper"
+
 	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
 
 	"harmonycloud.cn/stellaris/pkg/controller/resource_aggregate_rule"
@@ -123,9 +125,14 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 
 func (s *CoreServer) getRegisterResources(clusterName string) (*model.RegisterResponse, error) {
 	ctx := context.Background()
-	body := &model.RegisterResponse{}
+	body := &model.RegisterResponse{
+		ClusterResources:                   make([]v1alpha1.ClusterResource, 0),
+		ResourceAggregatePolicies:          make([]v1alpha1.ResourceAggregatePolicy, 0),
+		MultiClusterResourceAggregateRules: make([]v1alpha1.MultiClusterResourceAggregateRule, 0),
+	}
 	clusterNamespace := managerCommon.ClusterNamespace(clusterName)
 
+	var err error
 	clusterResourceList, err := s.getClusterResourceList(ctx, clusterNamespace)
 	if err != nil {
 		coreRegisterLog.Error(err, "register response, get cluster resource list failed")
@@ -138,14 +145,40 @@ func (s *CoreServer) getRegisterResources(clusterName string) (*model.RegisterRe
 		coreRegisterLog.Error(err, "register response, get policy list failed")
 		return body, err
 	}
-	body.ResourceAggregatePolicies = policyList.Items
+	for _, policy := range policyList.Items {
+		mPolicyNamespace, ok := policy.GetLabels()[managerCommon.ParentResourceNamespaceLabelName]
+		if !ok {
+			continue
+		}
+
+		ns, err := helper.GetMappingNamespace(ctx,
+			s.clientSet,
+			managerCommon.ClusterName(policy.GetNamespace()),
+			mPolicyNamespace)
+		if err != nil {
+			continue
+		}
+		if mPolicyNamespace != ns {
+			policy.SetNamespace(ns)
+		}
+		body.ResourceAggregatePolicies = append(body.ResourceAggregatePolicies, policy)
+	}
 
 	ruleList, err := resource_aggregate_rule.AggregateRuleList(ctx, s.mClient, metav1.NamespaceAll)
 	if err != nil {
 		coreRegisterLog.Error(err, "register response, get rule list failed")
 		return body, err
 	}
-	body.MultiClusterResourceAggregateRules = ruleList.Items
+	for _, rule := range ruleList.Items {
+		mappingNs, err := helper.GetMappingNamespace(ctx, s.clientSet, clusterName, rule.Namespace)
+		if err != nil {
+			continue
+		}
+		if mappingNs != rule.Namespace {
+			rule.Namespace = mappingNs
+		}
+		body.MultiClusterResourceAggregateRules = append(body.MultiClusterResourceAggregateRules, rule)
+	}
 
 	return body, nil
 }

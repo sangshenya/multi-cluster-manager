@@ -31,11 +31,17 @@ var clusterResourceCommonLog = logf.Log.WithName("proxy_clusterResource_common")
 
 // sync clusterResource when update/create/none
 func SyncProxyClusterResource(ctx context.Context, proxyClient *multclusterclient.Clientset, clusterResource *v1alpha1.ClusterResource) error {
-	existClusterResource, err := proxyClient.MulticlusterV1alpha1().ClusterResources(clusterResource.GetNamespace()).Get(ctx, clusterResource.Name, metav1.GetOptions{})
+	existClusterResource, err := proxyClient.MulticlusterV1alpha1().ClusterResources(clusterResource.GetNamespace()).Get(
+		ctx,
+		clusterResource.Name,
+		metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			newClusterResourceObject := newClusterResource(clusterResource)
-			_, err = proxyClient.MulticlusterV1alpha1().ClusterResources(newClusterResourceObject.GetNamespace()).Create(ctx, newClusterResourceObject, metav1.CreateOptions{})
+			_, err = proxyClient.MulticlusterV1alpha1().ClusterResources(newClusterResourceObject.GetNamespace()).Create(
+				ctx,
+				newClusterResourceObject,
+				metav1.CreateOptions{})
 			return err
 		}
 		return err
@@ -151,7 +157,11 @@ const (
 )
 
 // updateClusterResourceStatus send update status request to control plane, then update clusterResource status
-func updateClusterResourceStatus(ctx context.Context, clientSet client.Client, clusterResource *v1alpha1.ClusterResource, status v1alpha1.ClusterResourceStatus) error {
+func updateClusterResourceStatus(
+	ctx context.Context,
+	clientSet client.Client,
+	clusterResource *v1alpha1.ClusterResource,
+	status v1alpha1.ClusterResourceStatus) error {
 	clusterResource.Status = status
 	err := sendStatusToControlPlane(clusterResource)
 	if err != nil {

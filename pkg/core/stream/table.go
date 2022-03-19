@@ -36,8 +36,12 @@ func init() {
 
 func Insert(clusterName string, stream *Stream) {
 	lock.RLock()
-	existStream, _ := table[clusterName]
+	existStream, ok := table[clusterName]
 	lock.RUnlock()
+
+	if !ok {
+		return
+	}
 
 	lock.Lock()
 	defer lock.Unlock()

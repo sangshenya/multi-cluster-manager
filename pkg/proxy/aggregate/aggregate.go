@@ -20,7 +20,10 @@ import (
 )
 
 // AggregateResourceWithResourceList aggregate resource when proxy register success and ruleList/policyList is not empty
-func AggregateResourceWithResourceList(ctx context.Context, ruleList []v1alpha1.MultiClusterResourceAggregateRule, policyList []v1alpha1.ResourceAggregatePolicy) (*model.AggregateResourceDataModelList, error) {
+func AggregateResourceWithResourceList(
+	ctx context.Context,
+	ruleList []v1alpha1.MultiClusterResourceAggregateRule,
+	policyList []v1alpha1.ResourceAggregatePolicy) (*model.AggregateResourceDataModelList, error) {
 	modelList := &model.AggregateResourceDataModelList{}
 	for _, policy := range policyList {
 		rList := getMatchRule(ruleList, policy)
@@ -29,7 +32,7 @@ func AggregateResourceWithResourceList(ctx context.Context, ruleList []v1alpha1.
 			if err != nil {
 				return nil, err
 			}
-			if len(mList.List) <= 0 {
+			if len(mList.List) == 0 {
 				continue
 			}
 			modelList.List = append(modelList.List, mList.List...)
@@ -38,7 +41,10 @@ func AggregateResourceWithResourceList(ctx context.Context, ruleList []v1alpha1.
 	return modelList, nil
 }
 
-func AggregateResource(ctx context.Context, rule *v1alpha1.MultiClusterResourceAggregateRule, policy *v1alpha1.ResourceAggregatePolicy) (*model.AggregateResourceDataModelList, error) {
+func AggregateResource(
+	ctx context.Context,
+	rule *v1alpha1.MultiClusterResourceAggregateRule,
+	policy *v1alpha1.ResourceAggregatePolicy) (*model.AggregateResourceDataModelList, error) {
 	modelList := &model.AggregateResourceDataModelList{}
 	resourceObjectList := newResourceObject(policy.Spec.ResourceRef)
 	err := proxy_cfg.ProxyConfig.ControllerClient.List(ctx, resourceObjectList)
@@ -62,7 +68,9 @@ func AggregateResource(ctx context.Context, rule *v1alpha1.MultiClusterResourceA
 	return modelList, nil
 }
 
-func getMatchRule(ruleList []v1alpha1.MultiClusterResourceAggregateRule, policy v1alpha1.ResourceAggregatePolicy) []v1alpha1.MultiClusterResourceAggregateRule {
+func getMatchRule(
+	ruleList []v1alpha1.MultiClusterResourceAggregateRule,
+	policy v1alpha1.ResourceAggregatePolicy) []v1alpha1.MultiClusterResourceAggregateRule {
 	rList := []v1alpha1.MultiClusterResourceAggregateRule{}
 	for _, rule := range ruleList {
 		policyLabels := policy.GetLabels()

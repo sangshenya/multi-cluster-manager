@@ -10,10 +10,9 @@ import (
 )
 
 const (
-	// TODO set manager default namespace
-	ManagerNamespace = "stellaris-system"
-	// TODO set manager default FinalizerName
+	ManagerNamespace                            = "stellaris-system"
 	FinalizerName                               = "stellaris/Finalizer"
+	ProxyWorkspaceLabelName                     = "stellaris/ProxyWorkspace"
 	ClusterResourceLabelName                    = "stellaris/ClusterResource"
 	ResourceBindingLabelName                    = "stellaris/ResourceBinding"
 	ResourceGvkLabelName                        = "stellaris/ResourceGvk"
@@ -25,6 +24,7 @@ const (
 	AggregateRuleLabelName                      = "stellaris/AggregateRule"
 	AggregatePolicyLabelName                    = "stellaris/AggregatePolicy"
 	MultiAggregatePolicyLabelName               = "stellaris/MultiAggregatePolicy"
+	ParentResourceNamespaceLabelName            = "stellaris/ParentResourceNamespace"
 )
 
 const (
@@ -67,7 +67,7 @@ func GvkLabelString(gvk *metav1.GroupVersionKind) string {
 	return gvkString
 }
 
-func GetMultiClusterResourceSelectorForMultiClusterResourceName(multiClusterResourceName string) (labels.Selector, error) {
+func GetMultiClusterResourceSelector(multiClusterResourceName string) (labels.Selector, error) {
 	if len(multiClusterResourceName) == 0 {
 		return nil, errors.New("multiClusterResourceName is empty")
 	}

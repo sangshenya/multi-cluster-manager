@@ -96,7 +96,7 @@ func TestCoreDnsConfig(t *testing.T) {
 		fmt.Println(err)
 		return
 	}
-	if len(serverBlocks) <= 0 {
+	if len(serverBlocks) == 0 {
 		fmt.Println("serverBlocks is empty")
 		return
 	}

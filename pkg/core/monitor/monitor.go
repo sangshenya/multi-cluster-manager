@@ -47,14 +47,18 @@ func checkClusterStatus() {
 		}
 
 		for _, cluster := range clusterList.Items {
-			if timeutils.NowTimeWithLoc().Sub(cluster.Status.LastReceiveHeartBeatTimestamp.Time) >= config.OnlineExpirationTime && cluster.Status.Status == v1alpha1.OnlineStatus {
+			if timeutils.NowTimeWithLoc().Sub(cluster.Status.LastReceiveHeartBeatTimestamp.Time) >= config.OnlineExpirationTime &&
+				cluster.Status.Status == v1alpha1.OnlineStatus {
 				err = policyReSchedule(ctx, &cluster)
 				if err != nil {
 					clusterMonitorLog.Error(err, "change policy reSchedule failed")
 					continue
 				}
 
-				clusterMonitorLog.Info(fmt.Sprintf("cluster(%s) is offline, last heartBeat time:%s, now time:%s", cluster.Name, cluster.Status.LastReceiveHeartBeatTimestamp.String(), metav1.Now().String()))
+				clusterMonitorLog.Info(fmt.Sprintf("cluster(%s) is offline, last heartBeat time:%s, now time:%s",
+					cluster.Name,
+					cluster.Status.LastReceiveHeartBeatTimestamp.String(),
+					metav1.Now().String()))
 				err = clusterController.OfflineCluster(ctx, client, &cluster)
 				if err != nil {
 					clusterMonitorLog.Error(err, fmt.Sprintf("change cluster(%s) status to offline failed", cluster.GetName()))

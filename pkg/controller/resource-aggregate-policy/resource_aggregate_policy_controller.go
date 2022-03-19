@@ -3,9 +3,12 @@ package resource_aggregate_policy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"harmonycloud.cn/stellaris/pkg/common/helper"
 
 	"k8s.io/client-go/tools/record"
 
@@ -100,6 +103,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 
 	if err = r.syncResourceAggregatePolicy(ctx, instance); err != nil {
 		r.log.Error(err, fmt.Sprintf("sync ResourceAggregatePolicy failed, resource(%s:%s)", instance.Namespace, instance.Name))
+		// ResourceAggregatePolicy: policy;MultiClusterResourceAggregatePolicy: mPolicy or multiPolicy
+		r.Recorder.Event(instance, "Warning", "CreateOrUpdatePolicy", err.Error())
 		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 	}
 	return ctrl.Result{}, nil
@@ -111,10 +116,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.ResourceAggregatePolicy) error {
 	if r.isControlPlane {
 		// core send ResourceAggregatePolicy to proxy
-		return r.syncResourceAggregatePolicyToProxy(model.AggregateUpdateOrCreate, instance)
+		return r.syncResourceAggregatePolicyToProxy(ctx, model.AggregateUpdateOrCreate, instance)
 	}
 	// proxy aggregate target resource, add config, add informer
-	return proxyAggregate.AddResourceAggregatePolicy(instance)
+	return proxyAggregate.AddInformerResourceConfig(instance)
 }
 
 // deleteResourceAggregatePolicy
@@ -122,28 +127,42 @@ func (r *Reconciler) syncResourceAggregatePolicy(ctx context.Context, instance *
 // proxy delete config and informer
 func (r *Reconciler) deleteResourceAggregatePolicy(ctx context.Context, instance *v1alpha1.ResourceAggregatePolicy) error {
 	if r.isControlPlane {
-		return r.syncResourceAggregatePolicyToProxy(model.AggregateDelete, instance)
+		return r.syncResourceAggregatePolicyToProxy(ctx, model.AggregateDelete, instance)
 	}
-	return proxyAggregate.RemoveResourceAggregatePolicy(instance)
+	return proxyAggregate.RemoveInformerResourceConfig(instance)
 }
 
 // sendResourceAggregatePolicyToProxy core send ResourceAggregatePolicy to proxy with create/update/delete event
-func (r *Reconciler) syncResourceAggregatePolicyToProxy(responseType model.ServiceResponseType, instance *v1alpha1.ResourceAggregatePolicy) error {
+func (r *Reconciler) syncResourceAggregatePolicyToProxy(
+	ctx context.Context,
+	responseType model.ServiceResponseType,
+	instance *v1alpha1.ResourceAggregatePolicy) error {
+	mPolicyNamespace, ok := instance.GetLabels()[managerCommon.ParentResourceNamespaceLabelName]
+	if !ok {
+		return errors.New("can not find mPolicy namespace")
+	}
+
+	ns, err := helper.GetMappingNamespace(ctx, r.Client, managerCommon.ClusterName(instance.GetNamespace()), mPolicyNamespace)
+	if err != nil {
+		return err
+	}
+	if mPolicyNamespace != ns {
+		instance.SetNamespace(ns)
+	}
+
 	policyResponse, err := newResourceAggregatePolicyResponse(responseType, instance)
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("marshal policy(%s:%s) failed", instance.GetNamespace(), instance.GetName()), err)
-		return err
+		return errors.New("marshal policy failed," + err.Error())
 	}
 	err = coreSender.SendResponseToProxy(policyResponse)
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("send policy(%s:%s) to proxy failed", instance.GetNamespace(), instance.GetName()), err)
-		return err
+		return errors.New("send policy to proxy failed," + err.Error())
 	}
 	return nil
 }
 
 func newResourceAggregatePolicyResponse(responseType model.ServiceResponseType, instance *v1alpha1.ResourceAggregatePolicy) (*config.Response, error) {
-	clusterName := managerCommon.ClusterName(instance.GetName())
+	clusterName := managerCommon.ClusterName(instance.GetNamespace())
 	policyData, err := json.Marshal(instance)
 	if err != nil {
 		return nil, err

@@ -1,0 +1,19 @@
+name: Git linter
+on: [push, pull_request]
+jobs:
+  gitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        # checkout code before linting
+        uses: actions/checkout@v2
+        with:
+          # fetch 1 commits (increase if needed)
+          fetch-depth: '1'
+      - name: Lint
+        # run linter (use latest version here)
+        uses: g4s8/gitlint-action@0.3.1
+        with:
+          # see `Inputs` section for more details
+          since: "2020-03-18"
+          pattern: '^(revert: )?(feat|fix|perf|style|refactor|test|ci|docs|chore)(\(.+\))?: [^A-Z].*$'

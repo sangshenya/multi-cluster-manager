@@ -22,7 +22,7 @@ func RecvSyncResourceResponse(response *config.Response) {
 	case model.ResourceStatusUpdateFailed.String():
 		resourceLog.Error(errors.New(response.Body), "cluster resource status update failed")
 	case model.ResourceStatusUpdateSuccess.String():
-		resourceLog.Info(fmt.Sprintf("cluster resource status update success"))
+		resourceLog.Info("cluster resource status update success")
 	case model.ResourceUpdateOrCreate.String():
 		syncClusterResource(response)
 	case model.ResourceDelete.String():

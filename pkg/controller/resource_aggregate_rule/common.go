@@ -19,7 +19,11 @@ import (
 
 var aggregateRuleCommonLog = logf.Log.WithName("aggregate_rule_common")
 
-func SyncAggregateRuleList(ctx context.Context, clientSet *multclusterclient.Clientset, responseType model.SyncAggregateResourceType, ruleList []v1alpha1.MultiClusterResourceAggregateRule) error {
+func SyncAggregateRuleList(
+	ctx context.Context,
+	clientSet *multclusterclient.Clientset,
+	responseType model.SyncAggregateResourceType,
+	ruleList []v1alpha1.MultiClusterResourceAggregateRule) error {
 	syncType := responseType
 	existRuleMap := make(map[string]*v1alpha1.MultiClusterResourceAggregateRule)
 	if responseType == model.SyncResource {
@@ -55,7 +59,11 @@ func SyncAggregateRuleList(ctx context.Context, clientSet *multclusterclient.Cli
 	return nil
 }
 
-func syncAggregateRule(ctx context.Context, clientSet *multclusterclient.Clientset, responseType model.SyncAggregateResourceType, rule *v1alpha1.MultiClusterResourceAggregateRule) error {
+func syncAggregateRule(
+	ctx context.Context,
+	clientSet *multclusterclient.Clientset,
+	responseType model.SyncAggregateResourceType,
+	rule *v1alpha1.MultiClusterResourceAggregateRule) error {
 	existRule, err := clientSet.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(rule.GetNamespace()).Get(ctx, rule.GetName(), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -63,7 +71,7 @@ func syncAggregateRule(ctx context.Context, clientSet *multclusterclient.Clients
 				return nil
 			}
 			newRule := newAggregateRule(rule)
-			newRule, err = clientSet.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(rule.GetNamespace()).Create(ctx, newRule, metav1.CreateOptions{})
+			_, err = clientSet.MulticlusterV1alpha1().MultiClusterResourceAggregateRules(rule.GetNamespace()).Create(ctx, newRule, metav1.CreateOptions{})
 			if err != nil {
 				aggregateRuleCommonLog.Error(err, fmt.Sprintf("sync proxy aggregate rule(%s:%s) failed", rule.GetNamespace(), rule.GetName()))
 			}

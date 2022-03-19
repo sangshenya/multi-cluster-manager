@@ -159,12 +159,12 @@ spec:
                           properties:
                             nameMatch:
                               properties:
+                                include:
+                                  type: string
                                 list:
                                   items:
                                     type: string
                                   type: array
-                                regexp:
-                                  type: string
                               type: object
                             namespaces:
                               type: string
@@ -277,12 +277,12 @@ spec:
                           properties:
                             nameMatch:
                               properties:
+                                include:
+                                  type: string
                                 list:
                                   items:
                                     type: string
                                   type: array
-                                regexp:
-                                  type: string
                               type: object
                             namespaces:
                               type: string

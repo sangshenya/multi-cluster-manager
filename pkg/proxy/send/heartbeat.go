@@ -1,10 +1,12 @@
 package send
 
 import (
-	"fmt"
+	"errors"
 	"reflect"
 	"sync"
 	"time"
+
+	"harmonycloud.cn/stellaris/config"
 
 	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
 	"harmonycloud.cn/stellaris/pkg/model"
@@ -36,7 +38,7 @@ func HeartbeatStart() {
 func (heartbeat *HeartbeatObject) start() {
 	for {
 		time.Sleep(proxy_cfg.ProxyConfig.Cfg.HeartbeatPeriod)
-		heartbeatLog.Info(fmt.Sprintf("start send heartbeat to core"))
+		heartbeatLog.Info("start send heartbeat to core")
 
 		// get addons
 		addonsInfo := heartbeat.getAddon()
@@ -45,28 +47,39 @@ func (heartbeat *HeartbeatObject) start() {
 		// CHECK HEALTH
 		_, healthy := clusterHealth.GetClusterHealthStatus(proxy_cfg.ProxyConfig.ProxyClient)
 
-		heartbeatWithChange := &model.HeartbeatWithChangeRequest{}
-		if !(heartbeat.LastHeartbeat != nil && isEqualAddons(addonsInfo, heartbeat.LastHeartbeat.Addons)) {
-			heartbeatWithChange.Addons = addonsInfo
-		}
-		heartbeatWithChange.Conditions = conditions
-		heartbeatWithChange.Healthy = healthy
+		heartbeatWithChange := newHeartbeat(addonsInfo, conditions, healthy)
 		request, err := common.GenerateRequest(model.Heartbeat.String(), heartbeatWithChange, proxy_cfg.ProxyConfig.Cfg.ClusterName)
 		if err != nil {
 			heartbeatLog.Error(err, "create Heartbeat request failed")
 			continue
 		}
-
-		stream := proxy_stream.GetConnection()
-		if stream == nil {
-			heartbeatLog.Error(err, "new stream failed")
-			continue
-		}
-		if err = stream.Send(request); err != nil {
-			heartbeatLog.Error(err, "send request failed")
+		err = sendHeartbeatRequestToCore(request)
+		if err != nil {
+			heartbeatLog.Error(err, "send Heartbeat request failed")
 			continue
 		}
 	}
+}
+
+func newHeartbeat(addons []model.AddonsData, conditions []model.Condition, healthy bool) *model.HeartbeatWithChangeRequest {
+	heartbeatWithChange := &model.HeartbeatWithChangeRequest{}
+	if !(heartbeat.LastHeartbeat != nil && isEqualAddons(addons, heartbeat.LastHeartbeat.Addons)) {
+		heartbeatWithChange.Addons = addons
+	}
+	heartbeatWithChange.Conditions = conditions
+	heartbeatWithChange.Healthy = healthy
+	return heartbeatWithChange
+}
+
+func sendHeartbeatRequestToCore(request *config.Request) error {
+	stream := proxy_stream.GetConnection()
+	if stream == nil {
+		return errors.New("new stream failed")
+	}
+	if err := stream.Send(request); err != nil {
+		return err
+	}
+	return nil
 }
 
 func SetLastHeartbeat(request *model.HeartbeatWithChangeRequest) {

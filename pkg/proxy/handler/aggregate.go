@@ -81,7 +81,7 @@ func aggregateResource(ctx context.Context, policyList []v1alpha1.ResourceAggreg
 			if err != nil {
 				return err
 			}
-			if len(mList.List) <= 0 {
+			if len(mList.List) == 0 {
 				continue
 			}
 			modelList.List = append(modelList.List, mList.List...)

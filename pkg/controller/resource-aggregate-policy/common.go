@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	multclusterclient "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
@@ -20,11 +18,15 @@ import (
 
 var aggregatePolicyCommonLog = logf.Log.WithName("aggregate_policy_common")
 
-func SyncAggregatePolicyList(ctx context.Context, clientSet *multclusterclient.Clientset, responseType model.SyncAggregateResourceType, policyList []v1alpha1.ResourceAggregatePolicy) error {
+func SyncAggregatePolicyList(
+	ctx context.Context,
+	clientSet *multclusterclient.Clientset,
+	responseType model.SyncAggregateResourceType,
+	policyList []v1alpha1.ResourceAggregatePolicy) error {
 	syncType := responseType
 	existPolicyMap := make(map[string]*v1alpha1.ResourceAggregatePolicy)
 	if responseType == model.SyncResource {
-		existPolicyList, err := AggregatePolicyList(ctx, clientSet, managerCommon.ManagerNamespace)
+		existPolicyList, err := AggregatePolicyList(ctx, clientSet, metav1.NamespaceAll)
 		if err != nil {
 			return err
 		}
@@ -35,7 +37,6 @@ func SyncAggregatePolicyList(ctx context.Context, clientSet *multclusterclient.C
 		syncType = model.UpdateOrCreateResource
 	}
 	for _, policy := range policyList {
-		policy.SetNamespace(managerCommon.ManagerNamespace)
 		key := common.NewNamespacedName(policy.GetNamespace(), policy.GetName()).String()
 		_, ok := existPolicyMap[key]
 		if ok {
@@ -57,7 +58,11 @@ func SyncAggregatePolicyList(ctx context.Context, clientSet *multclusterclient.C
 	return nil
 }
 
-func syncAggregatePolicy(ctx context.Context, clientSet *multclusterclient.Clientset, responseType model.SyncAggregateResourceType, policy *v1alpha1.ResourceAggregatePolicy) error {
+func syncAggregatePolicy(
+	ctx context.Context,
+	clientSet *multclusterclient.Clientset,
+	responseType model.SyncAggregateResourceType,
+	policy *v1alpha1.ResourceAggregatePolicy) error {
 	existPolicy, err := clientSet.MulticlusterV1alpha1().ResourceAggregatePolicies(policy.GetNamespace()).Get(ctx, policy.GetName(), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -65,7 +70,7 @@ func syncAggregatePolicy(ctx context.Context, clientSet *multclusterclient.Clien
 				return nil
 			}
 			newPolicy := newAggregatePolicy(policy)
-			newPolicy, err = clientSet.MulticlusterV1alpha1().ResourceAggregatePolicies(policy.GetNamespace()).Create(ctx, newPolicy, metav1.CreateOptions{})
+			_, err = clientSet.MulticlusterV1alpha1().ResourceAggregatePolicies(policy.GetNamespace()).Create(ctx, newPolicy, metav1.CreateOptions{})
 			if err != nil {
 				aggregatePolicyCommonLog.Error(err, fmt.Sprintf("create proxy aggregate policy(%s:%s) failed", policy.GetNamespace(), policy.GetName()))
 			}

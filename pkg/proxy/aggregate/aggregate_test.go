@@ -56,7 +56,6 @@ var _ = Describe("Aggregate", func() {
 
 	// new proxyConfig
 	c := proxy_cfg.DefaultConfiguration()
-	c.TestFlag = true
 	c.ClusterName = "cluster205"
 	proxy_cfg.NewProxyConfig(c, proxyClient, k8sClient, cfg)
 
@@ -94,12 +93,12 @@ var _ = Describe("Aggregate", func() {
 		// get ResourceAggregatePolicy
 		policy, err := proxyClient.MulticlusterV1alpha1().ResourceAggregatePolicies(managerCommon.ManagerNamespace).Get(ctx, "policy-test", metav1.GetOptions{})
 		Expect(err).Should(BeNil())
-		err = AddResourceAggregatePolicy(policy)
+		err = AddInformerResourceConfig(policy)
 		Expect(err).Should(BeNil())
 
 		time.Sleep(40 * time.Second)
 
-		err = RemoveResourceAggregatePolicy(policy)
+		err = RemoveInformerResourceConfig(policy)
 		Expect(err).Should(BeNil())
 	})
 

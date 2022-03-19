@@ -3,15 +3,11 @@ package inTree
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"harmonycloud.cn/stellaris/pkg/model"
 	v1 "k8s.io/api/core/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var addonsKubeLog = logf.Log.WithName("proxy_addon_kube")
 
 type kubeAddons struct{}
 
@@ -36,8 +32,7 @@ func getAddonsInfoList(ctx context.Context, cfg *model.InTreeConfig) ([]model.Ad
 	// selector
 	healthInfoList, err := getAddonsInfoWithSelector(ctx, cfg.Selector)
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("get addons info from selector(%v) failed", cfg.Selector), err)
-		return nil, err
+		return nil, errors.New("get addons info from selector failed," + err.Error())
 	}
 	kubeAddonsInfo = append(kubeAddonsInfo, healthInfoList...)
 
@@ -52,7 +47,7 @@ func getAddonsInfoWithSelector(ctx context.Context, selector *model.Selector) ([
 	if selector == nil {
 		return nil, nil
 	}
-	if len(selector.Namespace) <= 0 {
+	if len(selector.Namespace) == 0 {
 		return nil, errors.New("resource namespace can not be empty")
 	}
 	pods, err := getPodList(ctx, selector)
@@ -64,7 +59,7 @@ func getAddonsInfoWithSelector(ctx context.Context, selector *model.Selector) ([
 }
 
 func staticPodHealthInfo(staticPods []model.Static) []model.AddonsInfo {
-	if len(staticPods) <= 0 {
+	if len(staticPods) == 0 {
 		return nil
 	}
 	var addonsInfo []model.AddonsInfo

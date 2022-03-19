@@ -67,10 +67,10 @@ func (s *CoreServer) syncClusterResourceStatus(statusList []model.ClusterResourc
 
 // send request to proxy
 func SendResourceToProxy(clusterName string, resourceResponse *config.Response) error {
-	resourceHandlerLog.Info(fmt.Sprintf("start to send resource request to proxy"))
+	resourceHandlerLog.Info("start to send resource request to proxy")
 	stream := table.FindStream(clusterName)
 	if stream == nil {
-		err := errors.New(fmt.Sprintf("cannot find proxy(%s) stream", clusterName))
+		err := errors.New("cannot find proxy stream")
 		resourceHandlerLog.Error(err, "find proxy stream failed")
 		return err
 	}
@@ -79,7 +79,7 @@ func SendResourceToProxy(clusterName string, resourceResponse *config.Response) 
 		resourceHandlerLog.Error(err, "send resource to proxy failed")
 		return err
 	}
-	resourceHandlerLog.Info(fmt.Sprintf("send resource request to proxy success"))
+	resourceHandlerLog.Info("send resource request to proxy success")
 	return nil
 }
 

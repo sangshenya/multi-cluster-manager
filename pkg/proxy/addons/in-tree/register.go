@@ -3,7 +3,6 @@ package inTree
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"harmonycloud.cn/stellaris/pkg/model"
@@ -48,7 +47,7 @@ func init() {
 func LoadInTreeData(ctx context.Context, inTree *model.In) (*model.AddonsData, error) {
 	loader, ok := AddonsRegisterMap[strings.ToLower(inTree.Name)]
 	if !ok || loader == nil {
-		return nil, errors.New(fmt.Sprintf("can not find inTree(%s)", inTree.Name))
+		return nil, errors.New("can not find inTree" + inTree.Name)
 	}
 	return loader.Load(ctx, inTree)
 }

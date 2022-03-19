@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
-
 	"harmonycloud.cn/stellaris/config"
 	"harmonycloud.cn/stellaris/pkg/model"
 	proxyStream "harmonycloud.cn/stellaris/pkg/proxy/stream"
@@ -26,9 +24,6 @@ func NewAggregateRequest(clusterName string, body string) (*config.Request, erro
 }
 
 func SendSyncAggregateRequest(request *config.Request) error {
-	if proxy_cfg.ProxyConfig.Cfg.TestFlag {
-		return nil
-	}
 	resourceLog.Info(fmt.Sprintf("start send aggregate request to core, request Data:%s", request.Body))
 	stream := proxyStream.GetConnection()
 	var err error

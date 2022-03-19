@@ -107,12 +107,18 @@ func (r *ClusterReconciler) deleteCluster(ctx context.Context, cluster *v1alpha1
 func (r *ClusterReconciler) kubeconfigGetterForStellarisCluster(cluster *v1alpha1.Cluster) clientcmd.KubeconfigGetter {
 	return func() (*api.Config, error) {
 		secret := &corev1.Secret{}
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Spec.SecretRef.Namespace, Name: cluster.Spec.SecretRef.Name}, secret); err != nil {
+		if err := r.Client.Get(
+			context.TODO(),
+			types.NamespacedName{Namespace: cluster.Spec.SecretRef.Namespace, Name: cluster.Spec.SecretRef.Name},
+			secret); err != nil {
 			return nil, err
 		}
 		data, ok := secret.Data[cluster.Spec.SecretRef.Field]
 		if !ok {
-			return nil, fmt.Errorf("secret %s/%s does not have data with field: %s", cluster.Spec.SecretRef.Name, cluster.Spec.SecretRef.Namespace, cluster.Spec.SecretRef.Field)
+			return nil, fmt.Errorf("secret %s/%s does not have data with field: %s",
+				cluster.Spec.SecretRef.Name,
+				cluster.Spec.SecretRef.Namespace,
+				cluster.Spec.SecretRef.Field)
 		}
 		switch cluster.Spec.SecretRef.Type {
 		case v1alpha1.KubeConfigType:
@@ -157,7 +163,7 @@ func (r *ClusterReconciler) deployProxy(ctx context.Context, cluster *v1alpha1.C
 	}
 
 	cm := &corev1.ConfigMap{}
-	if err := r.Client.Get(ctx, r.tmplNamespacedName, cm); err != nil {
+	if err = r.Client.Get(ctx, r.tmplNamespacedName, cm); err != nil {
 		return err
 	}
 
@@ -194,7 +200,10 @@ func (r *ClusterReconciler) deployProxy(ctx context.Context, cluster *v1alpha1.C
 
 	// create proxy all resources
 	for _, resource := range resources {
-		if _, err := c.Resource(utils.GroupVersionResourceFromUnstructured(resource)).Namespace(resource.GetNamespace()).Create(ctx, resource, metav1.CreateOptions{}); err != nil {
+		resourceInterface := c.Resource(utils.GroupVersionResourceFromUnstructured(resource))
+		if _, err := resourceInterface.Namespace(resource.GetNamespace()).Create(
+			ctx,
+			resource, metav1.CreateOptions{}); err != nil {
 			if errors.IsAlreadyExists(err) {
 				continue
 			}

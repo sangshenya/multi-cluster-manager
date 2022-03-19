@@ -1,4 +1,4 @@
-package controller
+package resource_binding
 
 import (
 	"context"
@@ -8,41 +8,48 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/client-go/tools/clientcmd"
+
+	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var testScheme = runtime.NewScheme()
-var reconciler *ClusterReconciler
+var reconciler *Reconciler
 var controllerDone context.CancelFunc
 var mgr ctrl.Manager
 
-func TestCluster(t *testing.T) {
+func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Suite")
+
+	RunSpecsWithDefaultAndCustomReporters(t,
+		"resource binding controller Suite",
+		[]Reporter{printer.NewlineReporter{}})
+
 }
 
 var _ = BeforeSuite(func(done Done) {
-
 	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 	rand.Seed(time.Now().UnixNano())
 	By("bootstrapping test environment")
 
-	k8sconfig := flag.String("k8sconfig", "path/to/k8s/config", "kubernetes test")
+	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-238", "kubernetes auth config")
 	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
 
 	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
@@ -79,11 +86,12 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	reconciler = &ClusterReconciler{
+	reconciler = &Reconciler{
 		Scheme: testScheme,
 		Client: k8sClient,
-		log:    logf.Log.WithName("cluster_controller"),
+		log:    logf.Log.WithName("resource_binding_controller"),
 	}
+	reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-core")
 
 	var ctx context.Context
 	ctx, controllerDone = context.WithCancel(context.Background())

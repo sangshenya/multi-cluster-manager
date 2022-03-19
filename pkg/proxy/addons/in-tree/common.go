@@ -52,7 +52,7 @@ func configIsEmpty(inTreeConfig *model.InTreeConfig) bool {
 	if inTreeConfig == nil {
 		return true
 	}
-	if (inTreeConfig.Static == nil || len(inTreeConfig.Static) <= 0) && inTreeConfig.Selector == nil {
+	if len(inTreeConfig.Static) == 0 && inTreeConfig.Selector == nil {
 		return true
 	}
 	return false

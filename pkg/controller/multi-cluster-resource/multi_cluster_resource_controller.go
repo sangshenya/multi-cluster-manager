@@ -2,6 +2,7 @@ package multi_cluster_resource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -92,17 +93,15 @@ func Setup(mgr ctrl.Manager, controllerCommon controllerCommon.Args) error {
 
 // syncBindingAndClusterResource get binding list, and sync clusterResource
 func (r *Reconciler) syncBindingAndClusterResource(ctx context.Context, multiClusterResource *v1alpha1.MultiClusterResource) error {
-	bindingList, err := getMultiClusterResourceBindingListForMultiClusterResource(ctx, r.Client, multiClusterResource)
+	bindingList, err := getMultiClusterResourceBindingList(ctx, r.Client, multiClusterResource)
 	if err != nil {
-		err = fmt.Errorf(fmt.Sprintf("get multiClusterResourceBindingList failed, resource(%s:%s)", multiClusterResource.Namespace, multiClusterResource.Name), err)
-		return err
+		return errors.New("get multiClusterResourceBindingList failed," + err.Error())
 	}
 
 	for _, binding := range bindingList.Items {
 		err = resource_binding.SyncClusterResourceWithBinding(ctx, r.Client, &binding)
 		if err != nil {
-			err = fmt.Errorf(fmt.Sprintf("sync ClusterResource failed, resource(%s:%s)", multiClusterResource.Namespace, multiClusterResource.Name), err)
-			return err
+			return errors.New("sync ClusterResource failed," + err.Error())
 		}
 	}
 	return nil
@@ -110,10 +109,9 @@ func (r *Reconciler) syncBindingAndClusterResource(ctx context.Context, multiClu
 
 // updateBinding update or delete binding when multiClusterResource deleted
 func (r *Reconciler) updateBinding(ctx context.Context, multiClusterResource *v1alpha1.MultiClusterResource) error {
-	bindingList, err := getMultiClusterResourceBindingListForMultiClusterResource(ctx, r.Client, multiClusterResource)
+	bindingList, err := getMultiClusterResourceBindingList(ctx, r.Client, multiClusterResource)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("get multiClusterResourceBindingList failed, resource(%s)", multiClusterResource.Name))
-		return err
+		return errors.New("get multiClusterResourceBindingList failed, " + err.Error())
 	}
 
 	for _, binding := range bindingList.Items {
@@ -128,23 +126,24 @@ func (r *Reconciler) updateBinding(ctx context.Context, multiClusterResource *v1
 			// delete
 			err = r.Client.Delete(ctx, &binding)
 			if err != nil {
-				r.log.Error(err, fmt.Sprintf("delete binding failed, resource(%s)", multiClusterResource.GetName()))
-				return err
+				return errors.New("delete binding failed," + err.Error())
 			}
 			continue
 		}
 		// update
 		err = r.Client.Update(ctx, &binding)
 		if err != nil {
-			r.log.Error(err, fmt.Sprintf("update binding failed, resource(%s)", multiClusterResource.GetName()))
-			return err
+			return errors.New("update binding failed," + err.Error())
 		}
 	}
 	return nil
 }
 
-func getMultiClusterResourceBindingListForMultiClusterResource(ctx context.Context, clientSet client.Client, multiClusterResource *v1alpha1.MultiClusterResource) (*v1alpha1.MultiClusterResourceBindingList, error) {
-	selector, err := managerCommon.GetMultiClusterResourceSelectorForMultiClusterResourceName(multiClusterResource.GetName())
+func getMultiClusterResourceBindingList(
+	ctx context.Context,
+	clientSet client.Client,
+	multiClusterResource *v1alpha1.MultiClusterResource) (*v1alpha1.MultiClusterResourceBindingList, error) {
+	selector, err := managerCommon.GetMultiClusterResourceSelector(multiClusterResource.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +154,9 @@ func getMultiClusterResourceBindingListForMultiClusterResource(ctx context.Conte
 	return bindingList, err
 }
 
-func removeResource(resources []v1alpha1.MultiClusterResourceBindingResource, resource v1alpha1.MultiClusterResourceBindingResource) []v1alpha1.MultiClusterResourceBindingResource {
+func removeResource(
+	resources []v1alpha1.MultiClusterResourceBindingResource,
+	resource v1alpha1.MultiClusterResourceBindingResource) []v1alpha1.MultiClusterResourceBindingResource {
 	if len(resources) == 0 {
 		return resources
 	}

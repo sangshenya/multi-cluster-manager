@@ -13,7 +13,9 @@ type RegisterResponse struct {
 }
 
 func (r *RegisterResponse) IsEmpty() bool {
-	if len(r.ClusterResources) == 0 && len(r.MultiClusterResourceAggregateRules) == 0 && len(r.ResourceAggregatePolicies) == 0 {
+	if len(r.ClusterResources) == 0 &&
+		len(r.MultiClusterResourceAggregateRules) == 0 &&
+		len(r.ResourceAggregatePolicies) == 0 {
 		return true
 	}
 	return false
