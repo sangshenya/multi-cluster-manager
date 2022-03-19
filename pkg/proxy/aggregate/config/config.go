@@ -90,7 +90,7 @@ func (c *InformerResourceConfig) GetConfig(resourceRef *metav1.GroupVersionKind)
 	if !ok {
 		return nil
 	}
-	specList := make([]*v1alpha1.ResourceAggregatePolicySpec, len(resourceMap.ResourceMap))
+	specList := make([]*v1alpha1.ResourceAggregatePolicySpec, 0)
 	for _, v := range resourceMap.ResourceMap {
 		specList = append(specList, v)
 	}

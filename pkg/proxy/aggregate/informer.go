@@ -60,6 +60,10 @@ func (i *InformerControllerConfigMap) GetControllerConfig(resourceRef *metav1.Gr
 	return config
 }
 
+func GetInformerResourceConfig(resourceRef *metav1.GroupVersionKind) []*v1alpha1.ResourceAggregatePolicySpec {
+	return resourceConfig.ResourceConfig.GetConfig(resourceRef)
+}
+
 func RemoveInformerResourceConfig(policy *v1alpha1.ResourceAggregatePolicy) error {
 	controllerConfig := informerControllerConfigMap.GetControllerConfig(policy.Spec.ResourceRef)
 	if controllerConfig == nil {

@@ -41,7 +41,7 @@ var _ = Describe("Test MultiResourceAggregatePolicyController", func() {
 		ns                *v1.Namespace
 		clusterNs         *v1.Namespace
 	)
-	BeforeEach(func() {
+	It("create rule", func() {
 
 		ctx = context.Background()
 		ruleName = "rule-test"
@@ -98,6 +98,12 @@ var _ = Describe("Test MultiResourceAggregatePolicyController", func() {
 				},
 			},
 		}
+		mPolicy.Spec.Clusters = &v1alpha1.AggregatePolicyClusters{
+			ClusterType: common.ClusterTypeClusters,
+			Clusters: []string{
+				"cluster2",
+			},
+		}
 		mPolicy.SetName(mPolicyName)
 		mPolicy.SetNamespace(managerCommon.ManagerNamespace)
 		mPolicy.SetGroupVersionKind(v1alpha1.MultiClusterResourceAggregatePolicyGroupVersionKind)
@@ -131,14 +137,14 @@ var _ = Describe("Test MultiResourceAggregatePolicyController", func() {
 		_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: mPolicynamespaced})
 		Expect(err).Should(BeNil())
 
-		time.Sleep(3 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		err = k8sClient.Get(ctx, mPolicynamespaced, mPolicy)
 		Expect(err).Should(BeNil())
 
 		// check Finalizers
-		Expect(len(rule.GetFinalizers())).ShouldNot(Equal(0))
-		Expect(sliceutils.ContainsString(rule.GetFinalizers(), managerCommon.FinalizerName)).Should(BeTrue())
+		Expect(len(mPolicy.GetFinalizers())).ShouldNot(Equal(0))
+		Expect(sliceutils.ContainsString(mPolicy.GetFinalizers(), managerCommon.FinalizerName)).Should(BeTrue())
 
 		// Reconcile will add labels
 		_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: mPolicynamespaced})
@@ -160,15 +166,14 @@ var _ = Describe("Test MultiResourceAggregatePolicyController", func() {
 		err = k8sClient.Get(ctx, mPolicynamespaced, mPolicy)
 		Expect(err).Should(BeNil())
 
-		mPolicy.Spec.Clusters = &v1alpha1.AggregatePolicyClusters{
-			ClusterType: common.ClusterTypeClusters,
-			Clusters: []string{
-				clusterName,
-			},
+		mPolicy.Spec.Clusters.Clusters = []string{
+			clusterName,
 		}
 
 		err = k8sClient.Update(ctx, mPolicy)
 		Expect(err).Should(BeNil())
+
+		time.Sleep(3 * time.Second)
 
 		// Reconcile will create policy in clusterNs
 		_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: mPolicynamespaced})
@@ -198,13 +203,17 @@ var _ = Describe("Test MultiResourceAggregatePolicyController", func() {
 		err = k8sClient.Delete(ctx, mPolicy)
 		Expect(err).Should(BeNil())
 
-		time.Sleep(3 * time.Second)
+		// Reconcile will delete Finalizers
+		_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: mPolicynamespaced})
+		Expect(err).Should(BeNil())
+
+		time.Sleep(10 * time.Second)
 
 		err = k8sClient.Get(ctx, mPolicynamespaced, mPolicy)
 		Expect(apierrors.IsNotFound(err)).Should(BeTrue())
 	})
 
-	AfterEach(func() {
+	It("clear resource", func() {
 
 		err = k8sClient.Get(ctx, ruleNamespaced, rule)
 		Expect(err).Should(BeNil())

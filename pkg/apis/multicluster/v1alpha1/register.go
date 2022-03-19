@@ -37,6 +37,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&NamespaceMappingList{},
 		&ClusterResource{},
 		&ClusterResourceList{},
+		&ResourceAggregatePolicy{},
+		&ResourceAggregatePolicyList{},
 		&AggregatedResource{},
 		&AggregatedResourceList{},
 		&MultiClusterResourceAggregatePolicy{},

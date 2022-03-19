@@ -83,6 +83,8 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
+	k8sClient = mgr.GetClient()
+
 	reconciler = &Reconciler{
 		Scheme: testScheme,
 		Client: k8sClient,

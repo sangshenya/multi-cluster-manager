@@ -8,11 +8,14 @@ import (
 	"testing"
 	"time"
 
+	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
-	"harmonycloud.cn/stellaris/pkg/client/clientset/versioned/scheme"
+	clientset "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/pointer"
@@ -87,9 +90,17 @@ var _ = BeforeSuite(func(done Done) {
 		Scheme:         testScheme,
 		Client:         k8sClient,
 		log:            logf.Log.WithName("resource_aggregate_policy_controller"),
-		isControlPlane: true,
+		isControlPlane: false,
 	}
-	reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-core")
+	if reconciler.isControlPlane {
+		reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-core")
+	} else {
+		reconciler.Recorder = mgr.GetEventRecorderFor("stellaris-proxy")
+		cfg := proxy_cfg.DefaultConfiguration()
+		proxyClient, err := clientset.NewForConfig(config)
+		Expect(err).ToNot(HaveOccurred())
+		proxy_cfg.NewProxyConfig(cfg, proxyClient, mgr.GetClient(), config)
+	}
 
 	var ctx context.Context
 	ctx, controllerDone = context.WithCancel(context.Background())
