@@ -49,6 +49,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&MultiClusterResourceBindingList{},
 		&MultiClusterResourceSchedulePolicy{},
 		&MultiClusterResourceSchedulePolicyList{},
+		&MultiClusterResourceOverride{},
+		&MultiClusterResourceOverrideList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
@@ -112,6 +114,12 @@ var (
 var (
 	MultiClusterResourceKind             = reflect.TypeOf(MultiClusterResource{}).Name()
 	MultiClusterResourceGroupVersionKind = SchemeGroupVersion.WithKind(MultiClusterResourceKind)
+)
+
+// MultiClusterResourceOverride type metadata
+var (
+	MultiClusterResourceOverrideKind             = reflect.TypeOf(MultiClusterResourceOverride{}).Name()
+	MultiClusterResourceOverrideGroupVersionKind = SchemeGroupVersion.WithKind(MultiClusterResourceOverrideKind)
 )
 
 // MultiClusterResource type metadata

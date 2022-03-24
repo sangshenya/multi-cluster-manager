@@ -1,10 +1,14 @@
 package common
 
+import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+)
+
 // +k8s:deepcopy-gen=true
 
 type JSONPatch struct {
 	Op    string `json:"op,omitempty"`
-	Value string `json:"value,omitempty"`
+	Value apiextensionsv1.JSON  `json:"value,omitempty"`
 	Path  string `json:"path,omitempty"`
 }
 
