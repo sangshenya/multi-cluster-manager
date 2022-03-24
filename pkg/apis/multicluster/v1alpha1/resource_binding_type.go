@@ -28,7 +28,6 @@ type MultiClusterResourceBindingResource struct {
 
 type MultiClusterResourceBindingCluster struct {
 	Name     string             `json:"name,omitempty"`
-	Override []common.JSONPatch `json:"override,omitempty"`
 }
 
 type MultiClusterResourceBindingStatus struct {

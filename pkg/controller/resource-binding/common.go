@@ -9,7 +9,6 @@ import (
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	managerCommon "harmonycloud.cn/stellaris/pkg/common"
-	controllerCommon "harmonycloud.cn/stellaris/pkg/controller/common"
 	sliceutil "harmonycloud.cn/stellaris/pkg/utils/slice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,10 +57,23 @@ func syncClusterResource(ctx context.Context, clientSet client.Client, clusterRe
 
 			key := mapKey(managerCommon.ClusterNamespace(cluster.Name), getClusterResourceName(binding.Name, multiClusterResource.Spec.ResourceRef))
 			clusterResource, ok := clusterResourceMap[key]
+
+			override := &Override{
+				Namespace:    binding.Namespace,
+				ClusterName:  cluster.Name,
+				ResourceName: resource.Name,
+			}
+
 			if !ok {
 				// new clusterResource
 				owner := metav1.NewControllerRef(binding, v1alpha1.MultiClusterResourceBindingGroupVersionKind)
 				clusterResource = newClusterResource(binding.Name, cluster, owner, multiClusterResource)
+
+				// apply override
+				resourceInfo, err := ApplyResourceOverride(clientSet, multiClusterResource.Spec.Resource, override)
+				if err == nil {
+					clusterResource.Spec.Resource = resourceInfo
+				}
 
 				// create clusterResource
 				err = clientSet.Create(ctx, clusterResource)
@@ -71,8 +83,7 @@ func syncClusterResource(ctx context.Context, clientSet client.Client, clusterRe
 			} else {
 				delete(clusterResourceMap, key)
 				// new resourceInfo
-				// TODO if MultiClusterResourceOverride alive
-				resourceInfo, err := controllerCommon.ApplyJsonPatch(multiClusterResource.Spec.Resource, cluster.Override)
+				resourceInfo, err := ApplyResourceOverride(clientSet, multiClusterResource.Spec.Resource, override)
 				if err != nil {
 					resourceInfo = multiClusterResource.Spec.Resource
 				}
@@ -103,7 +114,8 @@ func syncClusterResource(ctx context.Context, clientSet client.Client, clusterRe
 	return nil
 }
 
-func newClusterResource(bindingName string, cluster v1alpha1.MultiClusterResourceBindingCluster, owner *metav1.OwnerReference, multiClusterResource *v1alpha1.MultiClusterResource) *v1alpha1.ClusterResource {
+func newClusterResource(bindingName string, cluster v1alpha1.MultiClusterResourceBindingCluster,
+	owner *metav1.OwnerReference, multiClusterResource *v1alpha1.MultiClusterResource) *v1alpha1.ClusterResource {
 	clusterNamespace := managerCommon.ClusterNamespace(cluster.Name)
 	clusterResourceName := getClusterResourceName(bindingName, multiClusterResource.Spec.ResourceRef)
 
@@ -113,13 +125,8 @@ func newClusterResource(bindingName string, cluster v1alpha1.MultiClusterResourc
 	// set labels
 	newLabels := clusterResourceLabels(bindingName, multiClusterResource.GetName(), multiClusterResource.Spec.ResourceRef)
 	clusterResource.SetLabels(newLabels)
-
-	// set resourceInfo
-	// TODO if MultiClusterResourceOverride alive
-	resourceInfo, err := controllerCommon.ApplyJsonPatch(multiClusterResource.Spec.Resource, cluster.Override)
-	if err == nil {
-		clusterResource.Spec.Resource = resourceInfo
-	}
+	// set owner
+	clusterResource.SetOwnerReferences([]metav1.OwnerReference{*owner})
 	return clusterResource
 }
 

@@ -60,6 +60,10 @@ func (c *FakeMulticlusterV1alpha1) MultiClusterResourceBindings(namespace string
 	return &FakeMultiClusterResourceBindings{c, namespace}
 }
 
+func (c *FakeMulticlusterV1alpha1) MultiClusterResourceOverrides(namespace string) v1alpha1.MultiClusterResourceOverrideInterface {
+	return &FakeMultiClusterResourceOverrides{c, namespace}
+}
+
 func (c *FakeMulticlusterV1alpha1) MultiClusterResourceSchedulePolicies(namespace string) v1alpha1.MultiClusterResourceSchedulePolicyInterface {
 	return &FakeMultiClusterResourceSchedulePolicies{c, namespace}
 }
