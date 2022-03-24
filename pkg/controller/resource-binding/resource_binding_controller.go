@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
@@ -42,6 +44,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	}
 
 	// the object is being deleted
+	// TODO (chenkun) delete clusterResource
 	if !instance.GetDeletionTimestamp().IsZero() {
 		return r.removeFinalizer(ctx, instance)
 	}
@@ -57,6 +60,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.MultiClusterResourceBinding{}).
+		Watches(&source.Kind{Type: &v1alpha1.MultiClusterResourceOverride{}},
+		handler.EnqueueRequestsFromMapFunc(NewOverridePolicyFunc(r.Client))).
 		Complete(r)
 }
 

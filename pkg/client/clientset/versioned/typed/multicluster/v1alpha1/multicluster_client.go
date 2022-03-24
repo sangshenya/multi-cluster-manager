@@ -34,6 +34,7 @@ type MulticlusterV1alpha1Interface interface {
 	MultiClusterResourceAggregatePoliciesGetter
 	MultiClusterResourceAggregateRulesGetter
 	MultiClusterResourceBindingsGetter
+	MultiClusterResourceOverridesGetter
 	MultiClusterResourceSchedulePoliciesGetter
 	NamespaceMappingsGetter
 	ResourceAggregatePoliciesGetter
@@ -74,6 +75,10 @@ func (c *MulticlusterV1alpha1Client) MultiClusterResourceAggregateRules(namespac
 
 func (c *MulticlusterV1alpha1Client) MultiClusterResourceBindings(namespace string) MultiClusterResourceBindingInterface {
 	return newMultiClusterResourceBindings(c, namespace)
+}
+
+func (c *MulticlusterV1alpha1Client) MultiClusterResourceOverrides(namespace string) MultiClusterResourceOverrideInterface {
+	return newMultiClusterResourceOverrides(c, namespace)
 }
 
 func (c *MulticlusterV1alpha1Client) MultiClusterResourceSchedulePolicies(namespace string) MultiClusterResourceSchedulePolicyInterface {
