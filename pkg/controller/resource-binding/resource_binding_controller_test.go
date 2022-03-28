@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strconv"
+
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 	v1 "k8s.io/api/apps/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"reflect"
 	"sigs.k8s.io/yaml"
-	"strconv"
 
 	sliceutils "harmonycloud.cn/stellaris/pkg/utils/slice"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -87,7 +88,7 @@ var _ = Describe("Test ResourceBinding Controller", func() {
 		Spec: &v1alpha1.MultiClusterResourceOverrideSpec{
 			Clusters: []v1alpha1.MultiClusterResourceOverrideClusters{
 				v1alpha1.MultiClusterResourceOverrideClusters{
-					Names: []string{clusterName},
+					Names:     []string{clusterName},
 					Overrides: []common.JSONPatch{},
 				},
 			},
@@ -134,7 +135,7 @@ var _ = Describe("Test ResourceBinding Controller", func() {
 
 		resourceBinding.Spec.Resources = append(resourceBinding.Spec.Resources, v1alpha1.MultiClusterResourceBindingResource{
 			Name: multiClusterResource.GetName(),
-			Namespace: managerCommon.ManagerNamespace,
+			//Namespace: managerCommon.ManagerNamespace,
 			Clusters: []v1alpha1.MultiClusterResourceBindingCluster{
 				v1alpha1.MultiClusterResourceBindingCluster{
 					Name: clusterName,
@@ -147,7 +148,14 @@ var _ = Describe("Test ResourceBinding Controller", func() {
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: bindingNamespacedName})
 		Expect(err).Should(BeNil())
 
-		// TODO(chenkun) check labels
+		Expect(k8sClient.Get(ctx, bindingNamespacedName, resourceBinding)).Should(BeNil())
+		// label
+		for _, resource := range resourceBinding.Spec.Resources {
+			v, ok := resourceBinding.GetLabels()[managerCommon.MultiClusterResourceLabelName+"."+resource.Name]
+			Expect(ok).Should(BeTrue())
+			Expect(v).Should(Equal("1"))
+		}
+
 		// create clusterResource
 		_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: bindingNamespacedName})
 		Expect(err).Should(BeNil())
@@ -159,6 +167,7 @@ var _ = Describe("Test ResourceBinding Controller", func() {
 			Namespace: clusterNamespace,
 		}
 		clusterResource := &v1alpha1.ClusterResource{}
+
 		err = k8sClient.Get(ctx, clusterResourceNamespacedName, clusterResource)
 		Expect(k8sClient.Get(ctx, clusterResourceNamespacedName, clusterResource)).Should(BeNil())
 		// label
@@ -221,7 +230,7 @@ var _ = Describe("Test ResourceBinding Controller", func() {
 
 		resourceOverride.Spec.Clusters[0].Overrides = append(resourceOverride.Spec.Clusters[0].Overrides, common.JSONPatch{
 			Path: "/spec/replicas",
-			Op: "replace",
+			Op:   "replace",
 			Value: apiextensionsv1.JSON{
 				Raw: []byte(strconv.Itoa(10)),
 			},

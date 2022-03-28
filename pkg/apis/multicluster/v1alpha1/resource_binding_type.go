@@ -27,7 +27,11 @@ type MultiClusterResourceBindingResource struct {
 }
 
 type MultiClusterResourceBindingCluster struct {
-	Name     string             `json:"name,omitempty"`
+	// Name of target cluster.
+	Name string `json:"name,omitempty"`
+	// Replicas in target cluster
+	// +optional
+	Replicas int `json:"replicas,omitempty"`
 }
 
 type MultiClusterResourceBindingStatus struct {

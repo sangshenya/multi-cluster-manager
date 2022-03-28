@@ -40,7 +40,7 @@ type MultiClusterResourceSchedulePolicySpec struct {
 	Reschedule     bool                     `json:"reschedule,omitempty"`
 	Policy         []SchedulePolicy         `json:"policy,omitempty"`
 	FailoverPolicy []ScheduleFailoverPolicy `json:"failoverPolicy,omitempty"`
-	OutTreePolicy  ScheduleOutTreePolicy    `json:"outTreePolicy,omitempty"`
+	OutTreePolicy  *ScheduleOutTreePolicy   `json:"outTreePolicy,omitempty"`
 }
 
 type SchedulePolicyResource struct {

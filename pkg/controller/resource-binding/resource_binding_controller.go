@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"k8s.io/client-go/tools/record"
 
@@ -55,7 +56,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 	}
 
 	// the object is being deleted
-	// TODO (chenkun) delete clusterResource
 	if !instance.GetDeletionTimestamp().IsZero() {
 		if err = deleteClusterResource(ctx, r.Client, instance); err != nil {
 			r.log.Error(err, fmt.Sprintf("delete finalizer plan failed, resource(%s:%s)", instance.Namespace, instance.Name))
@@ -92,7 +92,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.MultiClusterResourceBinding{}).
 		Watches(&source.Kind{Type: &v1alpha1.MultiClusterResourceOverride{}},
-		handler.EnqueueRequestsFromMapFunc(NewOverridePolicyFunc(r.Client))).
+			handler.EnqueueRequestsFromMapFunc(NewOverridePolicyFunc(r.Client))).
 		Complete(r)
 }
 

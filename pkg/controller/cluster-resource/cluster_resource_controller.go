@@ -112,7 +112,6 @@ func (r *Reconciler) syncClusterResource(ctx context.Context, instance *v1alpha1
 	if r.isControlPlane {
 		return sendClusterResourceToProxy(SyncEventTypeUpdate, instance)
 	}
-	// TODO proxy should listen for the deletion of corresponding resources
 	return r.syncResourceAndUpdateStatus(ctx, instance)
 }
 

@@ -123,13 +123,17 @@ func changeNoSpecResource(old, new *unstructured.Unstructured) *unstructured.Uns
 	return old
 }
 
-func createResource(ctx context.Context, clientSet client.Client, resourceObject *unstructured.Unstructured) error {
+func createResource(ctx context.Context, clientSet client.Client, resourceObject *unstructured.Unstructured, instance *v1alpha1.ClusterResource) error {
 	annotationValue, _ := getResourceAnnotations(resourceObject)
 	if len(annotationValue) > 0 {
 		resourceObject.SetAnnotations(map[string]string{
 			managerCommon.ResourceAnnotationKey: annotationValue,
 		})
 	}
+	// set owner
+	owner := metav1.NewControllerRef(instance, v1alpha1.ClusterResourceGroupVersionKind)
+	resourceObject.SetOwnerReferences([]metav1.OwnerReference{*owner})
+
 	err := clientSet.Create(ctx, resourceObject)
 	if apierrors.IsAlreadyExists(err) {
 		return nil
@@ -237,7 +241,7 @@ func syncResource(ctx context.Context, clientSet client.Client, instance *v1alph
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return createResource(ctx, clientSet, resourceObject)
+			return createResource(ctx, clientSet, resourceObject, instance)
 		}
 		clusterResourceCommonLog.Error(err, fmt.Sprintf("get resource(%s:%s) failed", existResource.GetNamespace(), existResource.GetName()))
 		return err

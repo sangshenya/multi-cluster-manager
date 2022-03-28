@@ -245,7 +245,6 @@ func getClusterResourceList(ctx context.Context, multiClusterResource *v1alpha1.
 
 func getResource(multiClusterResource *v1alpha1.MultiClusterResource) (*runtime.RawExtension, error) {
 	// set resourceInfo
-	// TODO if MultiClusterResourceOverride alive
 	return controllerCommon.ApplyJsonPatch(multiClusterResource.Spec.Resource, []common.JSONPatch{})
 }
 

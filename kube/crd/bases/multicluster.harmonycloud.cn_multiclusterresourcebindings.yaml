@@ -41,7 +41,11 @@ spec:
                       items:
                         properties:
                           name:
+                            description: Name of target cluster.
                             type: string
+                          replicas:
+                            description: Replicas in target cluster
+                            type: integer
                         type: object
                       type: array
                     name:

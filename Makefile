@@ -3,11 +3,16 @@ CORE_IMG ?= stellaris-core:$(VERSION)
 PROXY_IMG ?= stellaris-proxy:$(VERSION)
 
 REGISTRY ?= docker.io/harmonycloud
+#REGISTRY ?= docker.io/sangshen
 
 .PHONY: generate
 generate: controller-gen
 	./hack/code-generator/update-codegen.sh
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=kube/crd/bases
+	cp $(shell pwd)/kube/crd/bases/* $(shell pwd)/charts/stellaris-core/crds/
+	cp $(shell pwd)/kube/crd/bases/multicluster.harmonycloud.cn_clusterresources.yaml $(shell pwd)/charts/stellaris-proxy/crds/
+	cp $(shell pwd)/kube/crd/bases/multicluster.harmonycloud.cn_resourceaggregatepolicies.yaml $(shell pwd)/charts/stellaris-proxy/crds/
+	cp $(shell pwd)/kube/crd/bases/multicluster.harmonycloud.cn_multiclusterresourceaggregaterules.yaml $(shell pwd)/charts/stellaris-proxy/crds/
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: controller-gen
