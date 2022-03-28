@@ -2,13 +2,17 @@ package multi_cluster_resource_binding
 
 import (
 	"context"
+	"errors"
 	"net/http"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	validationCommon "harmonycloud.cn/stellaris/pkg/common/validation"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
+
+var webhookBindingLog = logf.Log.WithName("webhook_binding")
 
 // ValidatingAdmission validates multiClusterResource object when creating/updating/deleting.
 type ValidatingAdmission struct {
@@ -23,11 +27,11 @@ func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	klog.V(2).Infof("Validating multiClusterResource(%s) for request: %s", binding.Name, req.Operation)
+	webhookBindingLog.Info("Validating MultiClusterResourceBinding:", binding.Name, ", for request: ", req.Operation)
 
 	// empty binding can not be create
 	if len(binding.Spec.Resources) == 0 {
-		klog.Error(validationCommon.ResourceIsNil)
+		webhookBindingLog.Error(errors.New(validationCommon.ResourceIsNil), validationCommon.ResourceIsNil)
 		return admission.Denied(validationCommon.ResourceIsNil)
 	}
 

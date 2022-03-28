@@ -2,15 +2,19 @@ package cluster_resource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	validationCommon "harmonycloud.cn/stellaris/pkg/common/validation"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
+
+var webhookClusterResourceLog = logf.Log.WithName("webhook_ClusterResource")
 
 // ValidatingAdmission validates clusterResource object when creating/updating/deleting.
 type ValidatingAdmission struct {
@@ -25,11 +29,11 @@ func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	klog.V(2).Infof("Validating clusterResource(%s) for request: %s", clusterResource.Name, req.Operation)
+	webhookClusterResourceLog.Info("Validating clusterResource:", clusterResource.Name, ", for request: %s", req.Operation)
 	// validate clusterResource name
 	if errs := validationCommon.ValidateClusterResourceName(clusterResource.Name); len(errs) > 0 {
 		errMsg := fmt.Sprintf("invalid clusterResource name(%s): %s", clusterResource.Name, strings.Join(errs, ";"))
-		klog.Info(errMsg)
+		webhookClusterResourceLog.Error(errors.New(errMsg), errMsg)
 		return admission.Denied(errMsg)
 	}
 

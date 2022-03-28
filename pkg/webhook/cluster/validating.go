@@ -8,7 +8,6 @@ import (
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	validationCommon "harmonycloud.cn/stellaris/pkg/common/validation"
-	"k8s.io/klog/v2"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -28,7 +27,7 @@ func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	klog.V(2).Infof("Validating cluster(%s) for request: %s", cluster.Name, req.Operation)
+	webhookClusterLog.Info("Validating cluster:", cluster.Name, ", for request:", req.Operation)
 	// validate clusterResource name
 	if errs := validationCommon.ValidateClusterProxyURL(cluster.Spec.ApiServer); len(errs) > 0 {
 		errMsg := fmt.Sprintf("invalid cluster name(%s): %s", cluster.Name, strings.Join(errs, ";"))

@@ -31,8 +31,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"k8s.io/klog/v2"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/go-logr/logr"
@@ -164,13 +162,13 @@ func (c *Controller) handleErr(err error, key interface{}) {
 	}
 
 	if c.queue.NumRequeues(key) < maxRetries {
-		c.log.Info("Error syncing resource", c.controllerName, klog.KRef(ns, name), "err", err)
+		c.log.Info("Error syncing resource", c.controllerName, ns, "/", name, "err", err)
 		c.queue.AddRateLimited(key)
 		return
 	}
 
 	utilruntime.HandleError(err)
-	c.log.Info("Dropping deployment out of the queue", c.controllerName, klog.KRef(ns, name), "err", err)
+	c.log.Info("Dropping deployment out of the queue", c.controllerName, ns, "/", name, "err", err)
 	c.queue.Forget(key)
 }
 
@@ -194,9 +192,9 @@ func (c *Controller) syncResource(key string) error {
 	}
 
 	startTime := time.Now()
-	c.log.Info("Started syncing resource", c.controllerName, klog.KRef(namespace, name), "startTime", startTime)
+	c.log.Info("Started syncing resource", c.controllerName, namespace, "/", name, "startTime", startTime)
 	defer func() {
-		klog.V(4).InfoS("Finished syncing resource", c.controllerName, klog.KRef(namespace, name), "duration", time.Since(startTime))
+		c.log.Info("Finished syncing resource", c.controllerName, namespace, "/", name, "duration", time.Since(startTime))
 	}()
 
 	resource, err := c.informer.Lister().ByNamespace(namespace).Get(name)

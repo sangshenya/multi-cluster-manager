@@ -5,9 +5,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"google.golang.org/grpc/credentials/insecure"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"k8s.io/klog/v2"
+	"google.golang.org/grpc/credentials/insecure"
 
 	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
 
@@ -18,6 +18,8 @@ import (
 var initialized uint32
 var mux sync.Mutex
 var stream config.Channel_EstablishClient
+
+var policyStreamLog = logf.Log.WithName("policy_stream")
 
 func GetConnection() config.Channel_EstablishClient {
 	if atomic.LoadUint32(&initialized) == 1 {
@@ -31,7 +33,7 @@ func GetConnection() config.Channel_EstablishClient {
 			stream = s
 			atomic.StoreUint32(&initialized, 1)
 		} else {
-			klog.ErrorS(err, "Unable to get grpc connection")
+			policyStreamLog.Error(err, "Unable to get grpc connection")
 		}
 	}
 	return stream

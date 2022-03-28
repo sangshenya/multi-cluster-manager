@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	admissionv1 "k8s.io/api/admission/v1"
 
 	"harmonycloud.cn/stellaris/pkg/common/helper"
@@ -14,9 +16,10 @@ import (
 
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
 	validationCommon "harmonycloud.cn/stellaris/pkg/common/validation"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
+
+var webhookClusterResourceLog = logf.Log.WithName("webhook_mClusterResource")
 
 // ValidatingAdmission validates multiClusterResource object when creating/updating/deleting.
 type ValidatingAdmission struct {
@@ -31,20 +34,20 @@ func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	klog.V(2).Infof("Validating multiClusterResource(%s) for request: %s", multiClusterResource.Name, req.Operation)
+	webhookClusterResourceLog.Info("Validating multiClusterResource:", multiClusterResource.Name, ", for request:", req.Operation)
 
 	if multiClusterResource.Spec.Resource == nil {
-		klog.Error(validationCommon.ResourceIsNil)
+		webhookClusterResourceLog.Error(errors.New(validationCommon.ResourceIsNil), validationCommon.ResourceIsNil)
 		return admission.Denied(validationCommon.ResourceIsNil)
 	}
 
 	if multiClusterResource.Spec.ResourceRef == nil {
-		klog.Error(validationCommon.ResourceRefIsNil)
+		webhookClusterResourceLog.Error(errors.New(validationCommon.ResourceRefIsNil), validationCommon.ResourceRefIsNil)
 		return admission.Denied(validationCommon.ResourceRefIsNil)
 	}
 
 	if !strings.HasPrefix(multiClusterResource.GetName(), managerCommon.GvkLabelString(multiClusterResource.Spec.ResourceRef)) {
-		klog.Error(validationCommon.NamePrefixedGVK)
+		webhookClusterResourceLog.Error(errors.New(validationCommon.NamePrefixedGVK), validationCommon.NamePrefixedGVK)
 		return admission.Denied(validationCommon.NamePrefixedGVK)
 	}
 
@@ -52,11 +55,12 @@ func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request)
 		oldMultiClusterResource := &v1alpha1.MultiClusterResource{}
 		err = v.decoder.DecodeRaw(req.OldObject, oldMultiClusterResource)
 		if err != nil {
+			webhookClusterResourceLog.Error(err, "mClusterResource update")
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 		err = updateValidate(oldMultiClusterResource, multiClusterResource)
 		if err != nil {
-			klog.Error(err)
+			webhookClusterResourceLog.Error(err, "mClusterResource update")
 			return admission.Denied(err.Error())
 		}
 	}

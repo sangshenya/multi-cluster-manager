@@ -2,6 +2,7 @@ package resource_schedule_policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -33,7 +34,7 @@ func (v *ValidatingAdmission) Handle(ctx context.Context, req admission.Request)
 
 	if errs := validationCommon.ValidateMultiSchedulePolicy(policy); len(errs) > 0 {
 		errMsg := fmt.Sprintf("invalid SchedulePolicy name(%s): %s", policy.Name, strings.Join(errs, ";"))
-		multiSchedulePolicyLog.Info(errMsg)
+		multiSchedulePolicyLog.Error(errors.New(errMsg), errMsg)
 		return admission.Denied(errMsg)
 	}
 

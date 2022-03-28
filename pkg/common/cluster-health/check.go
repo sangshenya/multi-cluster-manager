@@ -4,13 +4,16 @@ import (
 	"context"
 	"net/http"
 
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"harmonycloud.cn/stellaris/pkg/apis/multicluster/common"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	clientset "harmonycloud.cn/stellaris/pkg/client/clientset/versioned"
-	"k8s.io/klog/v2"
 )
+
+var clusterHealthLog = logf.Log.WithName("cluster_health_check")
 
 const (
 	clusterReady              = "ClusterReady"
@@ -25,12 +28,12 @@ func GetClusterHealthStatus(client *clientset.Clientset) (online, healthy bool) 
 	healthStatus, err := healthEndpointCheck(client, "/healthz")
 
 	if err != nil {
-		klog.Errorf("Failed to do cluster health check, err is : %v ", err)
+		clusterHealthLog.Error(err, "Failed to do cluster health check")
 		return false, false
 	}
 
 	if healthStatus != http.StatusOK {
-		klog.Infof("current cluster isn't healthy")
+		clusterHealthLog.Info("current cluster isn't healthy")
 		return true, false
 	}
 
