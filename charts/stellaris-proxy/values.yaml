@@ -11,13 +11,90 @@ clusterName: example-cluster
 resources: {}
 nodeSelector: {}
 tolerations: []
-pluginsConfig:
-  name: plugins_config.yaml
+addonsConfig:
+  name: addons_config.yaml
   config:
-    plugins:
-      inTree:
-        - name: etcd
-        - name: apiserver
-
+    addons:
+      - name: kube-apiserver-healthy
+        type: in-tree
+        configuration:
+          selector:
+            - namespace: kube-system
+              labels:
+                component: kube-apiserver
+      - name: kube-controller-manager-healthy
+        type: in-tree
+        configuration:
+          selector:
+            - namespace: kube-system
+              labels:
+                component: kube-controller-manager
+      - name: kube-scheduler-healthy
+        type: in-tree
+        configuration:
+          selector:
+            - namespace: kube-system
+              labels:
+                component: kube-scheduler
+      - name: kube-etcd-healthy
+        type: in-tree
+        configurations:
+          selector:
+            - namespace: kube-system
+              labels:
+                component: kube-etcd
+      - name: coredns
+        type: in-tree
+        configurations:
+          selector:
+            - namespace: kube-system
+              include: coredns
+          configData:
+            configType: configMap
+            selector:
+              - namespace: kube-system
+                include: coredns
+            keyList:
+              - Corefile
+      - name: calico
+        type: in-tree
+        configurations:
+          selector:
+            - namespace: kube-system
+              include: calico-kube-controllers
+      - name: logging
+        type: in-tree
+        configurations:
+          selector:
+            - namespace: logging
+              include: log-pilot
+            - namespace: logging
+              include: elasticsearch-master
+          configData:
+            configType: env
+            selector:
+              - namespace: logging
+                include: elasticsearch-master
+            keyList:
+              - ELASTIC_PASSWORD
+              - TCPPort
+              - ClusterName
+      - name: monitoring
+        type: in-tree
+        configurations:
+          selector:
+            - namespace: kubesphere-monitoring-system
+              include: prometheus-k8s
+          configData:
+            configType: prometheus
+            selector:
+              - namespace: kubesphere-monitoring-system
+                include: k8s
+      - name: problem-isolation
+        type: in-tree
+        configurations:
+          selector:
+            - namespace: caas-system
+              include: problem-controller-deployment
 rbac:
   clusterRole: cluster-admin

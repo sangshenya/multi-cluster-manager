@@ -19,7 +19,7 @@ type addonsLoader interface {
 type AddonRegisterType string
 
 const (
-	//Prometheus        AddonRegisterType = "prometheus"
+
 	//Elasticsearch     AddonRegisterType = "elasticsearch"
 	//Ingress           AddonRegisterType = "ingress"
 	ApiServer         AddonRegisterType = "kube-apiserver-healthy"
@@ -28,8 +28,9 @@ const (
 	Etcd              AddonRegisterType = "kube-etcd-healthy"
 	CoreDNS           AddonRegisterType = "coredns"
 	Calico            AddonRegisterType = "calico"
-	Logging           AddonRegisterType = "logging"
-	problemIsolation  AddonRegisterType = "problem-isolation"
+	Elk               AddonRegisterType = "elk"
+	ProblemIsolation  AddonRegisterType = "problem-isolation"
+	Prometheus        AddonRegisterType = "prometheus"
 )
 
 func (a AddonRegisterType) String() string {
@@ -45,8 +46,9 @@ func init() {
 	AddonsRegisterMap[Scheduler.String()] = &kubeAddons{}
 	AddonsRegisterMap[CoreDNS.String()] = &coreDNSAddons{}
 	AddonsRegisterMap[Calico.String()] = &kubeAddons{}
-	AddonsRegisterMap[Logging.String()] = &loggingAddons{}
-	AddonsRegisterMap[problemIsolation.String()] = &kubeAddons{}
+	AddonsRegisterMap[Elk.String()] = &loggingAddons{}
+	AddonsRegisterMap[ProblemIsolation.String()] = &kubeAddons{}
+	AddonsRegisterMap[Prometheus.String()] = &monitoringAddons{}
 }
 
 // LoadInTreeData load inTree addon data

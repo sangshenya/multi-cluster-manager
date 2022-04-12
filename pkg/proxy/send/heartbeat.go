@@ -1,8 +1,8 @@
 package send
 
 import (
+	"context"
 	"errors"
-	"reflect"
 	"sync"
 	"time"
 
@@ -15,7 +15,6 @@ import (
 	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
 	proxy_stream "harmonycloud.cn/stellaris/pkg/proxy/stream"
 	"harmonycloud.cn/stellaris/pkg/utils/common"
-	"harmonycloud.cn/stellaris/pkg/utils/proxy"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -41,13 +40,13 @@ func (heartbeat *HeartbeatObject) start() {
 		heartbeatLog.Info("start send heartbeat to core")
 
 		// get addons
-		addonsInfo := heartbeat.getAddon()
+		addonsList := addons.LoadAddon(context.Background(), proxy_cfg.ProxyConfig.ControllerClient)
 		// get condition
 		conditions := condition.GetProxyCondition()
 		// CHECK HEALTH
 		_, healthy := clusterHealth.GetClusterHealthStatus(proxy_cfg.ProxyConfig.ProxyClient)
 
-		heartbeatWithChange := newHeartbeat(addonsInfo, conditions, healthy)
+		heartbeatWithChange := newHeartbeat(addonsList, conditions, healthy)
 		request, err := common.GenerateRequest(model.Heartbeat.String(), heartbeatWithChange, proxy_cfg.ProxyConfig.Cfg.ClusterName)
 		if err != nil {
 			heartbeatLog.Error(err, "create Heartbeat request failed")
@@ -63,7 +62,7 @@ func (heartbeat *HeartbeatObject) start() {
 
 func newHeartbeat(addons []model.AddonsData, conditions []model.Condition, healthy bool) *model.HeartbeatWithChangeRequest {
 	heartbeatWithChange := &model.HeartbeatWithChangeRequest{}
-	if !(heartbeat.LastHeartbeat != nil && isEqualAddons(addons, heartbeat.LastHeartbeat.Addons)) {
+	if len(addons) > 0 {
 		heartbeatWithChange.Addons = addons
 	}
 	heartbeatWithChange.Conditions = conditions
@@ -84,35 +83,4 @@ func sendHeartbeatRequestToCore(request *config.Request) error {
 
 func SetLastHeartbeat(request *model.HeartbeatWithChangeRequest) {
 	heartbeat.LastHeartbeat = request
-}
-
-func (heartbeat *HeartbeatObject) getAddon() []model.AddonsData {
-	var addonsInfo []model.AddonsData
-	if len(proxy_cfg.ProxyConfig.Cfg.AddonPath) == 0 {
-		return addonsInfo
-	}
-	addonConfig, err := proxy.GetAddonConfig(proxy_cfg.ProxyConfig.Cfg.AddonPath)
-	if err != nil {
-		return addonsInfo
-	}
-	addonsInfo = addons.LoadAddon(addonConfig)
-	return addonsInfo
-}
-
-func isEqualAddons(new, old []model.AddonsData) bool {
-	if len(old) == 0 {
-		return false
-	}
-	if len(new) != len(old) {
-		return false
-	}
-	return reflect.DeepEqual(getAddonMap(new), getAddonMap(old))
-}
-
-func getAddonMap(addonList []model.AddonsData) map[string]model.AddonsData {
-	addonMap := map[string]model.AddonsData{}
-	for _, item := range addonList {
-		addonMap[item.Name] = item
-	}
-	return addonMap
 }

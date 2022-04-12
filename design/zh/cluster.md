@@ -22,17 +22,17 @@ metadata:
 spec:
   addons:
     - type: in-tree
-      name: <in-tree plugin name>
+      name: <in-tree addon name>
       configuration: <configuration object>
     - type: out-tree
-      name: <out-tree plugin name>
+      name: <out-tree addon name>
       configuration: <configuration object>
 ...
 status:
   addons:
-    - name: <plugin name>
-      info: <plugin podInfo object>
-      configInfo: <plugin configInfo object>
+    - name: <addon name>
+      info: <addon podInfo object>
+      configInfo: <addon configInfo object>
   conditions:
     - timestamp: "2021-11-02T08:51:39Z"
       message: Apiserver cannot provider service in this cluster
@@ -61,12 +61,12 @@ addons:
   - name: etcd
     type: in-tree
     configuration:
-      <plugin configuration object>
+      <addon configuration object>
   - name: apiserver
     type: in-tree
     configuration:
-      <plugin configuration object>
-  - name: external-plugin
+      <addon configuration object>
+  - name: external-addon
     type: out-tree
     configuration: 
       http:
@@ -399,12 +399,12 @@ status:
 
 `status` 字段描述该实例目前是否健康
 
-#### in-tree logging addons
+#### in-tree elk addons
 
-logging 插件将根据配置检查集群中 logging监控组件的健康状态以及es的配置信息，其配置如下：
+elk 插件将根据配置检查集群中 logging监控组件的健康状态以及es的配置信息，其配置如下：
 
 ```yaml
-- name: logging
+- name: elk
   configurations:
     selector:
     - namespace: logging
@@ -430,12 +430,12 @@ logging 插件将根据配置检查集群中 logging监控组件的健康状态�
 
 `update` 字段表示需要修改配置的信息，以上的示例中表示修改es的密码为`Hc@Cloud02`，该字段的类型是map[string]interface，字典类型，key是string类型，key的取值范围和下方`configInfo`字段中的`data`中的子字段一致
 
-logging 插件返回的数据示例如下：
+elk 插件返回的数据示例如下：
 
 ```yaml
 status:
   addons:
-  - name: logging
+  - name: elk
     info:
     - type: pod
       address: https://pod-es:9200
@@ -474,12 +474,12 @@ status:
 
 `elasticClusterName`字段表示获取到的es集群名称
 
-#### in-tree monitoring addons
+#### in-tree prometheus addons
 
 monitoring 插件将根据配置检查集群中 Prometheus 监控组件的健康状态以及配置信息，其配置如下：
 
 ```yaml
-- name: monitoring
+- name: prometheus
   configurations:
     selector:
     - namespace: kubesphere-monitoring-system
@@ -503,7 +503,7 @@ logging 插件返回的数据示例如下：
 ```yaml
 status:
   addons:
-    - name: monitoring
+    - name: prometheus
       info:
       - type: pod
         address: https://pod-prometheus

@@ -1,5 +1,11 @@
 package model
 
+import "harmonycloud.cn/stellaris/pkg/apis/multicluster/v1alpha1"
+
+type AddonsCmConfig struct {
+	Addons []v1alpha1.ClusterAddon `json:"addons,omitempty"`
+}
+
 type AddonsConfig struct {
 	Addons *Addons `json:"addons"`
 }
@@ -41,10 +47,10 @@ type InTreeConfig struct {
 }
 
 type ConfigData struct {
-	ConfigType ConfigType `json:"configType"`
-	Selector   *Selector  `json:"selector"`
-	// configMap need to get value
-	DataKey string `json:"dataKey,omitempty"`
+	ConfigType ConfigType             `json:"configType"`
+	Selector   *Selector              `json:"selector"`
+	KeyList    []string               `json:"keyList,omitempty"`
+	Update     map[string]interface{} `json:"update,omitempty"`
 }
 
 type Selector struct {

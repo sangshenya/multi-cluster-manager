@@ -11,11 +11,11 @@ cloud ManagerCluster {
 
 cloud BusinessCluster {
 	component "stellaris-proxy" as proxy
-	component "out-tree-plugins" as plugins
+	component "out-tree-addons" as addons
 	file "proxy-ConfigMap" as cm
 
 	proxy --> cm : read configuration
-	proxy -> plugins : http request
+	proxy -> addons : http request
 }
 
 core --> proxy : deploy

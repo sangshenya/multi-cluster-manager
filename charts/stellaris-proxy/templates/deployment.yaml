@@ -21,7 +21,7 @@ spec:
         args:
           - --core-address={{ .Values.coreAddr }}
           - --cluster-name={{ .Values.clusterName }}
-          - --addon-path=/config/{{ .Values.pluginsConfig.name }}
+          - --addon-path=/config/{{ .Values.addonsConfig.name }}
         volumeMounts:
           - mountPath: /config
             name: {{ .Release.Name }}-proxy
@@ -32,8 +32,8 @@ spec:
       volumes:
         - configMap:
             items:
-              - key: {{ .Values.pluginsConfig.name }}
-                path: {{ .Values.pluginsConfig.name }}
+              - key: {{ .Values.addonsConfig.name }}
+                path: {{ .Values.addonsConfig.name }}
             name: {{ .Release.Name }}-proxy
           name: {{ .Release.Name }}-proxy
       {{- with .Values.nodeSelector }}

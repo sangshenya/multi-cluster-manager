@@ -3,8 +3,13 @@ package inTree
 import (
 	"context"
 	"errors"
+	"strings"
 
-	"gopkg.in/yaml.v2"
+	sliceutils "harmonycloud.cn/stellaris/pkg/utils/slice"
+
+	maputil "harmonycloud.cn/stellaris/pkg/utils/map"
+
+	v1 "k8s.io/api/core/v1"
 
 	"harmonycloud.cn/stellaris/pkg/model"
 )
@@ -15,9 +20,10 @@ type LoggingAddonInfo struct {
 }
 
 type LoggingAddonsInfoData struct {
-	ElasticUsername string `json:"elasticUsername"`
-	ElasticPassword string `json:"elasticPassword"`
-	ElasticURL      string `json:"elasticURL"`
+	ElasticUsername    string `json:"elasticUsername"`
+	ElasticPassword    string `json:"elasticPassword"`
+	ElasticPort        string `json:"elasticPort"`
+	ElasticClusterName string `json:"elasticClusterName"`
 }
 
 type loggingAddons struct{}
@@ -35,63 +41,74 @@ func (l *loggingAddons) Load(ctx context.Context, inTree *model.In) (*model.Addo
 		Info: podHealthInfo(podList),
 	}
 
-	configInfo := loggingVolumesInfo(ctx, *inTree.Configurations.ConfigData)
-	loggingAddonInfo.ConfigInfo = configInfo
-	return &model.AddonsData{
+	data := &model.AddonsData{
 		Name: inTree.Name,
 		Info: loggingAddonInfo,
-	}, nil
+	}
+
+	if inTree.Configurations.ConfigData.ConfigType == model.Env {
+		pod := targetConfigPod(ctx, podList, *inTree.Configurations.ConfigData.Selector)
+		if pod == nil {
+			return data, nil
+		}
+
+		configInfo := loggingConfigInfo(ctx, pod, inTree.Configurations.ConfigData.KeyList)
+		loggingAddonInfo.ConfigInfo = configInfo
+	}
+	return data, nil
 }
 
-func loggingVolumesInfo(ctx context.Context, volumes model.ConfigData) *model.ConfigInfo {
-	if volumes.ConfigType != model.Env {
-		return nil
-	}
-	cmList, err := getConfigMapList(ctx, *volumes.Selector)
-	if err != nil {
-		return nil
-	}
-	var cmDataString string
-	for _, cm := range cmList {
-		cmDataString, err = getConfigMapData(cm, volumes.DataKey)
-		if err != nil {
+func targetConfigPod(ctx context.Context, podList []v1.Pod, selector model.Selector) *v1.Pod {
+	for _, pod := range podList {
+		if pod.GetNamespace() != selector.Namespace {
 			continue
 		}
-		if len(cmDataString) > 0 {
-			break
+		if selector.Labels != nil && maputil.ContainsMap(pod.GetLabels(), selector.Labels) {
+			return &pod
+		}
+		if len(selector.Include) > 0 && strings.Contains(pod.GetName(), selector.Include) {
+			return &pod
 		}
 	}
-	volumesInfo := &model.ConfigInfo{}
-	// parse cmData String
-	configModel, err := LoggingConfigData(cmDataString)
-	if err != nil {
-		volumesInfo = &model.ConfigInfo{
-			Message: err.Error(),
-		}
-	} else {
-		volumesInfo = &model.ConfigInfo{
-			Data:    configModel,
-			Message: "success",
-		}
+	// get pod
+	pods, err := getPodList(ctx, []model.Selector{selector})
+	if err != nil && len(pods) > 0 {
+		return &pods[0]
 	}
-	return volumesInfo
+	return nil
 }
 
-func LoggingConfigData(esConfigString string) (*LoggingAddonsInfoData, error) {
-	var m map[string]string
-	err := yaml.Unmarshal([]byte(esConfigString), &m)
-	if err != nil {
-		return nil, err
+func loggingConfigInfo(ctx context.Context, pod *v1.Pod, keyList []string) *model.ConfigInfo {
+	configInfo := &model.ConfigInfo{}
+	if len(pod.Spec.Containers) == 0 || len(pod.Spec.Containers[0].Env) == 0 {
+		return nil
 	}
-	var info *LoggingAddonsInfoData
-	if username, ok := m["elasticsearch.username"]; ok {
-		info.ElasticUsername = username
+	infoData := &LoggingAddonsInfoData{}
+	var hasEnv bool
+	for _, env := range pod.Spec.Containers[0].Env {
+		switch env.Name {
+		case "ClusterName":
+			if sliceutils.ContainsString(keyList, env.Name) {
+				infoData.ElasticClusterName = env.Value
+				hasEnv = true
+			}
+		case "ELASTIC_PASSWORD":
+			if sliceutils.ContainsString(keyList, env.Name) {
+				infoData.ElasticPassword = env.Value
+				infoData.ElasticUsername = "elastic"
+				hasEnv = true
+			}
+		case "TCPPort":
+			if sliceutils.ContainsString(keyList, env.Name) {
+				infoData.ElasticPort = env.Value
+				hasEnv = true
+			}
+		}
 	}
-	if url, ok := m["elasticsearch.url"]; ok {
-		info.ElasticURL = url
+	if !hasEnv {
+		configInfo.Message = "can not find config data"
+		return configInfo
 	}
-	if password, ok := m["elasticsearch.password"]; ok {
-		info.ElasticPassword = password
-	}
-	return info, nil
+	configInfo.Message = "success"
+	return configInfo
 }

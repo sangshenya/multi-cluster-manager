@@ -19,7 +19,7 @@ type OutTreeData struct {
 	Data []byte `json:"data"`
 }
 
-// LoadOutTreeData load outTree plugins data
+// LoadOutTreeData load outTree addons data
 func LoadOutTreeData(ctx context.Context, out *model.Out) (*model.AddonsData, error) {
 
 	var infos model.CommonAddonInfo

@@ -59,7 +59,7 @@ func (c *coreDNSAddons) Load(ctx context.Context, inTree *model.In) (*model.Addo
 }
 
 func coreDNSVolumesInfo(ctx context.Context, volumes model.ConfigData) *model.ConfigInfo {
-	if volumes.ConfigType != model.ConfigMap {
+	if volumes.ConfigType != model.ConfigMap || len(volumes.KeyList) == 0 {
 		return nil
 	}
 	cmList, err := getConfigMapList(ctx, *volumes.Selector)
@@ -68,7 +68,7 @@ func coreDNSVolumesInfo(ctx context.Context, volumes model.ConfigData) *model.Co
 	}
 	var cmDataString string
 	for _, cm := range cmList {
-		cmDataString, err = getConfigMapData(cm, volumes.DataKey)
+		cmDataString, err = getConfigMapData(cm, volumes.KeyList[0])
 		if err != nil {
 			continue
 		}
@@ -169,17 +169,17 @@ func CoreDNSConfig(coreDNSCfg string) (*CoreDNSAddonConfigModel, error) {
 	if len(serverBlocks) == 0 {
 		return nil, errors.New("can not parse coredns config")
 	}
-	pluginConfigModel := &CoreDNSAddonConfigModel{}
+	addonConfigModel := &CoreDNSAddonConfigModel{}
 	for _, serverBlock := range serverBlocks {
 		for key, value := range serverBlock.Tokens {
 			switch key {
 			case "errors":
-				pluginConfigModel.EnableErrorLogging = true
+				addonConfigModel.EnableErrorLogging = true
 			case "cache":
 				if len(value) >= 2 && value[0].Text == "cache" {
 					cacheTime, err := strconv.Atoi(value[1].Text)
 					if err == nil {
-						pluginConfigModel.CacheTime = cacheTime
+						addonConfigModel.CacheTime = cacheTime
 					}
 				}
 			case "forward":
@@ -191,7 +191,7 @@ func CoreDNSConfig(coreDNSCfg string) (*CoreDNSAddonConfigModel, error) {
 				for i := 2; i < len(value); i++ {
 					dnsModel.Resolution = append(dnsModel.Resolution, value[i].Text)
 				}
-				pluginConfigModel.Forward = append(pluginConfigModel.Forward, dnsModel)
+				addonConfigModel.Forward = append(addonConfigModel.Forward, dnsModel)
 			case "hosts":
 				dnsModel := DNSModel{}
 				if len(value) < 3 {
@@ -201,9 +201,9 @@ func CoreDNSConfig(coreDNSCfg string) (*CoreDNSAddonConfigModel, error) {
 				for i := 2; i < len(value); i++ {
 					dnsModel.Resolution = append(dnsModel.Resolution, value[i].Text)
 				}
-				pluginConfigModel.Hosts = append(pluginConfigModel.Hosts, dnsModel)
+				addonConfigModel.Hosts = append(addonConfigModel.Hosts, dnsModel)
 			}
 		}
 	}
-	return pluginConfigModel, nil
+	return addonConfigModel, nil
 }

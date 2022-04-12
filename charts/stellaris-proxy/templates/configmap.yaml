@@ -4,5 +4,5 @@ metadata:
   name: {{ .Release.Name }}-proxy
   namespace: {{ .Release.Namespace }}
 data:
-  {{ .Values.pluginsConfig.name }}: |-
-    {{ toYaml .Values.pluginsConfig.config | nindent 4 }}
+  {{ .Values.addonsConfig.name }}: |-
+    {{ toYaml .Values.addonsConfig.config | nindent 4 }}

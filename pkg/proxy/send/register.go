@@ -1,6 +1,7 @@
 package send
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -9,7 +10,6 @@ import (
 	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
 	proxy_stream "harmonycloud.cn/stellaris/pkg/proxy/stream"
 	"harmonycloud.cn/stellaris/pkg/utils/common"
-	"harmonycloud.cn/stellaris/pkg/utils/proxy"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -26,13 +26,9 @@ func Register() error {
 	addonInfo := &model.RegisterRequest{
 		Token: proxy_cfg.ProxyConfig.Cfg.RegisterToken,
 	}
-	if proxy_cfg.ProxyConfig.Cfg.AddonPath != "" {
-		addonConfig, err := proxy.GetAddonConfig(proxy_cfg.ProxyConfig.Cfg.AddonPath)
-		if err != nil {
-			registerLog.Error(err, "get addons config failed")
-			return err
-		}
-		addonsList := addons.LoadAddon(addonConfig)
+
+	addonsList := addons.LoadAddon(context.Background(), proxy_cfg.ProxyConfig.ControllerClient)
+	if len(addonsList) > 0 {
 		addonInfo.Addons = addonsList
 	}
 

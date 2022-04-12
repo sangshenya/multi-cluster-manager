@@ -71,7 +71,11 @@ func GetOperatorName() (string, error) {
 }
 
 func isRunModeLocal() bool {
-	return os.Getenv(ForceRunModeEnv) == string(LocalRunMode)
+	runmode := os.Getenv(ForceRunModeEnv)
+	if len(runmode) == 0 {
+		return true
+	}
+	return runmode == string(LocalRunMode)
 }
 
 func GetKubeConfig(masterURL string) (*rest.Config, error) {
