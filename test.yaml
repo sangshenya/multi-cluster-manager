@@ -1,12 +1,14 @@
-plugins:
+Addons:
   inTree:
-  - name: etcd
-    configuration:
-      <plugin configuration object>
-  - name: apiserver
-    configuration:
-      <plugin configuration object>
-  outTree:
-  - name: external-plugin
-    http:
-      url: <http url>
+  - name: kube-controller-manager-healthy
+    configurations:
+      selector:
+        - namespace: kube-system
+          labels:
+            component: kube-controller-manager
+  - name: kube-apiserver-healthy
+    configurations:
+      selector:
+        - namespace: kube-system
+          labels:
+            component: kube-apiserver

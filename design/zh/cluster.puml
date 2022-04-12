@@ -1,0 +1,47 @@
+@startuml
+'https://plantuml.com/use-case-diagram
+
+left to right direction
+
+actor User as User
+
+package 业务集群 {
+  usecase (create cluster-proxy) as ccp
+  usecase (delete cluster-proxy) as dcp
+}
+
+package 管理集群 {
+  usecase (create cluster-core) as ccc
+  usecase (delete cluster-core) as dcc
+
+  usecase (create clusterSet) as ccs
+  usecase (update clusterSet) as ucs
+  usecase (delete clusterSet) as dcs
+  usecase (retrieve clusterSet) as rcs
+
+  usecase (retrieve cluster) as rc
+  usecase (create cluster) as cc
+  usecase (delete cluster) as dc
+  usecase (update cluster) as uc
+}
+
+dc .> ucs : extends
+User --> ccc : helm chart
+User --> ccp : helm chart
+User --> dcp
+User --> dcc
+
+User --> ccs
+User --> ucs
+User --> dcs
+User --> rcs
+User --> dc
+User --> uc
+User --> rc
+
+ucs .> rc : include
+ccs .> rc : include
+
+cc .> ccp : extends
+
+@enduml

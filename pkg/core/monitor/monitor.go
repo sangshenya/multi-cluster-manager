@@ -22,14 +22,14 @@ import (
 )
 
 var onec sync.Once
-var client *multclusterclient.Clientset
+var mClient *multclusterclient.Clientset
 var config *corecfg.Configuration
 
 var clusterMonitorLog = logf.Log.WithName("cluster_monitor")
 
-func StartCheckClusterStatus(mClient *multclusterclient.Clientset, cfg *corecfg.Configuration) {
+func StartCheckClusterStatus(client *multclusterclient.Clientset, cfg *corecfg.Configuration) {
 	onec.Do(func() {
-		client = mClient
+		mClient = client
 		config = cfg
 		checkClusterStatus()
 	})
@@ -40,7 +40,7 @@ func checkClusterStatus() {
 	for {
 		time.Sleep(config.ClusterStatusCheckPeriod)
 		clusterMonitorLog.Info("start check cluster status")
-		clusterList, err := client.MulticlusterV1alpha1().Clusters().List(ctx, metav1.ListOptions{})
+		clusterList, err := mClient.MulticlusterV1alpha1().Clusters().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			clusterMonitorLog.Error(err, "get cluster list failed")
 			continue
@@ -59,7 +59,7 @@ func checkClusterStatus() {
 					cluster.Name,
 					cluster.Status.LastReceiveHeartBeatTimestamp.String(),
 					metav1.Now().String()))
-				err = clusterController.OfflineCluster(ctx, client, &cluster)
+				err = clusterController.OfflineCluster(ctx, mClient, &cluster)
 				if err != nil {
 					clusterMonitorLog.Error(err, fmt.Sprintf("change cluster(%s) status to offline failed", cluster.GetName()))
 					continue
@@ -70,7 +70,7 @@ func checkClusterStatus() {
 }
 
 func policyReSchedule(ctx context.Context, cluster *v1alpha1.Cluster) error {
-	policyList, err := client.MulticlusterV1alpha1().MultiClusterResourceSchedulePolicies(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	policyList, err := mClient.MulticlusterV1alpha1().MultiClusterResourceSchedulePolicies(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -84,7 +84,7 @@ func policyReSchedule(ctx context.Context, cluster *v1alpha1.Cluster) error {
 		}
 		if shouldReSchedule(ctx, &policy, cluster) {
 			policy.Spec.Reschedule = true
-			_, err = client.MulticlusterV1alpha1().MultiClusterResourceSchedulePolicies(policy.GetNamespace()).Update(ctx, &policy, metav1.UpdateOptions{})
+			_, err = mClient.MulticlusterV1alpha1().MultiClusterResourceSchedulePolicies(policy.GetNamespace()).Update(ctx, &policy, metav1.UpdateOptions{})
 			if err != nil {
 				clusterMonitorLog.Error(err, fmt.Sprintf("update policy(%s:%s) reschedule failed", policy.GetNamespace(), policy.GetName()))
 				continue
@@ -101,7 +101,7 @@ func shouldReSchedule(ctx context.Context, policy *v1alpha1.MultiClusterResource
 				return true
 			}
 		} else if policy.Spec.ClusterSource == v1alpha1.ClusterSourceTypeClusterset {
-			clusterSet, err := client.MulticlusterV1alpha1().ClusterSets().Get(ctx, policy.Spec.Clusterset, metav1.GetOptions{})
+			clusterSet, err := mClient.MulticlusterV1alpha1().ClusterSets().Get(ctx, policy.Spec.Clusterset, metav1.GetOptions{})
 			if err != nil {
 				clusterMonitorLog.Error(err, fmt.Sprintf("get clusterset(%s) failed", item.Name))
 				return false

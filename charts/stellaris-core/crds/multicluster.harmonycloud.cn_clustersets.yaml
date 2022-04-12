@@ -33,8 +33,11 @@ spec:
           metadata:
             type: object
           spec:
+            description: Spec represents the desired behavior.
             properties:
               clusterSelector:
+                description: Selector A label query over a set of ClusterSet. If Clusters
+                  is not empty, Selector will be ignored.
                 properties:
                   labels:
                     additionalProperties:
@@ -42,11 +45,15 @@ spec:
                     type: object
                 type: object
               clusters:
+                description: Clusters is the set of the target Cluster.
                 items:
+                  description: ClusterSetTarget the description of Cluster
                   properties:
                     name:
+                      description: Name of cluster
                       type: string
                     role:
+                      description: Role of cluster
                       type: string
                   type: object
                 type: array

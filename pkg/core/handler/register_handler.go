@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"harmonycloud.cn/stellaris/pkg/core/token"
+
 	"harmonycloud.cn/stellaris/pkg/common/helper"
 
 	clusterHealth "harmonycloud.cn/stellaris/pkg/common/cluster-health"
@@ -36,6 +38,12 @@ func (s *CoreServer) Register(req *config.Request, stream config.Channel_Establi
 	data := &model.RegisterRequest{}
 	if err := json.Unmarshal([]byte(req.Body), data); err != nil {
 		coreRegisterLog.Error(err, "unmarshal data error")
+		core.SendErrResponse(req.ClusterName, model.RegisterFailed, err, stream)
+	}
+	ctx := context.Background()
+	// validate token
+	if err := token.ValidateToken(ctx, s.clientSet, data.Token); err != nil {
+		coreRegisterLog.Error(err, "token validate failed")
 		core.SendErrResponse(req.ClusterName, model.RegisterFailed, err, stream)
 	}
 	clusterAddons, err := core.ConvertRegisterAddons2KubeAddons(data.Addons)
@@ -126,9 +134,9 @@ func (s *CoreServer) registerClusterInKube(cluster *v1alpha1.Cluster) error {
 func (s *CoreServer) getRegisterResources(clusterName string) (*model.RegisterResponse, error) {
 	ctx := context.Background()
 	body := &model.RegisterResponse{
-		ClusterResources:                   make([]v1alpha1.ClusterResource, 0),
-		ResourceAggregatePolicies:          make([]v1alpha1.ResourceAggregatePolicy, 0),
-		MultiClusterResourceAggregateRules: make([]v1alpha1.MultiClusterResourceAggregateRule, 0),
+		ClusterResources: make([]v1alpha1.ClusterResource, 0),
+		Policies:         make([]v1alpha1.ResourceAggregatePolicy, 0),
+		Rules:            make([]v1alpha1.MultiClusterResourceAggregateRule, 0),
 	}
 	clusterNamespace := managerCommon.ClusterNamespace(clusterName)
 
@@ -161,7 +169,7 @@ func (s *CoreServer) getRegisterResources(clusterName string) (*model.RegisterRe
 		if mPolicyNamespace != ns {
 			policy.SetNamespace(ns)
 		}
-		body.ResourceAggregatePolicies = append(body.ResourceAggregatePolicies, policy)
+		body.Policies = append(body.Policies, policy)
 	}
 
 	ruleList, err := resource_aggregate_rule.AggregateRuleList(ctx, s.mClient, metav1.NamespaceAll)
@@ -177,7 +185,7 @@ func (s *CoreServer) getRegisterResources(clusterName string) (*model.RegisterRe
 		if mappingNs != rule.Namespace {
 			rule.Namespace = mappingNs
 		}
-		body.MultiClusterResourceAggregateRules = append(body.MultiClusterResourceAggregateRules, rule)
+		body.Rules = append(body.Rules, rule)
 	}
 
 	return body, nil

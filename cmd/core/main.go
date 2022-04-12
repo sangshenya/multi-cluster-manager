@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,12 +12,13 @@ import (
 	"strconv"
 	"time"
 
+	"harmonycloud.cn/stellaris/pkg/core/token"
+
 	"harmonycloud.cn/stellaris/pkg/core/monitor"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"k8s.io/klog/v2/klogr"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/klog/v2"
 
@@ -37,6 +39,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -66,7 +69,6 @@ func init() {
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
 	flag.StringVar(&certDir, "webhook-cert-dir", "/k8s-webhook-server/serving-certs", "Admission webhook cert/key dir.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, "Admission webhook listen address")
-	flag.StringVar(&tmplStr, "cue-template-config-map", "", "The CUE template which use to deploy proxy, value should be namespace/name")
 
 	utilruntime.Must(v1alpha1.AddToScheme(coreScheme))
 	utilruntime.Must(scheme.AddToScheme(coreScheme))
@@ -86,6 +88,11 @@ func main() {
 		logrus.Fatalf("listen port %d error: %s", lisPort, err)
 	}
 
+	namespace, err := managerHelper.GetOperatorNamespace()
+	if err != nil {
+		logrus.Fatalf("get namespace failed, error: %s", err)
+	}
+
 	// construct client
 	kubeCfg, err := managerHelper.GetKubeConfig(masterURL)
 	if err != nil {
@@ -103,11 +110,14 @@ func main() {
 
 	restCfg := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
-		Scheme:                 coreScheme,
-		MetricsBindAddress:     metricsAddr,
-		CertDir:                certDir,
-		Port:                   webhookPort,
-		HealthProbeBindAddress: probeAddr,
+		Scheme:                  coreScheme,
+		MetricsBindAddress:      metricsAddr,
+		CertDir:                 certDir,
+		Port:                    webhookPort,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElectionNamespace: namespace,
+		LeaderElection:          true,
+		LeaderElectionID:        "stellaris-core-lock",
 	})
 	if err != nil {
 		logrus.Fatalf("failed create manager: %s", err)
@@ -140,6 +150,18 @@ func main() {
 		klog.ErrorS(err, "Unable to get webhook secret")
 		os.Exit(1)
 	}
+	ctx := context.Background()
+	// edit service
+	if err = monitor.ConfigHeadlessService(ctx); err != nil {
+		klog.ErrorS(err, "Unable to edit service")
+		os.Exit(1)
+	}
+	// create token
+	if err = token.CreateToken(ctx, mgr.GetClient()); err != nil {
+		klog.ErrorS(err, "Unable to create token")
+		os.Exit(1)
+	}
+
 	// monitor
 	go monitor.StartCheckClusterStatus(mClient, cfg)
 

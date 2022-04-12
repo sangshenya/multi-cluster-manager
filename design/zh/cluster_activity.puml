@@ -1,0 +1,28 @@
+@startuml
+'https://plantuml.com/activity-diagram-beta
+
+start
+:部署管理集群Core;
+:部署业务集群Proxy;
+if (插件配置存在) then (true)
+  :获取插件信息;
+endif
+:Proxy向Core注册;
+if (Core注册校验) then (true)
+  :Core创建Cluster;
+else (false)
+  stop
+endif
+
+:Core返回注册成功信息;
+
+while (业务集群Proxy存在?)
+  if (插件配置存在) then (true)
+    :获取插件信息;
+  endif
+  :Proxy向Core发送心跳;
+  :Core更新Cluster状态和插件信息;
+endwhile
+stop
+
+@enduml

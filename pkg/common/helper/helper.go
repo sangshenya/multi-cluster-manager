@@ -2,23 +2,77 @@ package helper
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
 
-	"k8s.io/apimachinery/pkg/labels"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	v1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	clientConfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
+
+// ForceRunModeEnv indicates if the operator should be forced to run in either local
+// or cluster mode (currently only used for local mode)
+var ForceRunModeEnv = "OSDK_FORCE_RUN_MODE"
+
+type RunModeType string
+
+const (
+	LocalRunMode   RunModeType = "local"
+	ClusterRunMode RunModeType = "cluster"
+)
+
+const (
+	// OperatorNameEnvVar is the constant for env variable OPERATOR_NAME
+	// which is the name of the current operator
+	OperatorNameEnvVar = "OPERATOR_NAME"
+)
+
+// GetOperatorNamespace returns the namespace the operator should be running in.
+// source "github.com/operator-framework/operator-sdk/pkg/k8sutil"
+func GetOperatorNamespace() (string, error) {
+	if isRunModeLocal() {
+		return "stellaris-system", nil
+	}
+	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", errors.New("namespace not found for current environment")
+		}
+		return "", err
+	}
+	ns := strings.TrimSpace(string(nsBytes))
+	return ns, nil
+}
+
+// GetOperatorName return the operator name
+func GetOperatorName() (string, error) {
+	operatorName, found := os.LookupEnv(OperatorNameEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", OperatorNameEnvVar)
+	}
+	if len(operatorName) == 0 {
+		return "", fmt.Errorf("%s must not be empty", OperatorNameEnvVar)
+	}
+	return operatorName, nil
+}
+
+func isRunModeLocal() bool {
+	return os.Getenv(ForceRunModeEnv) == string(LocalRunMode)
+}
 
 func GetKubeConfig(masterURL string) (*rest.Config, error) {
 	if len(os.Getenv("KUBECONFIG")) > 0 {
@@ -36,6 +90,19 @@ func GetKubeConfig(masterURL string) (*rest.Config, error) {
 		}
 	}
 	return nil, fmt.Errorf("could not locate a kubeconfig")
+}
+
+func GetKubeClient() (client.Client, error) {
+	restConfig, err := clientConfig.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	clientSet, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return nil, err
+	}
+	return clientSet, nil
 }
 
 func GetResourceForRawExtension(resource *runtime.RawExtension) (*unstructured.Unstructured, error) {

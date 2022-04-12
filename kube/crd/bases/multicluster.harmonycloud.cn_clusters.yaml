@@ -33,58 +33,42 @@ spec:
           metadata:
             type: object
           spec:
+            description: Spec represents the desired behavior.
             properties:
               addons:
+                description: Addons is the set of cluster addon
                 items:
+                  description: ClusterAddon represents the identifier of cluster addon
                   properties:
                     configuration:
+                      description: Configuration of cluster addon
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                     name:
+                      description: Name of cluster addon
                       type: string
                     type:
-                      type: string
-                    url:
+                      description: Type of cluster addon
                       type: string
                   required:
                   - name
                   - type
-                  - url
                   type: object
                 type: array
-              apiserver:
-                type: string
-              configuration:
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
-              secretRef:
-                properties:
-                  field:
-                    type: string
-                  name:
-                    type: string
-                  namespace:
-                    type: string
-                  type:
-                    type: string
-                required:
-                - field
-                - name
-                - namespace
-                - type
-                type: object
-            required:
-            - apiserver
-            - secretRef
             type: object
           status:
+            description: Status represents the most recently observed status of the
+              Cluster.
             properties:
               addons:
                 items:
+                  description: ClusterAddonStatus represents the cluster addon status
                   properties:
                     info:
                       type: object
+                      x-kubernetes-preserve-unknown-fields: true
                     name:
+                      description: Name of cluster addon
                       type: string
                   type: object
                 type: array
@@ -116,6 +100,8 @@ spec:
                 format: date-time
                 type: string
               status:
+                description: ClusterStatusType is the set of cluster status that can
+                  be used in a cluster.
                 type: string
             type: object
         type: object

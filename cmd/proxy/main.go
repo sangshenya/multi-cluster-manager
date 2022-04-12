@@ -4,6 +4,8 @@ import (
 	"flag"
 	"time"
 
+	managerHelper "harmonycloud.cn/stellaris/pkg/common/helper"
+
 	"harmonycloud.cn/stellaris/pkg/proxy/send"
 
 	proxy_stream "harmonycloud.cn/stellaris/pkg/proxy/stream"
@@ -35,6 +37,7 @@ var (
 	addonPath        string
 	metricsAddr      string
 	probeAddr        string
+	registerToken    string
 	addonLoadTimeout int
 )
 
@@ -43,11 +46,12 @@ var proxyScheme = runtime.NewScheme()
 func init() {
 	flag.IntVar(&heartbeatPeriod, "heartbeat-send-period", 30, "The period of heartbeat send interval")
 	// flag.StringVar(&coreAddress, "core-address", "10.1.11.46:32696", "address of stellaris")
-	// flag.StringVar(&clusterName, "cluster-name", "example-test-1", "name of proxy-cluster")
-	// flag.StringVar(&addonPath, "addon-path", "/Users/chenkun/Desktop/Go_Ad/src/harmonycloud.cn/stellaris/test.yaml", "path of addon config")
-	flag.StringVar(&coreAddress, "core-address", "", "address of stellaris")
-	flag.StringVar(&clusterName, "cluster-name", "", "name of proxy-cluster")
-	flag.StringVar(&addonPath, "addon-path", "", "path of addon config")
+	flag.StringVar(&clusterName, "cluster-name", "example-test-1", "name of proxy-cluster")
+	flag.StringVar(&addonPath, "addon-path", "/Users/chenkun/Desktop/Go_Ad/src/harmonycloud.cn/stellaris/test.yaml", "path of addon config")
+	flag.StringVar(&coreAddress, "core-address", "10.10.101.248:30530", "address of stellaris")
+	//flag.StringVar(&clusterName, "cluster-name", "", "name of proxy-cluster")
+	//flag.StringVar(&addonPath, "addon-path", "", "path of addon config")
+	flag.StringVar(&registerToken, "register-token", "", "The tokens required for registration cluster")
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9000", "The address the metrics endpoint binds to")
 	flag.StringVar(&probeAddr, "health-probe-addr", ":9001", "The address the probe endpoint binds to.")
@@ -70,13 +74,22 @@ func main() {
 	cfg.ClusterName = clusterName
 	cfg.CoreAddress = coreAddress
 	cfg.AddonPath = addonPath
+	cfg.RegisterToken = registerToken
 	cfg.AddonLoadTimeout = time.Duration(addonLoadTimeout) * time.Second
+
+	namespace, err := managerHelper.GetOperatorNamespace()
+	if err != nil {
+		logrus.Fatalf("get namespace failed, error: %s", err)
+	}
 
 	restCfg := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
-		Scheme:                 proxyScheme,
-		MetricsBindAddress:     metricsAddr,
-		HealthProbeBindAddress: probeAddr,
+		Scheme:                  proxyScheme,
+		MetricsBindAddress:      metricsAddr,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElectionNamespace: namespace,
+		LeaderElection:          true,
+		LeaderElectionID:        "stellaris-proxy-lock",
 	})
 	if err != nil {
 		logrus.Fatalf("failed create manager: %s", err)

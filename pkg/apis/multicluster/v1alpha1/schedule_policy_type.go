@@ -61,7 +61,8 @@ type ScheduleFailoverPolicy struct {
 }
 
 type ScheduleOutTreePolicy struct {
-	Url        string                `json:"url,omitempty"`
+	Url string `json:"url,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Properties *runtime.RawExtension `json:"properties,omitempty"`
 }
 

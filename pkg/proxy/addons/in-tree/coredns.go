@@ -6,18 +6,13 @@ import (
 	"errors"
 	"strconv"
 
-	proxy_cfg "harmonycloud.cn/stellaris/pkg/proxy/config"
-	"k8s.io/apimachinery/pkg/types"
-
-	v1 "k8s.io/api/core/v1"
-
 	"harmonycloud.cn/stellaris/pkg/model"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/caddy/caddyfile"
 )
 
-type CoreDNSPluginConfigModel struct {
+type CoreDNSAddonConfigModel struct {
 	EnableErrorLogging bool       `json:"enableErrorLogging"`
 	CacheTime          int        `json:"cacheTime"`
 	Hosts              []DNSModel `json:"hosts,omitempty"`
@@ -30,8 +25,8 @@ type DNSModel struct {
 }
 
 type CoreDNSAddonInfo struct {
-	Info        []model.AddonsInfo `json:"info"`
-	VolumesInfo *model.VolumesInfo `json:"volumesInfo"`
+	Info       []model.AddonsInfo `json:"info"`
+	ConfigInfo *model.ConfigInfo  `json:"configInfo"`
 }
 
 type coreDNSAddons struct{}
@@ -51,22 +46,29 @@ func (c *coreDNSAddons) Load(ctx context.Context, inTree *model.In) (*model.Addo
 	}
 
 	// coreDNS configmap
-	if inTree.Configurations.VolumesType == model.ConfigMap {
-		volumesInfo := getVolumesInfoWithConfigMap(ctx, podList)
-		coreDNSAddonInfo.VolumesInfo = volumesInfo
-	}
+	volumesInfo := coreDNSVolumesInfo(ctx, *inTree.Configurations.ConfigData)
+	coreDNSAddonInfo.ConfigInfo = volumesInfo
+	//if inTree.Configurations.VolumesType == model.ConfigMap {
+	//	volumesInfo := getVolumesInfoWithConfigMap(ctx, podList)
+	//	coreDNSAddonInfo.VolumesInfo = volumesInfo
+	//}
 	return &model.AddonsData{
 		Name: inTree.Name,
 		Info: coreDNSAddonInfo,
 	}, nil
 }
 
-func getVolumesInfoWithConfigMap(ctx context.Context, podList []v1.Pod) *model.VolumesInfo {
+func coreDNSVolumesInfo(ctx context.Context, volumes model.ConfigData) *model.ConfigInfo {
+	if volumes.ConfigType != model.ConfigMap {
+		return nil
+	}
+	cmList, err := getConfigMapList(ctx, *volumes.Selector)
+	if err != nil {
+		return nil
+	}
 	var cmDataString string
-	var err error
-	volumesInfo := &model.VolumesInfo{}
-	for _, pod := range podList {
-		cmDataString, err = getConfigMapFromPod(ctx, pod)
+	for _, cm := range cmList {
+		cmDataString, err = getConfigMapData(cm, volumes.DataKey)
 		if err != nil {
 			continue
 		}
@@ -74,17 +76,15 @@ func getVolumesInfoWithConfigMap(ctx context.Context, podList []v1.Pod) *model.V
 			break
 		}
 	}
-	if len(cmDataString) == 0 {
-		volumesInfo.Message = "can not find configMap data"
-	}
+	volumesInfo := &model.ConfigInfo{}
 	// parse cmData String
 	configModel, err := CoreDNSConfig(cmDataString)
 	if err != nil {
-		volumesInfo = &model.VolumesInfo{
+		volumesInfo = &model.ConfigInfo{
 			Message: err.Error(),
 		}
 	} else {
-		volumesInfo = &model.VolumesInfo{
+		volumesInfo = &model.ConfigInfo{
 			Data:    configModel,
 			Message: "success",
 		}
@@ -92,44 +92,75 @@ func getVolumesInfoWithConfigMap(ctx context.Context, podList []v1.Pod) *model.V
 	return volumesInfo
 }
 
-func getConfigMapFromPod(ctx context.Context, pod v1.Pod) (string, error) {
-	if len(pod.Spec.Volumes) == 0 {
-		return "", errors.New("can not find ConfigMap")
-	}
+//func getVolumesInfoWithConfigMap(ctx context.Context, podList []v1.Pod) *model.VolumesInfo {
+//	var cmDataString string
+//	var err error
+//	volumesInfo := &model.VolumesInfo{}
+//	for _, pod := range podList {
+//		cmDataString, err = getConfigMapFromPod(ctx, pod)
+//		if err != nil {
+//			continue
+//		}
+//		if len(cmDataString) > 0 {
+//			break
+//		}
+//	}
+//	if len(cmDataString) == 0 {
+//		volumesInfo.Message = "can not find configMap data"
+//	}
+//	// parse cmData String
+//	configModel, err := CoreDNSConfig(cmDataString)
+//	if err != nil {
+//		volumesInfo = &model.VolumesInfo{
+//			Message: err.Error(),
+//		}
+//	} else {
+//		volumesInfo = &model.VolumesInfo{
+//			Data:    configModel,
+//			Message: "success",
+//		}
+//	}
+//	return volumesInfo
+//}
 
-	configMapNamespaced := types.NamespacedName{
-		Namespace: pod.Namespace,
-	}
-	var configMapKey string
-	for _, item := range pod.Spec.Volumes {
-		if item.ConfigMap != nil && len(item.ConfigMap.Name) > 0 {
-			configMapNamespaced.Name = item.ConfigMap.Name
-			for _, keyPath := range item.ConfigMap.Items {
-				if len(keyPath.Key) > 0 {
-					configMapKey = keyPath.Key
-					break
-				}
-			}
-			break
-		}
-	}
-	if len(configMapKey) == 0 || len(configMapNamespaced.Name) == 0 {
-		return "", errors.New("can not find ConfigMap")
-	}
+//func getConfigMapFromPod(ctx context.Context, pod v1.Pod) (string, error) {
+//	if len(pod.Spec.Volumes) == 0 {
+//		return "", errors.New("can not find ConfigMap")
+//	}
+//
+//	configMapNamespaced := types.NamespacedName{
+//		Namespace: pod.Namespace,
+//	}
+//	var configMapKey string
+//	for _, item := range pod.Spec.Volumes {
+//		if item.ConfigMap != nil && len(item.ConfigMap.Name) > 0 {
+//			configMapNamespaced.Name = item.ConfigMap.Name
+//			for _, keyPath := range item.ConfigMap.Items {
+//				if len(keyPath.Key) > 0 {
+//					configMapKey = keyPath.Key
+//					break
+//				}
+//			}
+//			break
+//		}
+//	}
+//	if len(configMapKey) == 0 || len(configMapNamespaced.Name) == 0 {
+//		return "", errors.New("can not find ConfigMap")
+//	}
+//
+//	cm := &v1.ConfigMap{}
+//	err := proxy_cfg.ProxyConfig.ControllerClient.Get(ctx, configMapNamespaced, cm)
+//	if err != nil {
+//		return "", err
+//	}
+//	cmData, ok := cm.Data[configMapKey]
+//	if !ok {
+//		return "", errors.New("can not get cm data")
+//	}
+//	return cmData, nil
+//}
 
-	cm := &v1.ConfigMap{}
-	err := proxy_cfg.ProxyConfig.ControllerClient.Get(ctx, configMapNamespaced, cm)
-	if err != nil {
-		return "", err
-	}
-	cmData, ok := cm.Data[configMapKey]
-	if !ok {
-		return "", errors.New("can not get cm data")
-	}
-	return cmData, nil
-}
-
-func CoreDNSConfig(coreDNSCfg string) (*CoreDNSPluginConfigModel, error) {
+func CoreDNSConfig(coreDNSCfg string) (*CoreDNSAddonConfigModel, error) {
 	validDirectives := caddy.ValidDirectives("dns")
 	serverBlocks, err := caddyfile.Parse("", bytes.NewReader([]byte(coreDNSCfg)), validDirectives)
 	if err != nil {
@@ -138,7 +169,7 @@ func CoreDNSConfig(coreDNSCfg string) (*CoreDNSPluginConfigModel, error) {
 	if len(serverBlocks) == 0 {
 		return nil, errors.New("can not parse coredns config")
 	}
-	pluginConfigModel := &CoreDNSPluginConfigModel{}
+	pluginConfigModel := &CoreDNSAddonConfigModel{}
 	for _, serverBlock := range serverBlocks {
 		for key, value := range serverBlock.Tokens {
 			switch key {

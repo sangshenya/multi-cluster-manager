@@ -1,0 +1,68 @@
+@startuml
+!theme cerulean-outline
+
+skinparam backgroundcolor lightgrey
+
+left to right direction
+
+rectangle <size:12>管理集群</size> #lightyellow {
+  rectangle "mem-core" as core {
+    usecase (<size:12>注册校验</size>) as validateRegister
+    usecase (<size:12>心跳维护</size>) as heartbeat
+  }
+
+  entity apiserver as apiserver
+}
+
+rectangle <size:12>业务集群组</size> #lightblue {
+  rectangle <size:12>业务集群A</size> {
+    rectangle <size:12>mem-proxy</size> as proxyA {
+      usecase (<size:12>注册</size>) as registerA
+      usecase (<size:12>心跳</size>) as heartbeatA
+    }
+
+    entity apiserver as apiserverA
+
+    usecase (<size:12>外部插件</size>) as addonA
+
+    addonA --> proxyA: <size:12>外部插件信息</size>
+  }
+
+  rectangle <size:12>业务集群B</size> {
+    rectangle <size:12>mem-proxy</size> as proxyB {
+      usecase (<size:12>注册</size>) as registerB
+      usecase (<size:12>心跳</size>) as heartbeatB
+    }
+
+    entity apiserver as apiserverB
+
+    usecase (<size:12>外部插件</size>) as addonB
+
+    addonB --> proxyB: <size:12>外部插件信息</size>
+  }
+}
+
+rectangle <size:12>业务集群C</size> #lightgreen {
+  rectangle <size:12>mem-proxy</size> as proxyC {
+    usecase (<size:12>注册</size>) as registerC
+    usecase (<size:12>心跳</size>) as heartbeatC
+  }
+
+  entity apiserver as apiserverC
+  usecase (<size:12>外部插件</size>) as addonC
+
+  addonC --> proxyC: <size:12>外部插件信息</size>
+}
+
+
+
+proxyA --> core: <size:12>注册/心跳</size>
+proxyB --> core: <size:12>注册/心跳</size>
+proxyC --> core: <size:12>注册/心跳</size>
+
+apiserverA --> proxyA: <size:12>集群组件信息</size>
+apiserverB --> proxyB: <size:12>集群组件信息</size>
+apiserverC --> proxyC: <size:12>集群组件信息</size>
+
+core --> apiserver: <size:12>创建/更新Cluster</size>
+@enduml

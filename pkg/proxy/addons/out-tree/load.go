@@ -3,7 +3,6 @@ package outTree
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 
 	"harmonycloud.cn/stellaris/pkg/model"
@@ -11,46 +10,64 @@ import (
 )
 
 type OutTreeResponseModel struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    []byte `json:"data,omitempty"`
+	Code    int          `json:"code"`
+	Message string       `json:"message"`
+	Data    *OutTreeData `json:"data,omitempty"`
 }
 
-// load outTree plugins data
+type OutTreeData struct {
+	Data []byte `json:"data"`
+}
+
+// LoadOutTreeData load outTree plugins data
 func LoadOutTreeData(ctx context.Context, out *model.Out) (*model.AddonsData, error) {
-	response, err := httprequest.HttpGetWithEmptyHeader(out.Http.Url)
+
+	var infos model.CommonAddonInfo
+	for _, url := range out.Configurations.HTTP.URL {
+		info := requestDataWithURL(url)
+		infos.Info = append(infos.Info, info)
+	}
+
+	return &model.AddonsData{
+		Name: out.Name,
+		Info: infos,
+	}, nil
+}
+
+func requestDataWithURL(url string) model.AddonsInfo {
+	info := model.AddonsInfo{}
+	info.Type = model.AddonInfoSourceStatic
+	info.Address = url
+	info.Status = model.AddonStatusTypeNotReady
+
+	response, err := httprequest.HttpGetWithEmptyHeader(url)
 	if err != nil {
-		return nil, err
+		info.Data = err.Error()
+		return info
 	}
 	if response.StatusCode != 200 {
-		return nil, errors.New("status code is not 200")
+		info.Data = "status code is not 200"
+		return info
 	}
 	data, err := ioutil.ReadAll(response.Body)
 	response.Body.Close()
 	if err != nil {
-		return nil, err
+		info.Data = err.Error()
+		return info
 	}
 
 	outTreeData := &OutTreeResponseModel{}
 	err = json.Unmarshal(data, outTreeData)
 	if err != nil {
-		return nil, err
-	}
-
-	addonsInfo := model.AddonsInfo{
-		Type:    model.AddonInfoSourceStatic,
-		Address: out.Http.Url,
-		Status:  model.AddonStatusTypeNotReady,
+		info.Data = err.Error()
+		return info
 	}
 
 	if outTreeData.Code == 0 {
-		addonsInfo.Status = model.AddonStatusTypeReady
+		info.Status = model.AddonStatusTypeReady
 	}
-
-	return &model.AddonsData{
-		Name: out.Name,
-		Info: []model.AddonsInfo{
-			addonsInfo,
-		},
-	}, nil
+	if outTreeData.Data != nil {
+		info.Data = outTreeData.Data
+	}
+	return info
 }

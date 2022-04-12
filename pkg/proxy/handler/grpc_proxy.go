@@ -59,8 +59,8 @@ func dealResponse(proxyClient *multclusterclient.Clientset, response *config.Res
 
 func syncResource(proxyClient *multclusterclient.Clientset, resourceList *model.RegisterResponse) error {
 	ctx := context.Background()
-	if len(resourceList.ResourceAggregatePolicies) != 0 && len(resourceList.MultiClusterResourceAggregateRules) != 0 {
-		err := aggregateResourceWhenRegister(ctx, resourceList.MultiClusterResourceAggregateRules, resourceList.ResourceAggregatePolicies)
+	if len(resourceList.Policies) != 0 && len(resourceList.Rules) != 0 {
+		err := aggregateResourceWhenRegister(ctx, resourceList.Rules, resourceList.Policies)
 		if err != nil {
 			registerLog.Error(err, "aggregate resource failed when register")
 		}
@@ -68,10 +68,10 @@ func syncResource(proxyClient *multclusterclient.Clientset, resourceList *model.
 	if err := syncClusterResourcesList(ctx, proxyClient, resourceList.ClusterResources); err != nil {
 		return err
 	}
-	if err := resource_aggregate_policy.SyncAggregatePolicyList(ctx, proxyClient, model.SyncResource, resourceList.ResourceAggregatePolicies); err != nil {
+	if err := resource_aggregate_policy.SyncAggregatePolicyList(ctx, proxyClient, model.SyncResource, resourceList.Policies); err != nil {
 		return err
 	}
-	if err := resource_aggregate_rule.SyncAggregateRuleList(ctx, proxyClient, model.SyncResource, resourceList.MultiClusterResourceAggregateRules); err != nil {
+	if err := resource_aggregate_rule.SyncAggregateRuleList(ctx, proxyClient, model.SyncResource, resourceList.Rules); err != nil {
 		return err
 	}
 	return nil

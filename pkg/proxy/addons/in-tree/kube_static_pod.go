@@ -23,7 +23,9 @@ func (k *kubeAddons) Load(ctx context.Context, inTree *model.In) (*model.AddonsD
 
 	return &model.AddonsData{
 		Name: inTree.Name,
-		Info: kubeAddonsInfo,
+		Info: model.CommonAddonInfo{
+			Info: kubeAddonsInfo,
+		},
 	}, nil
 }
 
@@ -43,18 +45,14 @@ func getAddonsInfoList(ctx context.Context, cfg *model.InTreeConfig) ([]model.Ad
 	return kubeAddonsInfo, nil
 }
 
-func getAddonsInfoWithSelector(ctx context.Context, selector *model.Selector) ([]model.AddonsInfo, error) {
-	if selector == nil {
+func getAddonsInfoWithSelector(ctx context.Context, selectors []model.Selector) ([]model.AddonsInfo, error) {
+	if len(selectors) == 0 {
 		return nil, nil
 	}
-	if len(selector.Namespace) == 0 {
-		return nil, errors.New("resource namespace can not be empty")
-	}
-	pods, err := getPodList(ctx, selector)
+	pods, err := getPodList(ctx, selectors)
 	if err != nil {
 		return nil, err
 	}
-
 	return podHealthInfo(pods), nil
 }
 

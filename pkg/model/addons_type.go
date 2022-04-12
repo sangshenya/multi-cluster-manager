@@ -15,21 +15,36 @@ type Addons struct {
 	InTree  []In  `json:"inTree"`
 	OutTree []Out `json:"outTree"`
 }
+
 type In struct {
 	Name           string        `json:"name"`
 	Configurations *InTreeConfig `json:"configurations"`
 }
 
-type VolumesType string
+type Out struct {
+	Name           string         `json:"name"`
+	Configurations *OutTreeConfig `json:"configurations"`
+}
+
+type ConfigType string
 
 const (
-	ConfigMap VolumesType = "ConfigMap"
+	Env        ConfigType = "env"
+	ConfigMap  ConfigType = "ConfigMap"
+	Prometheus ConfigType = "prometheus"
 )
 
 type InTreeConfig struct {
-	Selector    *Selector   `json:"selector,omitempty"`
-	Static      []Static    `json:"static,omitempty"`
-	VolumesType VolumesType `json:"volumesType,omitempty"`
+	Selector   []Selector  `json:"selector,omitempty"`
+	Static     []Static    `json:"static,omitempty"`
+	ConfigData *ConfigData `json:"configData,omitempty"`
+}
+
+type ConfigData struct {
+	ConfigType ConfigType `json:"configType"`
+	Selector   *Selector  `json:"selector"`
+	// configMap need to get value
+	DataKey string `json:"dataKey,omitempty"`
 }
 
 type Selector struct {
@@ -42,16 +57,15 @@ type Static struct {
 	Endpoint string `json:"endpoint"`
 }
 
-type Out struct {
-	Name string `json:"name"`
-	Http *Http  `json:"http"`
+type OutTreeConfig struct {
+	HTTP *HTTP `json:"http"`
 }
 
-type Http struct {
-	Url string `json:"url"`
+type HTTP struct {
+	URL []string `json:"url"`
 }
 
-// addons response data
+// AddonsData addons response data
 type AddonsData struct {
 	Name string      `json:"name"`
 	Info interface{} `json:"info"`
@@ -75,6 +89,7 @@ type AddonsInfo struct {
 	Type      AddonInfoSourceType `json:"type"`
 	Address   string              `json:"address"`
 	TargetRef *TargetResource     `json:"targetRef,omitempty"`
+	Data      interface{}         `json:"data,omitempty"`
 	Status    AddonStatusType     `json:"status"`
 }
 
@@ -83,7 +98,11 @@ type TargetResource struct {
 	Name      string `json:"name"`
 }
 
-type VolumesInfo struct {
+type ConfigInfo struct {
 	Data    interface{} `json:"data,omitempty"`
 	Message string      `json:"message"`
+}
+
+type CommonAddonInfo struct {
+	Info []AddonsInfo `json:"infos"`
 }

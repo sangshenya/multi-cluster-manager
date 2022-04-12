@@ -103,8 +103,8 @@ func (s *CoreServer) updateClusterWithHeartbeatAddons(ctx context.Context, addon
 		return cluster, err
 	}
 	if !addonsEqual(cluster.Status.Addons, clusterAddons) {
-		cluster.Status.Addons = clusterAddons
-		cluster, err = clusterController.UpdateCluster(ctx, s.mClient, cluster)
+		cluster.Status.Addons = append([]v1alpha1.ClusterAddonStatus{}, clusterAddons...)
+		cluster, err = clusterController.UpdateClusterStatus(ctx, s.mClient, cluster)
 		if err != nil {
 			return cluster, err
 		}

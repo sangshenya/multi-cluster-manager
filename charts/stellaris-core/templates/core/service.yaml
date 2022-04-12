@@ -5,7 +5,19 @@ metadata:
   labels:
     app: {{ .Release.Name }}-core
 spec:
+  ClusterIP: "None"
+  type: ClusterIP
   ports:
   - port: 8080
-  selector:
+    protocol: TCP
+    targetPort: 8080
+#  selector:
+#    app: {{ .Release.Name }}-core
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: {{ .Release.Name }}-core
+  labels:
     app: {{ .Release.Name }}-core
+subsets:

@@ -15,18 +15,19 @@ type Cluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ClusterSpec   `json:"spec,omitempty"`
+	// Spec represents the desired behavior.
+	Spec ClusterSpec `json:"spec,omitempty"`
+	// Status represents the most recently observed status of the Cluster.
 	Status ClusterStatus `json:"status,omitempty"`
 }
 
+// ClusterSpec represents the expectation of Cluster
 type ClusterSpec struct {
-	ApiServer string           `json:"apiserver"`
-	SecretRef ClusterSecretRef `json:"secretRef"`
-	Addons    []ClusterAddon   `json:"addons,omitempty"`
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Configuration *runtime.RawExtension `json:"configuration,omitempty"`
+	// Addons is the set of cluster addon
+	Addons []ClusterAddon `json:"addons,omitempty"`
 }
 
+// ClusterStatus represents the overall status of cluster as well as the cluster addon status
 type ClusterStatus struct {
 	Addons                        []ClusterAddonStatus `json:"addons,omitempty"`
 	Conditions                    []common.Condition   `json:"conditions,omitempty"`
@@ -36,42 +37,38 @@ type ClusterStatus struct {
 	Status                        ClusterStatusType    `json:"status,omitempty"`
 }
 
+// ClusterAddonType is the set of cluster addon that can be used in a cluster.
+type ClusterAddonType string
+
+// These are valid cluster addon operators.
 const (
 	InTreeType  ClusterAddonType = "in-tree"
 	OutTreeType ClusterAddonType = "out-tree"
 )
 
-type ClusterAddonType string
-
+// ClusterAddon represents the identifier of cluster addon
 type ClusterAddon struct {
+	// Type of cluster addon
 	Type ClusterAddonType `json:"type"`
-	Name string           `json:"name"`
-	Url  string           `json:"url"`
+	// Name of cluster addon
+	Name string `json:"name"`
+	// Configuration of cluster addon
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Configuration *runtime.RawExtension `json:"configuration,omitempty"`
 }
 
-type SecretType string
-
-const (
-	KubeConfigType SecretType = "kubeconfig"
-	TokenType      SecretType = "token"
-)
-
-type ClusterSecretRef struct {
-	Type      SecretType `json:"type"`
-	Name      string     `json:"name"`
-	Namespace string     `json:"namespace"`
-	Field     string     `json:"field"`
-}
-
+// ClusterAddonStatus represents the cluster addon status
 type ClusterAddonStatus struct {
-	Name string                `json:"name,omitempty"`
+	// Name of cluster addon
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Info *runtime.RawExtension `json:"info,omitempty"`
 }
 
+// ClusterStatusType is the set of cluster status that can be used in a cluster.
 type ClusterStatusType string
 
+// These are valid cluster status operators.
 const (
 	OnlineStatus       ClusterStatusType = "online"
 	OfflineStatus      ClusterStatusType = "offline"
@@ -80,9 +77,12 @@ const (
 
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ClusterList is a collection of Cluster
 type ClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
+	// Items holds a list of Cluster.
 	Items []Cluster `json:"items"`
 }

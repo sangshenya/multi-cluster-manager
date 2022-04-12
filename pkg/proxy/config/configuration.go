@@ -7,6 +7,7 @@ type Configuration struct {
 	ClusterName      string
 	CoreAddress      string
 	AddonPath        string
+	RegisterToken    string
 	AddonLoadTimeout time.Duration
 }
 

@@ -42,7 +42,7 @@ var _ = BeforeSuite(func(done Done) {
 	rand.Seed(time.Now().UnixNano())
 	By("bootstrapping test environment")
 
-	k8sconfig := flag.String("k8sconfig", "path/to/k8s/config", "kubernetes test")
+	k8sconfig := flag.String("k8sconfig", "/Users/chenkun/Desktop/k8s/config-241", "kubernetes test")
 	config, _ := clientcmd.BuildConfigFromFlags("", *k8sconfig)
 
 	yamlPath := filepath.Join("../../../../..", "kube", "crd", "bases")
